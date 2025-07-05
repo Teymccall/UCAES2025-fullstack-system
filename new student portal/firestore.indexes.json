@@ -1,0 +1,43 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "student-registrations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "registrationNumber",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "student-registrations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "studentIndexNumber",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "course-registrations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "studentId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "academicYear",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "semester",
+          "order": "DESCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+} 

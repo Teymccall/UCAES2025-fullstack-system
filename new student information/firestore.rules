@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default to denying all access, except for specific rules below
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Allow full access to student registrations
+    match /student-registrations/{registrationId} {
+      // Allow create, read, and update operations for everyone
+      allow create: if true;
+      allow read: if true;
+      allow update: if true;
+    }
+
+    // Allow anyone to read academic years (e.g., for dropdowns in forms)
+    match /academic-years/{yearId} {
+      allow read: if true;
+    }
+    
+    // Allow access to programs data
+    match /programs/{document=**} {
+      allow read: if true;
+    }
+    
+    // Allow access to students collection
+    match /students/{studentId} {
+      allow create: if true;
+      allow read: if true;
+      allow update: if true;
+    }
+  }
+} 

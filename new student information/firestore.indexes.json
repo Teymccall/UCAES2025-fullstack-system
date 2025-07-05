@@ -1,0 +1,21 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "student-registrations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "registrationDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "student-registrations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "programme", "order": "ASCENDING" },
+        { "fieldPath": "registrationDate", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+} 

@@ -1,0 +1,29 @@
+{
+  "name": "university-collage-of-agricuture-and-environmental-studies",
+  "version": "1.0.0",
+  "description": "",
+  "main": "setup-local-mongodb.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev:student-portal": "pushd \"students portal\" && npm run dev",
+    "dev": "npm run dev:student-portal",
+    "build:student-portal": "pushd \"students portal\" && npm run build",
+    "start:student-portal": "pushd \"students portal\" && npm run start"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^17.0.0",
+    "firebase": "^11.10.0",
+    "firebase-admin": "^13.4.0",
+    "mongodb": "^6.17.0",
+    "mongoose": "^8.15.1",
+    "node-fetch": "^3.3.2",
+    "pdfkit": "^0.17.1",
+    "uuid": "^11.1.0"
+  }
+}

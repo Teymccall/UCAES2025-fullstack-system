@@ -1,0 +1,92 @@
+{
+  "students": [
+    {
+      "studentId": "AG/2021/001234",
+      "name": "John Doe",
+      "email": "john.doe@ucaes.edu.gh",
+      "program": "Agricultural Engineering",
+      "year": 3,
+      "dateOfBirth": "2000-01-15",
+      "fees": {
+        "totalTuition": 5000,
+        "paidAmount": 3000,
+        "outstandingBalance": 2000,
+        "status": "partial",
+        "dueDate": "2025-06-01",
+        "categories": [
+          {
+            "name": "Tuition",
+            "description": "Academic fees for courses",
+            "balance": 1500
+          },
+          {
+            "name": "Hostel",
+            "description": "Accommodation fees",
+            "balance": 500
+          },
+          {
+            "name": "Library",
+            "description": "Library fines and fees",
+            "balance": 0
+          }
+        ]
+      }
+    },
+    {
+      "studentId": "AG/2021/001235",
+      "name": "Jane Smith",
+      "email": "jane.smith@ucaes.edu.gh",
+      "program": "Environmental Science",
+      "year": 2,
+      "dateOfBirth": "2001-03-22",
+      "fees": {
+        "totalTuition": 4500,
+        "paidAmount": 4500,
+        "outstandingBalance": 0,
+        "status": "paid",
+        "dueDate": "2025-06-01"
+      }
+    }
+  ],
+  "payments": [
+    {
+      "id": "pay_001",
+      "studentId": "AG/2021/001234",
+      "studentName": "John Doe",
+      "date": "2025-01-15",
+      "category": "tuition",
+      "amount": 1500,
+      "method": "bank",
+      "status": "verified",
+      "reference": "TXN123456789",
+      "receiptUrl": "/receipts/receipt1.pdf",
+      "notes": "Semester 1 payment"
+    },
+    {
+      "id": "pay_002",
+      "studentId": "AG/2021/001234",
+      "studentName": "John Doe",
+      "date": "2025-01-10",
+      "category": "hostel",
+      "amount": 800,
+      "method": "momo",
+      "status": "verified",
+      "reference": "MM987654321",
+      "receiptUrl": "/receipts/receipt2.pdf"
+    }
+  ],
+  "bankDetails": {
+    "bankName": "First National Bank",
+    "accountName": "University College of Agriculture and Environmental Studies",
+    "accountNumber": "1234567890",
+    "swiftCode": "FNBXGHAC",
+    "branch": "Accra Main Branch"
+  },
+  "systemSettings": {
+    "paymentDeadline": "2025-06-01",
+    "lateFeePercentage": 5,
+    "allowedFileTypes": ["pdf", "jpg", "jpeg", "png"],
+    "maxFileSize": 5242880,
+    "verificationTimeframe": "1-2 business days"
+  }
+}

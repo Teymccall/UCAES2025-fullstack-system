@@ -1,0 +1,139 @@
+{
+  "rules": {
+    ".read": true,
+    ".write": true,
+    
+    /* Temporarily disabled for development
+    ".read": false,
+    ".write": false,
+    
+    // Users data
+    "users": {
+      "$userId": {
+        ".read": "auth != null && (auth.uid == $userId || root.child('users').child(auth.uid).child('role').val() == 'director')",
+        ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'director'",
+        ".validate": "newData.hasChildren(['role', 'name', 'email', 'status'])"
+      }
+    },
+    
+    // Students data
+    "students": {
+      ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'director' || (root.child('users').child(auth.uid).child('role').val() == 'staff' && root.child('users').child(auth.uid).child('permissions').child('student_records').val() == true))",
+      "$studentId": {
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'director' || (root.child('users').child(auth.uid).child('role').val() == 'staff' && root.child('users').child(auth.uid).child('permissions').child('student_management').val() == true))",
+        ".validate": "newData.hasChildren(['studentId', 'name', 'email', 'program', 'level', 'status'])"
+      }
+    },
+    
+    // Courses data
+    "courses": {
+      ".read": "auth != null",
+      "$courseId": {
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'director' || (root.child('users').child(auth.uid).child('role').val() == 'staff' && root.child('users').child(auth.uid).child('permissions').child('course_management').val() == true && root.child('users').child(auth.uid).child('assignedCourses').child(newData.child('code').val()).val() == true))",
+        ".validate": "newData.hasChildren(['code', 'name', 'credits', 'department', 'status'])"
+      }
+    },
+    
+    // Results data
+    "results": {
+      "$resultId": {
+        ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'director' || (root.child('users').child(auth.uid).child('role').val() == 'staff' && (root.child('users').child(auth.uid).child('permissions').child('result_entry').val() == true || root.child('users').child(auth.uid).child('permissions').child('student_records').val() == true) && root.child('users').child(auth.uid).child('assignedCourses').child(data.child('courseCode').val()).val() == true))",
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'director' || (root.child('users').child(auth.uid).child('role').val() == 'staff' && root.child('users').child(auth.uid).child('permissions').child('result_entry').val() == true && root.child('users').child(auth.uid).child('assignedCourses').child(newData.child('courseCode').val()).val() == true && (newData.child('status').val() == 'draft' || newData.child('status').val() == 'submitted')))",
+        ".validate": "newData.hasChildren(['studentId', 'courseCode', 'courseName', 'total', 'grade', 'status', 'submittedBy'])"
+      }
+    },
+    
+    // Course Enrollments
+    "courseEnrollments": {
+      "$enrollmentId": {
+        ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'director' || (root.child('users').child(auth.uid).child('role').val() == 'staff' && root.child('users').child(auth.uid).child('permissions').child('student_records').val() == true && root.child('users').child(auth.uid).child('assignedCourses').child(data.child('courseCode').val()).val() == true))",
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'director' || (root.child('users').child(auth.uid).child('role').val() == 'staff' && root.child('users').child(auth.uid).child('permissions').child('student_management').val() == true && root.child('users').child(auth.uid).child('assignedCourses').child(newData.child('courseCode').val()).val() == true))",
+        ".validate": "newData.hasChildren(['studentId', 'courseCode', 'enrollmentDate', 'enrolledBy', 'status'])"
+      }
+    },
+    
+    // Daily Reports
+    "dailyReports": {
+      "$reportId": {
+        ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'director' || (root.child('users').child(auth.uid).child('role').val() == 'staff' && auth.uid == data.child('staffId').val()))",
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'director' || (root.child('users').child(auth.uid).child('role').val() == 'staff' && auth.uid == newData.child('staffId').val() && root.child('users').child(auth.uid).child('permissions').child('daily_reports').val() == true))",
+        ".validate": "newData.hasChildren(['staffId', 'staffName', 'date', 'reportContent', 'status'])"
+      }
+    },
+    
+    // Academic Years and Semesters
+    "academicYears": {
+      ".read": "auth != null",
+      "$yearId": {
+        ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'director'",
+        ".validate": "newData.hasChildren(['year', 'startDate', 'endDate', 'status'])",
+        "semesters": {
+          "$semesterId": {
+            ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'director'",
+            ".validate": "newData.hasChildren(['name', 'startDate', 'endDate', 'status'])"
+          }
+        }
+      }
+    },
+    
+    // Audit Logs (read-only for most operations)
+    "auditLogs": {
+      ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'director'",
+      "$logId": {
+        ".write": "auth != null", // Allow system to create audit logs
+        ".validate": "newData.hasChildren(['action', 'performedBy', 'performedByRole', 'targetStudentId', 'details', 'timestamp'])"
+      }
+    },
+    
+    // System Settings
+    "systemSettings": {
+      ".read": "auth != null",
+      "$settingId": {
+        ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'director'",
+        ".validate": "newData.hasChildren(['key', 'value', 'updatedBy', 'updatedAt'])"
+      }
+    },
+    
+    // Operational Hours
+    "operationalHours": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'director'",
+      ".validate": "newData.hasChildren(['startTime', 'endTime', 'workingDays', 'isActive'])"
+    },
+    
+    // Notifications
+    "notifications": {
+      "$notificationId": {
+        ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'director' || auth.uid == data.child('userId').val())",
+        ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'director'",
+        ".validate": "newData.hasChildren(['userId', 'title', 'message', 'type', 'createdAt'])"
+      }
+    },
+    
+    // Staff Assignments
+    "staffAssignments": {
+      ".read": "auth != null",
+      "$assignmentId": {
+        ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'director'",
+        ".validate": "newData.hasChildren(['staffId', 'courseCode', 'assignedBy', 'assignedAt'])"
+      }
+    },
+    
+    // Real-time presence and activity tracking
+    "presence": {
+      "$userId": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid == $userId"
+      }
+    },
+    
+    // Session management
+    "sessions": {
+      "$userId": {
+        ".read": "auth != null && (auth.uid == $userId || root.child('users').child(auth.uid).child('role').val() == 'director')",
+        ".write": "auth != null && auth.uid == $userId"
+      }
+    }
+    */
+  }
+}

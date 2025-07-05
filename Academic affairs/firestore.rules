@@ -1,0 +1,110 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Common functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isStaff() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/academic-staff/$(request.auth.uid));
+    }
+    
+    function hasStaffPermission(permission) {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/academic-staff/$(request.auth.uid)).data.permissions.hasAny([permission, 'admin']);
+    }
+    
+    // Academic Programs Collection
+    match /academic-programs/{programId} {
+      allow read: if isAuthenticated();
+      allow create: if hasStaffPermission('program_management');
+      allow update: if hasStaffPermission('program_management');
+      allow delete: if hasStaffPermission('program_management');
+    }
+    
+    // Academic Courses Collection
+    match /academic-courses/{courseId} {
+      allow read: if isAuthenticated();
+      allow create: if hasStaffPermission('course_management');
+      allow update: if hasStaffPermission('course_management');
+      allow delete: if hasStaffPermission('course_management');
+    }
+    
+    // Academic Years Collection
+    match /academic-years/{yearId} {
+      allow read: if isAuthenticated();
+      allow create: if hasStaffPermission('academic_administration');
+      allow update: if hasStaffPermission('academic_administration');
+      allow delete: if hasStaffPermission('academic_administration');
+    }
+    
+    // Academic Semesters Collection
+    match /academic-semesters/{semesterId} {
+      allow read: if isAuthenticated();
+      allow create: if hasStaffPermission('academic_administration');
+      allow update: if hasStaffPermission('academic_administration');
+      allow delete: if hasStaffPermission('academic_administration');
+    }
+    
+    // Staff Collection
+    match /academic-staff/{staffId} {
+      // Staff can read all staff records
+      allow read: if isStaff();
+      
+      // Staff can read and update their own records
+      allow read, update: if isAuthenticated() && request.auth.uid == staffId;
+      
+      // Only admins can create, delete or update any staff record
+      allow create, delete: if hasStaffPermission('staff_management');
+      allow update: if hasStaffPermission('staff_management');
+    }
+    
+    // Student Records Collection
+    match /student-records/{recordId} {
+      allow read: if isAuthenticated() && 
+        (hasStaffPermission('student_records') || 
+         request.auth.uid == resource.data.studentId);
+      allow create: if hasStaffPermission('student_records');
+      allow update: if hasStaffPermission('student_records');
+      allow delete: if hasStaffPermission('student_records');
+    }
+    
+    // Student Registrations Collection
+    match /student-registrations/{registrationId} {
+      allow read: if isAuthenticated() && 
+        (hasStaffPermission('registration_management') || 
+         request.auth.uid == resource.data.studentId);
+      allow create: if hasStaffPermission('registration_management');
+      allow update: if hasStaffPermission('registration_management');
+      allow delete: if hasStaffPermission('registration_management');
+    }
+    
+    // Daily Reports Collection
+    match /daily-reports/{reportId} {
+      // Staff can read their own reports
+      allow read: if isAuthenticated() && request.auth.uid == resource.data.staffId;
+      
+      // Staff can create their own reports
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.staffId;
+      
+      // Staff can update their own reports only if they are in draft status
+      allow update: if isAuthenticated() && 
+        request.auth.uid == resource.data.staffId && 
+        resource.data.status == 'draft';
+      
+      // Supervisors can read and update any report
+      allow read, update: if hasStaffPermission('reports_management');
+      
+      // No one can delete reports
+      allow delete: if false;
+    }
+    
+    // Default: deny access to all other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

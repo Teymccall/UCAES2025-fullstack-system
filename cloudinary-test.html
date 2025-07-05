@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cloudinary Upload Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 {
+      color: #333;
+    }
+    .container {
+      border: 1px solid #ddd;
+      padding: 20px;
+      border-radius: 5px;
+    }
+    #uploadForm {
+      margin-bottom: 20px;
+    }
+    #fileInput {
+      margin-bottom: 10px;
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    #status {
+      margin-top: 20px;
+      padding: 10px;
+      border-radius: 4px;
+    }
+    .success {
+      background-color: #dff0d8;
+      color: #3c763d;
+    }
+    .error {
+      background-color: #f2dede;
+      color: #a94442;
+    }
+    .preview {
+      max-width: 300px;
+      margin-top: 20px;
+      border: 1px solid #ddd;
+    }
+    #logContainer {
+      background-color: #f8f9fa;
+      padding: 10px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+      margin-top: 20px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .log-entry {
+      margin-bottom: 5px;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Cloudinary Upload Test</h1>
+  
+  <div class="container">
+    <h2>Upload Settings</h2>
+    <div>
+      <strong>Cloud Name:</strong> <span id="cloudName">dffrgzgzu</span>
+    </div>
+    <div>
+      <strong>Upload Preset:</strong> <span id="uploadPreset">ucaescollage</span>
+    </div>
+    <div>
+      <strong>API URL:</strong> <span id="apiUrl">https://api.cloudinary.com/v1_1/dffrgzgzu/image/upload</span>
+    </div>
+  </div>
+  
+  <div class="container">
+    <h2>Test Upload</h2>
+    <form id="uploadForm">
+      <div>
+        <label for="fileInput">Select image:</label><br>
+        <input type="file" id="fileInput" accept="image/*">
+      </div>
+      <div>
+        <label for="folderInput">Folder (optional):</label><br>
+        <input type="text" id="folderInput" value="test-uploads">
+      </div>
+      <button type="submit">Upload to Cloudinary</button>
+    </form>
+    
+    <div id="status"></div>
+    <img id="preview" class="preview" style="display:none;">
+  </div>
+  
+  <div class="container">
+    <h2>Logs</h2>
+    <div id="logContainer"></div>
+  </div>
+  
+  <script>
+    // Cloudinary configuration
+    const cloudName = 'dffrgzgzu';
+    const uploadPreset = 'ucaescollage';
+    const apiUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
+    
+    // Set displayed values
+    document.getElementById('cloudName').textContent = cloudName;
+    document.getElementById('uploadPreset').textContent = uploadPreset;
+    document.getElementById('apiUrl').textContent = apiUrl;
+    
+    // Log function
+    function log(message, type = 'info') {
+      const logContainer = document.getElementById('logContainer');
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerHTML = `<span style="color:${type === 'error' ? 'red' : type === 'success' ? 'green' : 'blue'}">[${type}]</span> ${message}`;
+      logContainer.prepend(entry);
+      console.log(`[${type}] ${message}`);
+    }
+    
+    // Handle form submission
+    document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const fileInput = document.getElementById('fileInput');
+      const file = fileInput.files[0];
+      const folder = document.getElementById('folderInput').value.trim();
+      const status = document.getElementById('status');
+      const preview = document.getElementById('preview');
+      
+      // Reset status
+      status.className = '';
+      status.textContent = '';
+      preview.style.display = 'none';
+      
+      if (!file) {
+        status.className = 'error';
+        status.textContent = 'Please select a file first.';
+        log('No file selected', 'error');
+        return;
+      }
+      
+      try {
+        log(`Starting upload: ${file.name} (${file.size} bytes)`, 'info');
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', uploadPreset);
+        
+        if (folder) {
+          log(`Using folder: ${folder}`, 'info');
+          formData.append('folder', folder);
+        }
+        
+        formData.append('tags', 'test,direct-upload');
+        
+        log(`Sending request to: ${apiUrl}`, 'info');
+        
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          log(`Upload failed: ${response.status} ${errorText}`, 'error');
+          status.className = 'error';
+          status.textContent = `Upload failed: ${response.status} ${errorText}`;
+          return;
+        }
+        
+        const result = await response.json();
+        log(`Upload successful! Public ID: ${result.public_id}`, 'success');
+        
+        status.className = 'success';
+        status.innerHTML = `
+          <h3>Upload Successful!</h3>
+          <p><strong>Public ID:</strong> ${result.public_id}</p>
+          <p><strong>URL:</strong> <a href="${result.secure_url}" target="_blank">${result.secure_url}</a></p>
+          <p><strong>Format:</strong> ${result.format}</p>
+          <p><strong>Size:</strong> ${result.bytes} bytes</p>
+        `;
+        
+        // Display the image
+        preview.src = result.secure_url;
+        preview.style.display = 'block';
+        
+      } catch (error) {
+        log(`Error: ${error.message}`, 'error');
+        status.className = 'error';
+        status.textContent = `Error: ${error.message}`;
+      }
+    });
+    
+    // Log initialization
+    log('Cloudinary test page initialized', 'info');
+  </script>
+</body>
+</html> 

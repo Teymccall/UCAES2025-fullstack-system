@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>API Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    button {
+      padding: 10px;
+      margin: 10px 0;
+    }
+    #result {
+      margin-top: 20px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      background-color: #f8f8f8;
+      min-height: 100px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Academic Period API Test</h1>
+  
+  <div>
+    <label for="port">Port:</label>
+    <input type="text" id="port" value="3003" />
+  </div>
+  
+  <div>
+    <button onclick="testApi()">Test API</button>
+  </div>
+  
+  <pre id="result">Results will appear here...</pre>
+  
+  <script>
+    async function testApi() {
+      const resultElement = document.getElementById('result');
+      const port = document.getElementById('port').value;
+      
+      resultElement.textContent = 'Testing API...';
+      
+      try {
+        const apiUrl = `http://localhost:${port}/api/academic-period`;
+        resultElement.textContent += `\nFetching from: ${apiUrl}`;
+        
+        const response = await fetch(apiUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        resultElement.textContent += `\nStatus: ${response.status} ${response.statusText}`;
+        
+        const contentType = response.headers.get('content-type');
+        resultElement.textContent += `\nContent-Type: ${contentType}`;
+        
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          resultElement.textContent += `\nResponse data: ${JSON.stringify(data, null, 2)}`;
+        } else {
+          const text = await response.text();
+          resultElement.textContent += `\nResponse text: ${text}`;
+        }
+      } catch (error) {
+        resultElement.textContent += `\nError: ${error.message}`;
+      }
+    }
+  </script>
+</body>
+</html> 
