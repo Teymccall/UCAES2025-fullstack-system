@@ -54,4 +54,7 @@ serviceAccountKey.json
 *.ntvs*
 *.njsproj
 *.sln
-*.sw? 
+*.sw?
+
+# Ignore website project directory as it has its own git repository
+website/project/ 
