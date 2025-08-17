@@ -1,0 +1,417 @@
+1. BSc. Sustainable Agriculture
+This program spans four years (Levels 100–400), with each level divided into First Semester and Second Semester. Level 400 includes specializations: Agronomy, Animal Science, Agricultural Economics and Extension, and Horticulture Science and Systems.
+
+Level 100
+First Semester
+
+Code	Course Name	T	P	C
+AGM 151	Introduction to Soil Science	2	2	3
+AGM 153	Introductory Botany	2	0	2
+AGM 155	Principles of Crop Production	2	0	2
+ESM 151	Principles of Biochemistry	2	2	3
+ESM 155	Introduction to Climatology	2	0	2
+GNS 151	Introductory Pure Mathematics	2	0	2
+GNS 153	Introduction to Computing I	1	2	2
+GNS 155	Communication Skills I	2	0	2
+Total	8 courses	15	6	18
+Second Semester
+
+Code	Course Name	T	P	C
+AGM 158	Introductory Economics	2	0	2
+AGM 152	Principles of Land Surveying	1	2	2
+AGM 154	Principles of Agroecology	1	0	1
+AGM 156	Vacation Training	0	3	3
+ANS 152	Anatomy and Physiology of Farm Animals	2	2	3
+ESM 156	Basic Microbiology	2	2	3
+GNS 152	Basic Statistics	2	0	2
+GNS 154	Introduction to Computing II	1	2	2
+GNS 156	Communication Skills II	2	0	2
+Total	9 courses	13	11	20
+Level 200
+First Semester
+
+Code	Course Name	T	P	C
+AGM 265	Rural Sociology	2	0	2
+AGM 251	Farming Systems and Natural Resources	2	0	2
+AGM 253	Crop Physiology	2	0	2
+AGM 255	Introduction to Plant Pathology	1	2	2
+AGM 257	Principles of Plant Breeding	1	2	2
+AGM 259	Agricultural Power Sources and Mechanization	2	1	2
+AGM 261	Introduction to Entomology	1	2	2
+AGM 263	Soil Microbiology	2	1	2
+Total	8 courses	13	8	16
+Second Semester
+
+Code	Course Name	T	P	C
+AGM 258	Agricultural Economics and Marketing	3	0	3
+AGM 260	Introduction to Agric. Extension	2	0	2
+AGM 252	Arable and Plantation Crop Production	2	1	2
+AGM 254	Soil Conservation and Fertility Management	2	1	2
+AGM 256	Weed Science	2	0	2
+ANS 252	Poultry Production and Management	2	1	2
+ANS 254	Principles of Animal Nutrition	2	1	2
+AGM 262	Fruit and Vegetable Crop Production	2	1	2
+Total	8 courses	16	6	17
+Level 300
+First Semester
+
+Code	Course Name	T	P	C
+AGM 355	Farm Management and Agribusiness	2	0	2
+AGM 351	Principles of Crop Pest Control & Disease Mgt.	1	2	2
+AGM 353	Integrated Crop Protection Management	2	1	2
+ANS 351	Forage Production	2	0	2
+ANS 353	Swine Production and Management	2	1	2
+ANS 355	Animal Health and Diseases	2	1	2
+GNS 351	Experimental Design and Analysis	2	3	3
+Total	7 courses	13	8	15
+Second Semester
+
+Code	Course Name	T	P	C
+AGM 352	Agricultural Law and Policy	2	0	2
+ANS 352	Ruminant Production and Management	2	2	3
+AGM 354	Entrepreneurship Development	2	0	2
+ESM 258	Introduction to Remote Sensing and GIS	2	2	3
+GNS 352	Research Methodology and Techniques	2	0	2
+GNS 356	Industrial Attachment	0	2	2
+AGM 356	Amenity and Ornamental Horticulture	2	1	2
+AGM 358	Introduction to Post Harvest Science	2	2	3
+Total	8 courses	14	9	19
+Level 400: Specializations
+Each specialization has core and elective courses (students select one group of electives per semester).
+
+1) Agronomy
+SEMESTER ONE
+Core Courses
+AGM 453	Seminar I	0	2	1
+AGM 455	Research Project I	0	6	3
+AGM 457    Irrigation Principles and Management	3	0	3
+ESM 451	Techniques for Environmental Management	2	0	2
+Elective Courses: (select one group ONLY)
+Group A
+AGM 459 	Principles of Crop Biotechnology	3	0	3
+AGM 461	Seed Production Technology	3	0	3
+Group B
+AGM 463 	Soil Quality	3	0	3
+AGM 465	Fertilizer Technology and Use	3	0	3
+SEMESTER TWO
+Core Courses
+AGM 452	Environmental Pollution and Remediation	2	0	2
+AGM 454	Seminar II	0	2	1
+AGM 456	Research Project II	0	6	3
+AGM 458	Crop Root Associations	3	0	3
+Elective Courses: (select one group ONLY)
+Group A
+AGM 462	Economic Entomology	3	0	3	
+WEH 452 	Food Sanitation and Safety	3	0	3
+Group B
+AGM 464	Organic Agriculture	3	0	3
+WEH 458	Agricultural and Industrial Waste Management	3	0	3
+
+2) Animal Science
+SEMESTER ONE
+Core Courses
+AGM 453	Seminar I	0	2	1
+AGM 455	Research Project I	0	0	3
+ANS 451	Fisheries and Aquaculture	2	2	3
+ANS 453	Feed Analysis	2	2	3
+ESM 451	Techniques for Environmental Management	2	0	2
+Elective Courses: (select one group ONLY)
+Group A
+ANS 455	Animal Breeding and Improvement Programmes	3	0	3
+ANS 457	Principles of Meat Science and Processing	3	0	3
+Group B
+ANS 459	Reproductive Physiology and Artificial Insemination	3	0	3
+ANS 461	Ruminant Nutrition	3	0	3
+SEMESTER TWO
+Core Courses
+AGM 452	Environmental Pollution and Remediation	2	0	2
+AGM 454	Seminar II	0	2	1
+AGM 456	Research Project II	0	6	3
+ANS 452	Animal Production and Climate Change	3	0	3
+Elective Courses: (select one group ONLY)
+Group A
+ANS 454	Principles Dairy Science and Processing	3	0	3
+ANS 456	Animal Food Sanitation and Safety	3	0	3
+Group B
+ANS 458	Farm Animal Behaviour	3	0	3
+ANS 462	Monogastric Nutrition	3	0	3
+									
+3) Agricultural Economics and Extension
+SEMESTER ONE
+Core Courses
+AEE 451	Food Security and Climate Change	3	0	3
+AGM 453	Seminar I	0	2	1
+AGM 455	Research Project I	0	6	3
+ESM 451	Techniques for Environmental Management	2	0	2
+Elective Courses: (select one group ONLY)
+Group A
+AEE 453	Agric. Education and Communication	3	0	3
+AEE 455	Extension Education and Development	3	0	3
+Group B
+AEE 457	Agricultural Cooperatives	3	0	3
+AEE 459	Agricultural Value Chain	3	0	3
+SEMESTER TWO
+Core Courses
+AEE 452	Agricultural Finance	2	0	2
+AGM 454	Seminar II	0	2	1
+AGM 456	Research Project II	0	6	3
+AEE 456	Project Management	3	0	3
+Elective Courses: (select one group ONLY)
+AEE 454	Agricultural Production and Consumer Behaviour	2	0	2
+AEE 456	International Agric. Trade	2	0	2
+AEE 458	World Food Economics	2	0	2
+
+4) Horticulture Science and Systems
+SEMESTER ONE
+Core Courses
+AGM 453	Seminar I	0	2	1
+AGM 455	Research Project I	0	6	3
+ESM 411	Environmental Management	2	0	2
+HOR 451	Nursery Development and Management	3	0	3
+Elective Courses: (select one group ONLY)
+Group A
+HOR 453	Sustainable Landscaping 	3	0	3
+HOR 455	Floriculture	3	0	3
+Group B
+AGM 459	Principles of Crop Biotechnology	3	0	3
+HOR 457	Herbs, Spices and Medicinal Plants 	3	0	3
+SEMESTER TWO
+Core Courses
+AGM 454	Seminar II	0	2	1
+AGM 456	Research Project II	0	6	3
+AEE 456	Project Management	3	0	3
+HOR 452	Horticulture Business Practices	2	0	2
+Elective Courses: (select one group ONLY)
+Group A
+HOR 454	Horticultural Food Sanitation and Safety	3	0	3
+WEH 462 	Compost Science and Technology	3	0	3
+Group B
+HOR 456	Turf Development and Management	3	0	3
+HOR 458	Principles of Horticultural Therapy	3	0	3
+
+2. BSc. Environmental Science and Management
+This program spans four years, with Year Four offering five specializations: Limnology and Oceanography, Forests and Forest Resources Management, Environmental Health and Safety, Mining and Mineral Resources, and Renewable and Non-Renewable Energy.
+
+Year One
+First Semester
+
+Code	Course Name	T	P	C
+ESM 151	Principles of Biochemistry	2	3	3
+ESM 153	Principles of Environmental Science I	2	0	2
+ESM 155	Introduction to Climatology	2	0	2
+AGM 151	Introduction to Soil Science	2	3	3
+GNS 151	Basic Mathematics	2	0	2
+GNS 153	Introduction to Computing I	1	3	2
+GNS 155	Communication Skills I	2	0	2
+ESM 161	Principles of Management	2	0	2
+Total	8 courses	15	8	18
+Second Semester
+
+Code	Course Name	T	P	C
+ESM 152	Principles of Environmental Science II	2	0	2
+ESM 154	Environment and Development	2	0	2
+ESM 156	Basic Microbiology	2	2	3
+AGM 152	Principles of Land Surveying	1	2	2
+ESM 158	Introductory Economics	2	0	2
+GNS 152	Basic Statistics	2	0	2
+GNS 154	Introduction to Computing II	1	3	2
+GNS 156	Communication Skills II	2	0	2
+Total	8 courses	14	7	17
+Year Two
+First Semester
+
+Code	Course Name	T	P	C
+ESM 251	Geology	2	3	3
+ESM 253	Principles of Land Economy	2	0	2
+ESM 255	Hydrology	2	0	2
+ESM 257	Oceanography	2	3	3
+ESM 259	Rural Sociology	2	0	2
+GNS 251	Fundamentals of Planning	2	0	2
+GNS 253	Principles of Law	2	0	2
+Total	7 courses	14	6	16
+Second Semester
+
+Code	Course Name	T	P	C
+ESM 252	Introduction to Environmental Engineering	2	2	3
+ESM 254	Environment and Sustainability	2	0	2
+ESM 256	Agroecology	2	0	2
+ESM 258	Remote Sensing and GIS	2	2	3
+ESM 260	Introduction to Resource Analysis	2	0	2
+ESM 262	Introduction to Waste Management	2	2	3
+ESM 264	Introduction to Limnology	2	2	3
+Total	7 courses	14	8	18
+Year Three
+First Semester
+
+Code	Course Name	T	P	C
+ESM 351	Environmental Quality Analysis	2	3	3
+ESM 353	Environmental Law and Policy	2	0	2
+ESM 355	Climate Change	2	0	2
+ESM 357	Environmental Pollution and Toxicology	2	0	2
+ESM 359	Integrated Water Resources Management	2	2	3
+GNS 351	Experimental Design and Analysis	2	3	3
+Total	6 courses	12	8	15
+Second Semester
+
+Code	Course Name	T	P	C
+ESM 352	Environmental Auditing and Assessment	2	3	3
+ESM 354	Ecological and Environmental Economics	2	0	3
+ESM 356	Mining and Mineral Resources	2	0	2
+ESM 358	Environment and Health	2	0	2
+GNS 352	Research Methodology and Techniques	2	0	2
+ESM 360	Project Management	2	0	2
+ESM 362	Entrepreneurship Development	2	0	2
+Total	7 courses	14	3	16
+Year Four: Specializations
+Each specialization has core and elective courses (students select one group of electives per semester).
+
+1) Limnology and Oceanography
+SEMESTER ONE
+Core Courses
+ESM 451	Environmental Management	2	0	2
+ESM 453	Seminar I	0	2	1
+ESM 455	Research Project I	0	0	3
+Elective Courses (select group A or B)
+Group A
+AQS 451	River Ecology	3	0	3
+AQS 453	Aquatic Biogeochemistry	3	0	3
+AQS 455	Lake and River Management	3	0	3
+Group B
+AQS 457	Plankton Ecology	3	0	3
+AQS 459	Trophic Dynamics in Lakes	3	0	3	
+AQS 461	Wetland Ecosystems	3	0	3
+SEMESTER TWO
+Core Courses
+AQS 452	Integrated Coastal Zone Management	2	0	2
+ESM 452	Seminar II	0	2	1
+ESM 454	Research Project II	0	0	3
+Elective Courses (select group A or B)
+Group A
+AQS 454	Fish Biology	3	0	3
+AQS 456	Fisheries Management	3	0	3
+AQS 458	Marine Conservation	3	0	3
+Group B
+AQS 462	Marine and Coastal Pollution	3	0	3
+AQS 464	Marine and Coastal Resource Economics	3	0	3
+AQS 466	Maritime Law and Policy	3	0	3
+
+2) Forests and Forest Resources Management
+SEMESTER ONE
+Core Courses
+ESM 451	Environmental Management	2	0	2
+ESM 457     Forestry	3	0	3	
+ESM 453	Seminar I	0	2	1
+ESM 455	Research Project I	0	0	3
+Elective Courses (select ONE group only)
+Group A
+ESM 459	Plantation Silviculture	3	0	3
+ESM 461	Natural Forest Silviculture	3	0	3
+Group B
+ESM 463	Vegetation Analysis	3	0	3
+ESM 465	Agroforestry	3	0	3
+Group C
+ESM 467	Forest Products Utilization	3	0	3
+ESM 469	Forest Law and Policy	3	0	3
+SEMESTER TWO
+Core Courses
+ESM 456	Collaborative Forest Management	2	0	2
+ESM 458	Forestry Economics and Extension Methods	3	0	3	
+ESM 452	Seminar II	0	2	1
+ESM 454	Research Project II	0	0	3
+Elective Courses (select A or B or C)
+Group A
+ESM 460	Forest Measurement and Tree Improvement	3	0	3
+ESM 462	Forest Products Harvesting	3	0	3
+Group B
+ESM 464	Forest Fire Management	3	0	3
+ESM 466	Forest Inventories	3	0	3
+Group C
+ESM 468	Wildlife Resources and Conservation	3	0	3
+ESM 470	Forest Systematics	3	0	3
+
+3) Environmental Health and Safety
+SEMESTER ONE
+Core Courses
+ESM 451	Environmental Management	2	0	2
+WEH 455	Integrated Solid Waste Management	3	0	3
+ESM 453	Seminar I	0	2	1
+ESM 455	Research Project I	0	0	3
+Elective Courses (select ONE group only)
+Group A
+WEH 471	Environmental Microbiology	3	0	3
+WEH 453	Introduction to Public Health & Epidemiology	3	0	3
+Group B
+WEH 459	Rural and Urban Sanitation	3	0	3
+WEH 463	Landfill Operations and Management	3	0	3
+Group C
+WEH 451	Environmental Safety	3	0	3
+WEH 457	Waste-to-Energy Recovery	3	0	3
+SEMESTER TWO
+Core Courses
+WEH 454	Public Health and Diseases Management	3	0	3
+WEH 452	Food Sanitation and Safety	3	0	3	
+ESM 452	Seminar II	0	2	1
+ESM 454	Research Project II	0	0	3
+Elective Courses (select ONE group only)
+Group A
+WEH 458	Agricultural & Industrial Waste Management	3	0	3
+WEH 462	Compost Science and Technology	3	0	3
+Group B
+WEH 464	Water Supply and Wastewater Management	3	0	3
+WEH 460	Vector Management and Control	3	0	3
+
+4) Mining and Mineral Resources
+SEMESTER ONE
+Core Courses
+ESM 451	Environmental Management	2	0	2
+ESM 473	Environmental Impact of Mining	3	0	3
+ESM 453	Seminar I	0	2	1
+ESM 455	Research Project I	0	0	3
+Elective Courses (select ONE group only)
+Group A
+ESM 475	Soil Remediation	3	0	3
+ESM 477	Reclamation and Remediation	3	0	3
+Group B
+ESM 479	Sustainable Mining Operations	3	0	3
+ESM 481	Mining Law and Policy	3	0	3
+SEMESTER TWO
+Core Courses
+ESM 472	Ethics in Mining	3	0	3
+ESM 474	Mining and Society	3	0	3	
+ESM 452	Seminar II	0	2	1
+ESM 454	Research Project II	0	0	3
+Elective Courses (select ONE group only)
+Group A
+ESM 476	Mining Resource Economics	3	0	3
+ESM 478	Corporate Social Responsibility	3	0	3
+Group B
+ESM 480	Occupational Safety in Mining	3	0	3
+ESM 482	Modern Trends in Mining	3	0	3
+
+5) Renewable and Non-Renewable Energy
+SEMESTER ONE
+Core Courses
+ESM 451	Environmental Management	2	0	2
+ESM 483	Energy Principles	3	0	3
+ESM 453	Seminar I	0	2	1
+ESM 455	Research Project I	0	0	3
+Elective Courses (select ONE group only)
+Group A
+ESM 485	Electricity Demand and Management	3	03
+ESM 487	Waste-to-Energy Recovery	3	0	3
+Group B
+ESM 489	Energy Economics	3	0	3
+ESM 491	Fossil Fuels	3	0	3
+SEMESTER TWO
+Core Courses
+ESM 484	Renewable Energy Systems	3	0	3
+ESM 486	Energy and Environment	3	0	3	
+ESM 452	Seminar II	0	2	1
+ESM 454	Research Project II	0	0	3
+Elective Courses (select ONE group only)
+Group A
+ESM 488	Energy Policy and Law	3	0	3
+ESM 492	Energy Efficiency and Conservation	3	0	3
+Group B
+ESM 494	Energy and Development	3	0	3
+ESM 496	Nuclear Energy	3	0	3 

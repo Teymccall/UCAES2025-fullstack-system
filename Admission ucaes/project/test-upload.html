@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloudinary Upload Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .success { border-color: #28a745; background-color: #d4edda; }
+        .error { border-color: #dc3545; background-color: #f8d7da; }
+        .info { border-color: #17a2b8; background-color: #d1ecf1; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+        input[type="file"] {
+            margin: 10px 0;
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Cloudinary Upload Test</h1>
+    <p>This page tests the Cloudinary upload functionality for the UCAES Admissions system.</p>
+
+    <!-- Configuration Test -->
+    <div id="configTest" class="test-section info">
+        <h2>📋 Configuration Test</h2>
+        <p>Testing Cloudinary configuration and connectivity...</p>
+        <button onclick="testConfiguration()">Test Configuration</button>
+        <div id="configLog" class="log" style="display: none;"></div>
+    </div>
+
+    <!-- File Upload Test -->
+    <div id="uploadTest" class="test-section info">
+        <h2>📁 File Upload Test</h2>
+        <p>Test actual file upload to Cloudinary:</p>
+        <input type="file" id="testFile" accept=".pdf,.jpg,.jpeg,.png" />
+        <button onclick="testFileUpload()" id="uploadBtn">Upload Test File</button>
+        <div id="uploadLog" class="log" style="display: none;"></div>
+    </div>
+
+    <!-- Results Summary -->
+    <div id="summary" class="test-section" style="display: none;">
+        <h2>📊 Test Summary</h2>
+        <div id="summaryContent"></div>
+    </div>
+
+    <script>
+        // Cloudinary configuration (same as in your app)
+        const CLOUDINARY_CLOUD_NAME = 'dyvabxsvh';
+        const CLOUDINARY_UPLOAD_PRESET = 'ucaes_admissions';
+        const CLOUDINARY_API_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+
+        let testResults = {
+            config: null,
+            upload: null
+        };
+
+        function log(elementId, message) {
+            const logElement = document.getElementById(elementId);
+            logElement.style.display = 'block';
+            logElement.textContent += new Date().toISOString() + ': ' + message + '\n';
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function clearLog(elementId) {
+            const logElement = document.getElementById(elementId);
+            logElement.textContent = '';
+            logElement.style.display = 'none';
+        }
+
+        async function testConfiguration() {
+            clearLog('configLog');
+            log('configLog', '🔍 Starting configuration test...');
+            log('configLog', `Cloud Name: ${CLOUDINARY_CLOUD_NAME}`);
+            log('configLog', `Upload Preset: ${CLOUDINARY_UPLOAD_PRESET}`);
+            log('configLog', `API URL: ${CLOUDINARY_API_URL}`);
+
+            try {
+                // Create a minimal test file
+                const testContent = 'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; // 1x1 transparent GIF
+                const byteCharacters = atob(testContent);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const testBlob = new Blob([byteArray], { type: 'image/gif' });
+                const testFile = new File([testBlob], 'test.gif', { type: 'image/gif' });
+
+                log('configLog', `📁 Created test file: ${testFile.name} (${testFile.size} bytes)`);
+
+                // Create form data
+                const formData = new FormData();
+                formData.append('file', testFile);
+                formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+                formData.append('folder', 'ucaes/admissions/test-user/test-config');
+                formData.append('public_id', `test-config-${Date.now()}`);
+                formData.append('tags', 'test,config,admissions');
+
+                log('configLog', '🚀 Sending request to Cloudinary...');
+
+                const response = await fetch(CLOUDINARY_API_URL, {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                log('configLog', `📡 Response: ${response.status} ${response.statusText}`);
+
+                const responseText = await response.text();
+                
+                if (!response.ok) {
+                    log('configLog', `❌ Upload failed: ${responseText}`);
+                    
+                    // Parse error for more details
+                    try {
+                        const errorData = JSON.parse(responseText);
+                        if (errorData.error) {
+                            log('configLog', `🔍 Error details: ${JSON.stringify(errorData.error, null, 2)}`);
+                            
+                            if (errorData.error.message?.includes('Invalid upload preset')) {
+                                log('configLog', '💡 SOLUTION: Create upload preset "ucaes_admissions" in Cloudinary dashboard');
+                                log('configLog', '   1. Go to Settings > Upload in Cloudinary dashboard');
+                                log('configLog', '   2. Click "Add upload preset"');
+                                log('configLog', '   3. Set name to "ucaes_admissions"');
+                                log('configLog', '   4. Set signing mode to "Unsigned"');
+                                log('configLog', '   5. Configure folder and file restrictions as needed');
+                            }
+                        }
+                    } catch (e) {
+                        log('configLog', `Raw error: ${responseText}`);
+                    }
+                    
+                    testResults.config = false;
+                    document.getElementById('configTest').className = 'test-section error';
+                } else {
+                    const result = JSON.parse(responseText);
+                    log('configLog', '✅ Upload successful!');
+                    log('configLog', `🔗 URL: ${result.secure_url}`);
+                    log('configLog', `🆔 Public ID: ${result.public_id}`);
+                    log('configLog', `📊 Size: ${result.bytes} bytes`);
+                    
+                    testResults.config = true;
+                    document.getElementById('configTest').className = 'test-section success';
+                }
+            } catch (error) {
+                log('configLog', `💥 Network error: ${error.message}`);
+                testResults.config = false;
+                document.getElementById('configTest').className = 'test-section error';
+            }
+            
+            updateSummary();
+        }
+
+        async function testFileUpload() {
+            const fileInput = document.getElementById('testFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a file first');
+                return;
+            }
+
+            clearLog('uploadLog');
+            log('uploadLog', '📁 Testing file upload...');
+            log('uploadLog', `File: ${file.name}`);
+            log('uploadLog', `Size: ${file.size} bytes`);
+            log('uploadLog', `Type: ${file.type}`);
+
+            // Validate file (same logic as in app)
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+            const maxSize = 5 * 1024 * 1024; // 5MB
+
+            if (!allowedTypes.includes(file.type)) {
+                log('uploadLog', '❌ Invalid file type. Please use JPG, PNG, or PDF');
+                testResults.upload = false;
+                document.getElementById('uploadTest').className = 'test-section error';
+                updateSummary();
+                return;
+            }
+
+            if (file.size > maxSize) {
+                log('uploadLog', '❌ File too large. Maximum size is 5MB');
+                testResults.upload = false;
+                document.getElementById('uploadTest').className = 'test-section error';
+                updateSummary();
+                return;
+            }
+
+            if (file.size === 0) {
+                log('uploadLog', '❌ File is empty');
+                testResults.upload = false;
+                document.getElementById('uploadTest').className = 'test-section error';
+                updateSummary();
+                return;
+            }
+
+            log('uploadLog', '✅ File validation passed');
+
+            const uploadBtn = document.getElementById('uploadBtn');
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = 'Uploading...';
+
+            try {
+                // Create form data (same as in app)
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+                formData.append('folder', 'ucaes/admissions/test-user/test-upload');
+                formData.append('public_id', `test-upload-${Date.now()}`);
+                formData.append('tags', 'test,upload,admissions');
+
+                log('uploadLog', '🚀 Uploading to Cloudinary...');
+
+                const response = await fetch(CLOUDINARY_API_URL, {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                log('uploadLog', `📡 Response: ${response.status} ${response.statusText}`);
+
+                const responseText = await response.text();
+
+                if (!response.ok) {
+                    log('uploadLog', `❌ Upload failed: ${responseText}`);
+                    
+                    try {
+                        const errorData = JSON.parse(responseText);
+                        if (errorData.error) {
+                            log('uploadLog', `🔍 Error: ${errorData.error.message || JSON.stringify(errorData.error)}`);
+                        }
+                    } catch (e) {
+                        log('uploadLog', `Raw error: ${responseText}`);
+                    }
+                    
+                    testResults.upload = false;
+                    document.getElementById('uploadTest').className = 'test-section error';
+                } else {
+                    const result = JSON.parse(responseText);
+                    log('uploadLog', '✅ Upload successful!');
+                    log('uploadLog', `🔗 URL: ${result.secure_url}`);
+                    log('uploadLog', `🆔 Public ID: ${result.public_id}`);
+                    log('uploadLog', `📊 Size: ${result.bytes} bytes`);
+                    log('uploadLog', `🖼️ Format: ${result.format}`);
+                    
+                    // Add a link to view the uploaded file
+                    log('uploadLog', '🔍 Click here to view: ' + result.secure_url);
+                    
+                    testResults.upload = true;
+                    document.getElementById('uploadTest').className = 'test-section success';
+                }
+            } catch (error) {
+                log('uploadLog', `💥 Network error: ${error.message}`);
+                testResults.upload = false;
+                document.getElementById('uploadTest').className = 'test-section error';
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = 'Upload Test File';
+            }
+            
+            updateSummary();
+        }
+
+        function updateSummary() {
+            const summaryDiv = document.getElementById('summary');
+            const summaryContent = document.getElementById('summaryContent');
+            
+            if (testResults.config !== null || testResults.upload !== null) {
+                summaryDiv.style.display = 'block';
+                
+                let html = '<h3>Test Results:</h3><ul>';
+                
+                if (testResults.config !== null) {
+                    html += `<li>Configuration Test: <strong>${testResults.config ? '✅ PASSED' : '❌ FAILED'}</strong></li>`;
+                }
+                
+                if (testResults.upload !== null) {
+                    html += `<li>File Upload Test: <strong>${testResults.upload ? '✅ PASSED' : '❌ FAILED'}</strong></li>`;
+                }
+                
+                html += '</ul>';
+                
+                if (testResults.config === true && testResults.upload === true) {
+                    html += '<p><strong>🎉 All tests passed! Your Cloudinary configuration is working correctly.</strong></p>';
+                    summaryDiv.className = 'test-section success';
+                } else if (testResults.config === false || testResults.upload === false) {
+                    html += '<p><strong>⚠️ Some tests failed. Check the logs above for details and solutions.</strong></p>';
+                    summaryDiv.className = 'test-section error';
+                } else {
+                    html += '<p><strong>ℹ️ Tests in progress...</strong></p>';
+                    summaryDiv.className = 'test-section info';
+                }
+                
+                summaryContent.innerHTML = html;
+            }
+        }
+
+        // Auto-run configuration test on page load
+        window.addEventListener('load', () => {
+            setTimeout(testConfiguration, 1000);
+        });
+    </script>
+</body>
+</html>
+
+

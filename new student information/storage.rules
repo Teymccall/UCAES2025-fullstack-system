@@ -1,0 +1,37 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow read access to all files for anyone
+    match /{allPaths=**} {
+      allow read: if true;
+    }
+    
+    // Profile pictures
+    match /profile-pictures/{fileName} {
+      // Allow create for anyone (for student registration)
+      allow create: if true;
+      
+      // Allow update for anyone initially
+      allow update: if true;
+      
+      // Allow delete only for authenticated users
+      allow delete: if request.auth != null;
+    }
+    
+    // Student profiles
+    match /student-profiles/{fileName=**} {
+      // Allow create for anyone (for student registration)
+      allow create: if true;
+      
+      // Allow update for anyone initially
+      allow update: if true;
+      
+      // Allow read for anyone
+      allow read: if true;
+      
+      // Allow delete only for authenticated users
+      allow delete: if request.auth != null;
+    }
+  }
+} 
