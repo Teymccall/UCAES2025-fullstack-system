@@ -89,11 +89,12 @@ export function CourseRegistrationForm({
   }, [user, academicYear, semester]);
 
   const checkRegistrationEligibility = async () => {
-    if (!user?.uid) return;
+    if (!user?.uid && !user?.id) return;
     
     try {
+      const studentId = user.id || user.uid;
       const eligibility = await canStudentRegisterForSemester(
-        user.uid,
+        studentId,
         academicYear,
         typeof semester === 'string' ? parseInt(semester) : semester
       );
@@ -124,12 +125,23 @@ export function CourseRegistrationForm({
       }
 
       console.log('🔍 Loading available courses for student:', user.uid);
-      console.log('Student data:', user);
+      console.log('Student data:', {
+        uid: user.uid,
+        id: user.id,
+        programme: user.programme,
+        programId: user.programId,
+        currentLevel: user.currentLevel,
+        name: user.name,
+        registrationNumber: user.registrationNumber
+      });
       console.log('System config - Year:', academicYear, 'Semester:', semester);
 
       // Get student's academic data to determine program and level
       let studentProgramId = user.programId || '';
       let studentLevel = user.currentLevel || 100;
+      
+      // Use the correct student ID - prefer user.id over user.uid for database lookups
+      const studentId = user.id || user.uid;
 
       // If we don't have programId, try to get it from the student's program name
       if (!studentProgramId && user.programme) {
@@ -139,6 +151,29 @@ export function CourseRegistrationForm({
         const { getProgramIdFromName } = await import('@/lib/academic-service');
         studentProgramId = await getProgramIdFromName(user.programme) || '';
         console.log('Resolved program ID:', studentProgramId);
+        
+        // If still no program ID, try alternative matching
+        if (!studentProgramId) {
+          console.log('Still no program ID, trying alternative approaches...');
+          
+          // Check if the program name contains key terms
+          const programLower = user.programme.toLowerCase();
+          if (programLower.includes('agriculture') || programLower.includes('sustainable')) {
+            // Try to find any agriculture-related program
+            const { collection, getDocs } = await import('firebase/firestore');
+            const programsRef = collection(db, "academic-programs");
+            const allPrograms = await getDocs(programsRef);
+            
+            for (const doc of allPrograms.docs) {
+              const data = doc.data();
+              if (data.name && data.name.toLowerCase().includes('agriculture')) {
+                studentProgramId = doc.id;
+                console.log(`Found agriculture program: ${data.name} (ID: ${studentProgramId})`);
+                break;
+              }
+            }
+          }
+        }
       }
 
       // Convert level text to number if needed
@@ -166,18 +201,19 @@ export function CourseRegistrationForm({
       }
 
       console.log('📋 Final parameters for course loading:');
+      console.log('  Student ID:', studentId);
       console.log('  Program ID:', studentProgramId);
       console.log('  Level:', studentLevel);
       console.log('  Semester:', semesterNumber);
       console.log('  Academic Year:', academicYear);
 
       if (!studentProgramId) {
-        throw new Error("Unable to determine student's program. Please contact support.");
+        throw new Error(`Unable to determine student's program. Your program "${user.programme}" could not be matched to any available academic program. Please contact support to update your program information.`);
       }
 
       // Enhanced course loading - try structured mapping first, then fallback to catalog
       let availableCourses = await getAvailableCoursesForStudent(
-        user.uid,
+        studentId,
         studentProgramId,
         studentLevel,
         semesterNumber,
@@ -202,7 +238,12 @@ export function CourseRegistrationForm({
       setCourses(availableCourses);
       
       if (availableCourses.length === 0) {
-        setError("No courses available for registration at this time. Please check back later or contact your academic advisor.");
+        setError(`No courses available for registration. This could be because:
+        • No courses are configured for Level ${studentLevel}, Semester ${semesterNumber}
+        • You have already registered for all available courses
+        • Your program "${user.programme}" may need course structure setup
+        
+        Please contact your academic advisor for assistance.`);
       }
     } catch (err) {
       console.error('Error loading available courses:', err);
@@ -303,8 +344,9 @@ export function CourseRegistrationForm({
 
       const selectedCourseObjects = courses.filter(course => selectedCourses.has(course.id));
       
+      const studentId = user!.id || user!.uid;
       const result = await registerStudentForCourses(
-        user!.uid,
+        studentId,
         selectedCourseObjects,
         academicYear,
         semester,
