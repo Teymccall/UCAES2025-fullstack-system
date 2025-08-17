@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 interface SystemConfig {
@@ -44,16 +44,35 @@ export const SystemConfigProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const configRef = doc(db, 'systemConfig', 'academicPeriod');
     const unsubscribe = onSnapshot(
       configRef,
-      (doc) => {
-        if (doc.exists()) {
-          const data = doc.data();
+      async (configDoc) => {
+        if (configDoc.exists()) {
+          const data = configDoc.data();
+          
+          // Get admission status from the academic year document
+          let admissionStatus = null;
+          if (data.currentAcademicYearId) {
+            try {
+              const yearRef = doc(db, 'academic-years', data.currentAcademicYearId);
+              const yearDoc = await getDoc(yearRef);
+              if (yearDoc.exists()) {
+                const yearData = yearDoc.data();
+                admissionStatus = yearData.admissionStatus || null;
+                console.log(`📊 SystemConfigProvider: Admission status from academic year: ${admissionStatus}`);
+              } else {
+                console.log('⚠️ SystemConfigProvider: Academic year document not found');
+              }
+            } catch (error) {
+              console.error('❌ SystemConfigProvider: Error fetching academic year:', error);
+            }
+          }
+          
           const newConfig: SystemConfig = {
             currentAcademicYear: data.currentAcademicYear || null,
             currentAcademicYearId: data.currentAcademicYearId || null,
             currentSemester: data.currentSemester || null,
             currentSemesterId: data.currentSemesterId || null,
             lastUpdated: data.lastUpdated?.toDate() || null,
-            admissionStatus: data.admissionStatus || null,
+            admissionStatus: admissionStatus,
           };
           
           console.log('✅ SystemConfigProvider: Received updated configuration:', newConfig);
