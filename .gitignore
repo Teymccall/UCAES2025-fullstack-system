@@ -43,6 +43,10 @@ next-env.d.ts
 
 # Firebase config
 serviceAccountKey.json
+# Firebase service account credentials
+*firebase-adminsdk*.json
+*firebase-adminsdk*.key
+*firebase-adminsdk*.pem
 
 # Log files
 *.log
