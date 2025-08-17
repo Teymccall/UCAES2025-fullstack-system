@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
-import { Calendar, Search, Eye, FileText, CheckCircle, Clock, MessageSquare, Users, GraduationCap, DollarSign, Download, Image, FileText as FileTextIcon, User, ArrowLeft, Printer, AlertCircle, ArrowUpCircle, Loader2 } from "lucide-react"
+import { Calendar, Search, Eye, FileText, CheckCircle, Clock, MessageSquare, Users, GraduationCap, DollarSign, Download, Image, FileText as FileTextIcon, User, ArrowLeft, Printer, AlertCircle, ArrowUpCircle, Loader2, ExternalLink } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { RouteGuard } from "@/components/route-guard"
 
@@ -1602,6 +1602,53 @@ function AdmissionsDashboard() {
                   <AlertCircle className="h-4 w-4 mr-2" />
                 )}
                 Close Portal
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Admission Website Access */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <ExternalLink className="h-5 w-5" />
+            <span>Admission Website Access</span>
+          </CardTitle>
+          <CardDescription>
+            Access the public admission website where students submit applications
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center space-x-2">
+                <Badge variant="outline" className="text-sm">
+                  Public Website
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  Students use this website to submit their applications
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                The website will reflect the current admission status set above
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => {
+                  const admissionWebsiteUrl = process.env.NEXT_PUBLIC_ADMISSION_WEBSITE_URL || 'http://localhost:5173'
+                  window.open(admissionWebsiteUrl, '_blank')
+                  toast({
+                    title: "Admission Website Opened",
+                    description: "The public admission website is now open in a new tab",
+                  })
+                }}
+                variant="outline"
+                className="bg-blue-50 hover:bg-blue-100 border-blue-200"
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Open Admission Website
               </Button>
             </div>
           </div>
