@@ -72,11 +72,12 @@ function getLegacyCurrentYear(): string {
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth(); // 0-11 (Jan-Dec)
 
-  // If we're in the first half of the year (Jan-Jun), academic year is previous/current
-  // Otherwise (Jul-Dec), it's current/next
-  if (currentMonth < 6) {
-    return `${currentYear - 1}/${currentYear}`;
-  } else {
+  // Academic year starts in August (month 7)
+  // If we're in Aug-Dec, academic year is current/next
+  // If we're in Jan-Jul, it's previous/current
+  if (currentMonth >= 7) {
     return `${currentYear}/${currentYear + 1}`;
+  } else {
+    return `${currentYear - 1}/${currentYear}`;
   }
 } 

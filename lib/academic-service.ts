@@ -310,9 +310,11 @@ export async function getProgramIdFromName(programName: string): Promise<string 
     const normalizeProgramName = (name: string) => {
       return name
         .toLowerCase()
+        .replace(/bachelor\s+of\s+science\s+in\s*/gi, '') // Remove "Bachelor of Science in"
+        .replace(/bachelor\s+of\s*/gi, '') // Remove "Bachelor of"
+        .replace(/certificate\s+in\s*/gi, '') // Remove "Certificate in"
+        .replace(/bsc\.?\s*/gi, '') // Remove "BSc." or "BSc"
         .replace(/[.\s]/g, '') // Remove dots and spaces
-        .replace(/bachelorofscience/g, 'bsc') // Handle "Bachelor of Science" variations
-        .replace(/bachelorof/g, 'bsc') // Handle "Bachelor of" variations
         .trim();
     };
     
