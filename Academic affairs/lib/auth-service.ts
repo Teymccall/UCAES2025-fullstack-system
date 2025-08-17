@@ -14,7 +14,7 @@ export interface User {
   username: string;
   name: string;
   email: string;
-  role: "director" | "staff";
+  role: "director" | "staff" | "Lecturer" | "finance_officer" | "exam_officer" | "admissions_officer" | "registrar";
   department?: string;
   position?: string;
   assignedCourses?: string[];

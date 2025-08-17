@@ -19,9 +19,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
-import { Search, Plus, Edit, Eye, Trash2, Download, Upload, Filter, MoreHorizontal, AlertCircle, Wifi, WifiOff, User, Calendar, MapPin, Phone, Mail, Book, GraduationCap, FileText, UserPlus, Camera } from "lucide-react"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { getAllStudents, exportStudentsToCSV, addStudent, updateStudent } from "@/lib/student-services"
+import { Search, Plus, Edit, Eye, Trash2, Download, Upload, Filter, MoreHorizontal, AlertCircle, Wifi, WifiOff, User, Calendar, MapPin, Phone, Mail, Book, GraduationCap, FileText, UserPlus, Camera, Check, RefreshCw, Loader2 } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
+import { getAllStudents, exportStudentsToCSV, addStudent, updateStudent, syncStudentRegistrations, getStudentsRealtime } from "@/lib/student-services"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import type { Student } from "@/lib/types"
 import { ImportCSVDialog } from "@/components/admin/students/import-csv-dialog"
@@ -32,6 +32,7 @@ import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import Image from "next/image"
 import { clearAllData, syncModuleData } from "@/lib/firebase-services"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 export default function StudentManagement() {
   const { user } = useAuth()
@@ -55,6 +56,146 @@ export default function StudentManagement() {
   const [profileImage, setProfileImage] = useState<File | null>(null)
   const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  // CSS styles for student table
+  const tableStyles = {
+    studentTable: `
+      .student-table {
+        border-collapse: separate;
+        border-spacing: 0;
+      }
+      
+      .student-table th {
+        font-weight: 600;
+        text-align: left;
+        padding: 0.75rem 1rem;
+        background-color: #f9fafb;
+        border-bottom: 1px solid #e5e7eb;
+      }
+      
+      .dark .student-table th {
+        background-color: #1f2937;
+        border-bottom: 1px solid #374151;
+        color: #e5e7eb;
+      }
+      
+      .student-table td {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #e5e7eb;
+        vertical-align: middle;
+      }
+      
+      .dark .student-table td {
+        border-bottom: 1px solid #374151;
+      }
+      
+      .student-table tr:hover td {
+        background-color: #f3f4f6;
+      }
+      
+      .dark .student-table tr:hover td {
+        background-color: #1f2937;
+      }
+      
+      .badge-active {
+        background-color: #d1fae5;
+        color: #065f46;
+        border-color: #a7f3d0;
+      }
+      
+      .dark .badge-active {
+        background-color: rgba(6, 95, 70, 0.2);
+        color: #34d399;
+        border-color: rgba(6, 95, 70, 0.5);
+      }
+      
+      .badge-inactive {
+        background-color: #fee2e2;
+        color: #b91c1c;
+        border-color: #fecaca;
+      }
+      
+      .dark .badge-inactive {
+        background-color: rgba(185, 28, 28, 0.2);
+        color: #f87171;
+        border-color: rgba(185, 28, 28, 0.5);
+      }
+      
+      .badge-pending {
+        background-color: #fef3c7;
+        color: #92400e;
+        border-color: #fde68a;
+      }
+      
+      .dark .badge-pending {
+        background-color: rgba(146, 64, 14, 0.2);
+        color: #fbbf24;
+        border-color: rgba(146, 64, 14, 0.5);
+      }
+      
+      .badge-suspended {
+        background-color: #e0e7ff;
+        color: #4338ca;
+        border-color: #c7d2fe;
+      }
+      
+      .dark .badge-suspended {
+        background-color: rgba(67, 56, 202, 0.2);
+        color: #818cf8;
+        border-color: rgba(67, 56, 202, 0.5);
+      }
+      
+      .badge-regular {
+        background-color: #f3f4f6;
+        color: #4b5563;
+        border-color: #e5e7eb;
+      }
+      
+      .dark .badge-regular {
+        background-color: rgba(75, 85, 99, 0.2);
+        color: #9ca3af;
+        border-color: rgba(75, 85, 99, 0.5);
+      }
+      
+      .badge-weekend {
+        background-color: #dbeafe;
+        color: #1e40af;
+        border-color: #bfdbfe;
+      }
+      
+      .dark .badge-weekend {
+        background-color: rgba(30, 64, 175, 0.2);
+        color: #60a5fa;
+        border-color: rgba(30, 64, 175, 0.5);
+      }
+      
+      .badge-evening {
+        background-color: #ede9fe;
+        color: #5b21b6;
+        border-color: #ddd6fe;
+      }
+      
+      .dark .badge-evening {
+        background-color: rgba(91, 33, 182, 0.2);
+        color: #a78bfa;
+        border-color: rgba(91, 33, 182, 0.5);
+      }
+      
+      .student-table-container {
+        overflow-x: auto;
+        border-radius: 0.5rem;
+        border: 1px solid #e5e7eb;
+      }
+      
+      .dark .student-table-container {
+        border-color: #374151;
+      }
+      
+      .theme-transition {
+        transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+      }
+    `
+  }
   
   // Form state for adding a new student
   const [newStudent, setNewStudent] = useState({
@@ -82,6 +223,9 @@ export default function StudentManagement() {
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
   const [resetResults, setResetResults] = useState<{ success: boolean; message: string; deletedCount: Record<string, number> } | null>(null)
+  
+  // New state for sync results
+  const [syncResults, setSyncResults] = useState<{ created: number; updated: number; errors: string[] } | null>(null)
 
   // Network status monitoring
   useEffect(() => {
@@ -120,15 +264,74 @@ export default function StudentManagement() {
   }
 
   useEffect(() => {
-    // Fetch students from Firebase
+    // Fetch students from Firebase with real-time updates
     const fetchStudents = async () => {
       try {
         setIsLoading(true)
+        setFormError(null)
+        
+        // Set up real-time listener for student data
+        const unsubscribe = getStudentsRealtime(
+          (data) => {
+            setStudents(data)
+            setFilteredStudents(data)
+            setIsLoading(false)
+            
+            // If no students, try to sync from registrations
+            if (data.length === 0) {
+              console.log("No students found, attempting to sync from registrations")
+              handleSyncNow()
+            }
+          },
+          (error) => {
+            console.error("Error fetching students:", error)
+            setFormError("Failed to load students. Please check your internet connection.")
+            setIsLoading(false)
+            
+            // Fallback to regular fetch if real-time fails
+            fallbackFetchStudents()
+          }
+        )
+        
+        // Cleanup function to unsubscribe from listener
+        return () => {
+          unsubscribe()
+        }
+      } catch (error) {
+        console.error("Error setting up student listener:", error)
+        setFormError("Failed to load students. Please check your internet connection.")
+        setIsLoading(false)
+        
+        // Fallback to regular fetch
+        fallbackFetchStudents()
+      }
+    }
+    
+    // Fallback function to use regular fetch
+    const fallbackFetchStudents = async () => {
+      try {
         const data = await getAllStudents()
         setStudents(data)
         setFilteredStudents(data)
+        
+        // If no students from collections, try to sync from registrations
+        if (data.length === 0) {
+          console.log("No students found, attempting to sync from registrations")
+          const syncResult = await syncStudentRegistrations()
+          if (syncResult.success) {
+            // Refresh students after sync
+            const refreshedData = await getAllStudents()
+            setStudents(refreshedData)
+            setFilteredStudents(refreshedData)
+            setSyncResults({
+              created: syncResult.created,
+              updated: syncResult.updated,
+              errors: syncResult.errors
+            })
+          }
+        }
       } catch (error) {
-        console.error("Error fetching students:", error)
+        console.error("Error in fallback fetch:", error)
         setFormError("Failed to load students. Please check your internet connection.")
       } finally {
         setIsLoading(false)
@@ -137,6 +340,59 @@ export default function StudentManagement() {
     
     fetchStudents()
   }, [])
+
+  // Function to refresh students
+  const refreshStudents = async () => {
+    try {
+      setIsLoading(true)
+      setFormError(null)
+      const data = await getAllStudents()
+      setStudents(data)
+      setFilteredStudents(data)
+    } catch (error) {
+      console.error("Error refreshing students:", error)
+      setFormError("Failed to refresh students. Please check your internet connection.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  
+  // Function to sync registrations
+  const handleSyncNow = async () => {
+    try {
+      setIsLoading(true)
+      setFormError(null)
+      
+      const syncResult = await syncStudentRegistrations()
+      setSyncResults({
+        created: syncResult.created,
+        updated: syncResult.updated,
+        errors: syncResult.errors
+      })
+      
+      if (syncResult.success) {
+        toast({
+          title: "Sync Complete",
+          description: `Created ${syncResult.created} and updated ${syncResult.updated} student records`,
+          variant: "default"
+        })
+        
+        // Refresh the student list
+        await refreshStudents()
+      } else {
+        toast({
+          title: "Sync Failed",
+          description: syncResult.errors.length > 0 ? syncResult.errors[0] : "Unknown error occurred",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error("Error syncing student registrations:", error)
+      setFormError("Failed to sync student registrations. Please check your internet connection.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
     let filtered = students
@@ -164,17 +420,36 @@ export default function StudentManagement() {
   }, [students, searchTerm, filterProgram, filterLevel])
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "Active":
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Active</Badge>
-      case "Inactive":
-        return <Badge variant="secondary">Inactive</Badge>
-      case "Graduated":
-        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Graduated</Badge>
-      case "Suspended":
-        return <Badge variant="destructive">Suspended</Badge>
+    switch (status?.toLowerCase()) {
+      case "active":
+        return <Badge className="badge-active">Active</Badge>
+      case "inactive":
+        return <Badge className="badge-inactive">Inactive</Badge>
+      case "graduated":
+        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400">Graduated</Badge>
+      case "suspended":
+        return <Badge className="badge-suspended">Suspended</Badge>
+      case "pending":
+        return <Badge className="badge-pending">Pending</Badge>
       default:
-        return <Badge variant="outline">{status}</Badge>
+        return <Badge variant="outline">{status || "Unknown"}</Badge>
+    }
+  }
+
+  const getScheduleBadge = (scheduleType?: string) => {
+    if (!scheduleType) return null;
+    
+    switch (scheduleType.toLowerCase()) {
+      case "regular":
+        return <Badge variant="outline" className="badge-regular">Regular</Badge>
+      case "weekend":
+        return <Badge variant="outline" className="badge-weekend">Weekend</Badge>
+      case "evening":
+        return <Badge variant="outline" className="badge-evening">Evening</Badge>
+      case "distance":
+        return <Badge variant="outline" className="bg-teal-50 text-teal-800 border-teal-200 dark:bg-teal-900/20 dark:text-teal-400 dark:border-teal-900/50">Distance</Badge>
+      default:
+        return <Badge variant="outline">{scheduleType}</Badge>
     }
   }
 
@@ -323,6 +598,69 @@ export default function StudentManagement() {
     }
   }
   
+  const handleDownloadTemplate = () => {
+    try {
+      // Create a template CSV with headers and one example row
+      const headers = [
+        "Index Number",
+        "Surname",
+        "Other Names",
+        "Gender",
+        "Date of Birth",
+        "Programme",
+        "Level",
+        "Schedule Type",
+        "Status",
+        "Email",
+        "Phone",
+        "Address",
+        "Emergency Contact Name",
+        "Emergency Contact Phone",
+        "Emergency Relationship"
+      ].join(",");
+      
+      const exampleRow = [
+        "UCAES123456",
+        "Doe",
+        "John",
+        "Male",
+        "1995-05-15",
+        "B.Sc. Sustainable Agriculture",
+        "100",
+        "Regular",
+        "Active",
+        "student@example.com",
+        "+233555123456",
+        "123 Main St, Accra",
+        "Jane Doe",
+        "+233555789012",
+        "Parent"
+      ].join(",");
+      
+      const csvContent = headers + "\n" + exampleRow;
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'student_template.csv');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: "Template Downloaded",
+        description: "CSV template for student upload has been downloaded.",
+      });
+    } catch (error) {
+      console.error("Error generating template:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate CSV template.",
+        variant: "destructive"
+      });
+    }
+  }
+  
   const handleAddStudent = async (e: FormEvent) => {
     e.preventDefault()
     
@@ -379,6 +717,45 @@ export default function StudentManagement() {
     }
   }
   
+  const handleResetDatabase = async () => {
+    try {
+    setIsResetting(true)
+    setResetResults(null)
+    
+      // Clear all data
+      const clearResult = await clearAllData()
+      
+      if (clearResult.success) {
+        // Re-initialize with base data and sync student registrations
+        const syncResult = await syncModuleData()
+        
+        setResetResults({
+          success: syncResult.success,
+          message: `Database reset successful. ${syncResult.message}`,
+          deletedCount: clearResult.deletedCount
+        })
+        
+        // Refresh student list
+        await refreshStudents()
+      } else {
+        setResetResults({
+          success: false,
+          message: clearResult.message,
+          deletedCount: {}
+        })
+      }
+    } catch (error) {
+      console.error("Error resetting database:", error)
+      setResetResults({
+        success: false,
+        message: `Error resetting database: ${error instanceof Error ? error.message : "Unknown error"}`,
+        deletedCount: {}
+      })
+    } finally {
+      setIsResetting(false)
+    }
+  }
+  
   const handleImportSuccess = async () => {
     // Refresh student list after successful import
     try {
@@ -393,335 +770,53 @@ export default function StudentManagement() {
     }
   }
 
-  // Add a function to handle database reset
-  const handleResetDatabase = async () => {
-    setIsResetting(true)
-    setResetResults(null)
-    
-    try {
-      // Step 1: Clear all data
-      const result = await clearAllData()
-      setResetResults(result)
-      
-      if (result.success) {
-        // Step 2: Sync initial data between modules
-        const syncResult = await syncModuleData()
-        
-        if (syncResult.success) {
-          toast({
-            title: "Database Reset Successful",
-            description: `Successfully cleared ${Object.values(result.deletedCount).reduce((a, b) => a + b, 0)} records and synchronized initial data.`,
-            variant: "default",
-          })
-        } else {
-          toast({
-            title: "Database Reset Successful, but Sync Failed",
-            description: `Database was cleared, but sync failed: ${syncResult.message}`,
-            variant: "default",
-          })
-        }
-        
-        // Refresh the students list
-        setStudents([])
-        setFilteredStudents([])
-      } else {
-        toast({
-          title: "Database Reset Failed",
-          description: result.message,
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("Error resetting database:", error)
-      toast({
-        title: "Error",
-        description: "An error occurred while resetting the database.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsResetting(false)
-      setIsResetDialogOpen(false)
-    }
-  }
-
   return (
     <div className="space-y-6">
-      {/* Network Status Indicator */}
-      {!isOnline && (
-        <Alert variant="destructive">
-          <WifiOff className="h-4 w-4" />
-          <AlertTitle>Offline Mode</AlertTitle>
-          <AlertDescription>
-            You are currently offline. Some features may be limited. Data will be synchronized when you reconnect.
-          </AlertDescription>
-        </Alert>
-      )}
+      {/* Apply table styles */}
+      <style dangerouslySetInnerHTML={{ __html: tableStyles.studentTable }} />
       
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-gray-200 dark:border-gray-800">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Student Management</h1>
-          <p className="text-gray-600">Manage student records and information</p>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Student Management</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">Manage student records and synchronize with registration system</p>
         </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => setIsImportDialogOpen(true)}
-            disabled={!isOnline}
-          >
-            <Upload className="mr-2 h-4 w-4" />
-            Import CSV
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={handleExportCSV}
-          >
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-blue-600"
-            onClick={() => setIsCreateAccountsDialogOpen(true)}
-            disabled={!isOnline}
-          >
-            <User className="mr-2 h-4 w-4" />
-            Create Portal Accounts
-          </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => setIsResetDialogOpen(true)}
-            disabled={!isOnline}
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            Reset Database
-          </Button>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-green-700 hover:bg-green-800" disabled={!isOnline}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Student
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <form onSubmit={handleAddStudent}>
-                <DialogHeader>
-                  <DialogTitle>Add New Student</DialogTitle>
-                  <DialogDescription>
-                    Enter the student's information below. A portal account will be automatically created 
-                    if a Date of Birth is provided.
-                  </DialogDescription>
-                </DialogHeader>
-                
-                {formError && (
-                  <Alert variant="destructive" className="mt-4">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Error</AlertTitle>
-                    <AlertDescription>{formError}</AlertDescription>
-                  </Alert>
-                )}
-                
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="indexNumber">Index Number <span className="text-red-500">*</span></Label>
-                      <Input 
-                        id="indexNumber" 
-                        placeholder="AG/2024/001234" 
-                        value={newStudent.indexNumber}
-                        onChange={(e) => handleInputChange('indexNumber', e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="programme">Programme <span className="text-red-500">*</span></Label>
-                      <Select 
-                        value={newStudent.programme} 
-                        onValueChange={(value) => handleInputChange('programme', value)}
-                        required
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select programme" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="BSc Agriculture">BSc Agriculture</SelectItem>
-                          <SelectItem value="BSc Environmental Science">BSc Environmental Science</SelectItem>
-                          <SelectItem value="BSc Information Technology">BSc Information Technology</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="surname">Surname <span className="text-red-500">*</span></Label>
-                      <Input 
-                        id="surname" 
-                        value={newStudent.surname}
-                        onChange={(e) => handleInputChange('surname', e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="otherNames">Other Names <span className="text-red-500">*</span></Label>
-                      <Input 
-                        id="otherNames" 
-                        value={newStudent.otherNames}
-                        onChange={(e) => handleInputChange('otherNames', e.target.value)}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="gender">Gender <span className="text-red-500">*</span></Label>
-                      <Select 
-                        value={newStudent.gender} 
-                        onValueChange={(value) => handleInputChange('gender', value)}
-                        required
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select gender" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Male">Male</SelectItem>
-                          <SelectItem value="Female">Female</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="level">Level <span className="text-red-500">*</span></Label>
-                      <Select 
-                        value={newStudent.level} 
-                        onValueChange={(value) => handleInputChange('level', value)}
-                        required
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select level" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="100">100</SelectItem>
-                          <SelectItem value="200">200</SelectItem>
-                          <SelectItem value="300">300</SelectItem>
-                          <SelectItem value="400">400</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="dateOfBirth">Date of Birth</Label>
-                      <Input 
-                        id="dateOfBirth" 
-                        type="date" 
-                        value={newStudent.dateOfBirth}
-                        onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input 
-                        id="email" 
-                        type="email" 
-                        value={newStudent.email}
-                        onChange={(e) => handleInputChange('email', e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">Phone</Label>
-                      <Input 
-                        id="phone" 
-                        value={newStudent.phone}
-                        onChange={(e) => handleInputChange('phone', e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="address">Address</Label>
-                    <Input 
-                      id="address" 
-                      value={newStudent.address}
-                      onChange={(e) => handleInputChange('address', e.target.value)}
-                    />
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="emergencyContactName">Emergency Contact Name</Label>
-                      <Input 
-                        id="emergencyContactName" 
-                        value={newStudent.emergencyContact.name}
-                        onChange={(e) => handleInputChange('emergencyContact.name', e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="emergencyContactPhone">Emergency Contact Phone</Label>
-                      <Input 
-                        id="emergencyContactPhone" 
-                        value={newStudent.emergencyContact.phone}
-                        onChange={(e) => handleInputChange('emergencyContact.phone', e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="emergencyContactRelationship">Relationship</Label>
-                      <Input 
-                        id="emergencyContactRelationship" 
-                        value={newStudent.emergencyContact.relationship}
-                        onChange={(e) => handleInputChange('emergencyContact.relationship', e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => setIsAddDialogOpen(false)}
-                    disabled={isSubmitting}
-                  >
-                    Cancel
-                  </Button>
-                  <Button 
-                    type="submit" 
-                    className="bg-green-700 hover:bg-green-800"
-                    disabled={isSubmitting || !isOnline}
-                  >
-                    {isSubmitting ? "Adding..." : "Add Student"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
+          {isOnline ? (
+            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 flex items-center gap-1.5">
+              <Wifi className="h-3 w-3" /> Online
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 flex items-center gap-1.5">
+              <WifiOff className="h-3 w-3" /> Offline
+            </Badge>
+          )}
         </div>
       </div>
 
-      {/* Filters and Search */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Search & Filter</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+      {/* Search and Filters */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+        <div className="md:col-span-4 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 dark:text-gray-400" />
                 <Input
+            type="search"
                   placeholder="Search by name or index number..."
+            className="pl-10 w-full dark:bg-gray-800 dark:border-gray-700"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8"
                 />
               </div>
-            </div>
-            <div className="flex gap-2">
+
+        <div className="md:col-span-3">
               <Select value={filterProgram} onValueChange={setFilterProgram}>
-                <SelectTrigger className="w-[200px]">
-                  <Filter className="mr-2 h-4 w-4" />
-                  <SelectValue placeholder="All Programs" />
+            <SelectTrigger className="w-full dark:bg-gray-800 dark:border-gray-700">
+              <div className="flex items-center">
+                <Filter className="h-4 w-4 mr-2 text-gray-500" />
+                <span>{filterProgram === "all" ? "All Programs" : filterProgram}</span>
+              </div>
                 </SelectTrigger>
-                <SelectContent>
+            <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
                   <SelectItem value="all">All Programs</SelectItem>
                   {programs.map((program) => (
                     <SelectItem key={program || `program-${Math.random()}`} value={program || ""}>
@@ -730,11 +825,17 @@ export default function StudentManagement() {
                   ))}
                 </SelectContent>
               </Select>
+        </div>
+
+        <div className="md:col-span-3">
               <Select value={filterLevel} onValueChange={setFilterLevel}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="All Levels" />
+            <SelectTrigger className="w-full dark:bg-gray-800 dark:border-gray-700">
+              <div className="flex items-center">
+                <GraduationCap className="h-4 w-4 mr-2 text-gray-500" />
+                <span>{filterLevel === "all" ? "All Levels" : `Level ${filterLevel}`}</span>
+              </div>
                 </SelectTrigger>
-                <SelectContent>
+            <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
                   <SelectItem value="all">All Levels</SelectItem>
                   {levels.map((level) => (
                     <SelectItem key={level || `level-${Math.random()}`} value={level || ""}>
@@ -744,83 +845,296 @@ export default function StudentManagement() {
                 </SelectContent>
               </Select>
             </div>
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* Students Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Students ({filteredStudents.length})</CardTitle>
-          <CardDescription>Manage student records and view detailed information</CardDescription>
+        <div className="md:col-span-2">
+          <Button 
+            onClick={handleSyncNow}
+            disabled={isLoading}
+            className="w-full bg-green-600 hover:bg-green-700 text-white"
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
+            Sync Registrations
+          </Button>
+          </div>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+        <Button onClick={() => setIsAddDialogOpen(true)} className="bg-green-600 hover:bg-green-700 text-white">
+          <Plus className="h-4 w-4 mr-2" />
+          Add Student
+        </Button>
+        
+        <Button onClick={() => setIsImportDialogOpen(true)} variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50">
+          <Upload className="h-4 w-4 mr-2" />
+          Import CSV
+        </Button>
+        
+        <Button onClick={handleExportCSV} variant="outline" className="border-indigo-600 text-indigo-600 hover:bg-indigo-50">
+          <Download className="h-4 w-4 mr-2" />
+          Export
+        </Button>
+        
+        <Button onClick={handleDownloadTemplate} variant="outline" className="border-cyan-600 text-cyan-600 hover:bg-cyan-50">
+          <FileText className="h-4 w-4 mr-2" />
+          Template
+        </Button>
+        
+        <Button onClick={() => setIsCreateAccountsDialogOpen(true)} variant="outline" className="border-violet-600 text-violet-600 hover:bg-violet-50">
+          <UserPlus className="h-4 w-4 mr-2" />
+          Create Accounts
+        </Button>
+        
+        <Button 
+          onClick={() => setIsResetDialogOpen(true)} 
+          variant="outline"
+          className="border-red-600 text-red-600 hover:bg-red-50"
+          disabled={!isOnline}
+        >
+          <Trash2 className="h-4 w-4 mr-2" />
+          Reset Database
+        </Button>
+      </div>
+
+      {/* Online/Offline indicator */}
+      {!isOnline && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle className="flex items-center">
+            <WifiOff className="h-4 w-4 mr-2" />
+            Offline Mode
+          </AlertTitle>
+          <AlertDescription>
+            You are currently offline. Some features may be limited.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Sync Results */}
+      {syncResults && (syncResults.created > 0 || syncResults.updated > 0) && (
+        <Alert className="mb-4 bg-green-50 border-green-200">
+          <div className="flex items-center">
+            <Check className="h-4 w-4 text-green-500 mr-2" />
+            <AlertTitle className="text-green-700">Sync Complete</AlertTitle>
+          </div>
+          <AlertDescription className="text-green-700">
+            Successfully synced student data: {syncResults.created} new students imported, {syncResults.updated} student records updated.
+            {syncResults.errors.length > 0 && (
+              <div className="mt-2">
+                <strong>Some errors occurred:</strong>
+                <ul className="list-disc pl-5 mt-1">
+                  {syncResults.errors.slice(0, 3).map((error, index) => (
+                    <li key={index}>{error}</li>
+                  ))}
+                  {syncResults.errors.length > 3 && (
+                    <li>...and {syncResults.errors.length - 3} more errors</li>
+                  )}
+                </ul>
+              </div>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Student table */}
+      <Card className="border-none shadow-sm dark:bg-gray-900 dark:border-gray-800">
+        <CardHeader className="px-6 py-4 border-b border-gray-200 dark:border-gray-800">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                Registered Students ({filteredStudents.length})
+              </CardTitle>
+              <CardDescription className="text-gray-500 dark:text-gray-400 mt-1">
+                View and manage all registered students
+              </CardDescription>
+            </div>
+            {isLoading && (
+              <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Loading...
+              </div>
+            )}
+          </div>
         </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
+        <CardContent className="p-0">
+          <div className="student-table-container">
+            <Table className="student-table">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Index Number</TableHead>
+                  <TableHead>Student ID</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Programme</TableHead>
+                  <TableHead>Schedule</TableHead>
                   <TableHead>Level</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
+              <TableBody className="theme-transition">
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-10">
-                      <div className="flex flex-col items-center justify-center">
-                        <div className="h-8 w-8 animate-spin rounded-full border-4 border-green-700 border-t-transparent"></div>
-                        <p className="mt-2 text-sm text-gray-600">Loading students...</p>
+                    <TableCell colSpan={7} className="h-24 text-center">
+                      <div className="flex flex-col items-center justify-center h-full gap-2">
+                        <Loader2 className="h-8 w-8 animate-spin text-green-600 dark:text-green-500" />
+                        <span className="text-sm text-gray-500 dark:text-gray-400">Loading student data...</span>
                       </div>
                     </TableCell>
                   </TableRow>
                 ) : filteredStudents.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-10">
-                      <p className="text-gray-600">No students found</p>
-                      {!isOnline && (
-                        <p className="text-sm text-gray-500 mt-2">
-                          You are currently offline. Connect to the internet to access all student records.
-                        </p>
-                      )}
+                    <TableCell colSpan={7} className="h-24 text-center">
+                      <div className="flex flex-col items-center justify-center h-full gap-2">
+                        <User className="h-8 w-8 text-gray-400" />
+                        <span className="text-gray-500 dark:text-gray-400">No students found</span>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={handleSyncNow}
+                          className="mt-2"
+                        >
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Sync from Registration System
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredStudents.map((student) => (
                     <TableRow key={student.id}>
-                      <TableCell className="font-medium">{student.indexNumber}</TableCell>
-                      <TableCell>{`${student.surname}, ${student.otherNames}`}</TableCell>
-                      <TableCell>{student.programme}</TableCell>
+                      <TableCell className="font-medium">{student.indexNumber || "No ID"}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden">
+                            {student.profilePictureUrl ? (
+                              <img 
+                                src={student.profilePictureUrl} 
+                                alt={`${student.surname}`}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <User className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                            )}
+                          </div>
+                          <span>{`${student.surname || ""}, ${student.otherNames || ""}`}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="max-w-[200px] truncate" title={student.programme}>
+                        {student.programme}
+                      </TableCell>
+                      <TableCell>
+                        {student.scheduleType ? 
+                          getScheduleBadge(student.scheduleType) : 
+                          <Badge variant="outline" className="bg-gray-50 text-gray-500 dark:bg-gray-800 dark:text-gray-400">Not Set</Badge>
+                        }
+                      </TableCell>
                       <TableCell>{student.level}</TableCell>
-                      <TableCell>{getStatusBadge(student.status)}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <MoreHorizontal className="h-4 w-4" />
+                            <Button variant="outline" size="sm" className="h-8 px-2 py-0">
+                              {getStatusBadge(student.status)}
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleViewStudent(student)}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              View Details
+                          <DropdownMenuContent align="end" className="dark:bg-gray-800 dark:border-gray-700">
+                            <DropdownMenuItem
+                              onClick={() => {
+                                const updatedStudent = { ...student, status: "Active" };
+                                updateStudent(student.id, updatedStudent)
+                                  .then(() => refreshStudents())
+                                  .catch(error => console.error("Error updating status:", error));
+                              }}
+                              className="cursor-pointer dark:hover:bg-gray-700 dark:text-gray-300"
+                            >
+                              <Badge className="badge-active mr-2">Active</Badge>
+                              Mark as Active
                             </DropdownMenuItem>
                             <DropdownMenuItem 
-                              onClick={() => handleEditStudent(student)}
-                              disabled={!isOnline}
+                              onClick={() => {
+                                const updatedStudent = { ...student, status: "Inactive" };
+                                updateStudent(student.id, updatedStudent)
+                                  .then(() => refreshStudents())
+                                  .catch(error => console.error("Error updating status:", error));
+                              }}
+                              className="cursor-pointer dark:hover:bg-gray-700 dark:text-gray-300"
                             >
-                              <Edit className="mr-2 h-4 w-4" />
-                              Edit
+                              <Badge className="badge-inactive mr-2">Inactive</Badge>
+                              Mark as Inactive
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="text-red-600" disabled={!isOnline}>
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
+                            <DropdownMenuItem
+                              onClick={() => {
+                                const updatedStudent = { ...student, status: "pending" };
+                                updateStudent(student.id, updatedStudent)
+                                  .then(() => refreshStudents())
+                                  .catch(error => console.error("Error updating status:", error));
+                              }}
+                              className="cursor-pointer dark:hover:bg-gray-700 dark:text-gray-300"
+                            >
+                              <Badge className="badge-pending mr-2">Pending</Badge>
+                              Mark as Pending
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuLabel className="text-xs text-gray-500 dark:text-gray-400">Schedule Type</DropdownMenuLabel>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                const updatedStudent = { ...student, scheduleType: "Regular" };
+                                updateStudent(student.id, updatedStudent)
+                                  .then(() => refreshStudents())
+                                  .catch(error => console.error("Error updating schedule type:", error));
+                              }}
+                              className="cursor-pointer dark:hover:bg-gray-700 dark:text-gray-300"
+                            >
+                              Regular
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                const updatedStudent = { ...student, scheduleType: "Weekend" };
+                                updateStudent(student.id, updatedStudent)
+                                  .then(() => refreshStudents())
+                                  .catch(error => console.error("Error updating schedule type:", error));
+                              }}
+                              className="cursor-pointer dark:hover:bg-gray-700 dark:text-gray-300"
+                            >
+                              Weekend
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                const updatedStudent = { ...student, scheduleType: "Evening" };
+                                updateStudent(student.id, updatedStudent)
+                                  .then(() => refreshStudents())
+                                  .catch(error => console.error("Error updating schedule type:", error));
+                              }}
+                              className="cursor-pointer dark:hover:bg-gray-700 dark:text-gray-300"
+                            >
+                              Evening
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-gray-600 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-500"
+                            onClick={() => handleViewStudent(student)}
+                          >
+                            <Eye className="h-4 w-4" />
+                            <span className="sr-only">View</span>
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-gray-600 hover:text-amber-600 dark:text-gray-400 dark:hover:text-amber-500"
+                            onClick={() => handleEditStudent(student)}
+                          >
+                            <Edit className="h-4 w-4" />
+                            <span className="sr-only">Edit</span>
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -1551,28 +1865,32 @@ export default function StudentManagement() {
 
       {/* Reset Database Dialog */}
       <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle className="text-red-600 flex items-center">
-              <AlertCircle className="h-5 w-5 mr-2" />
+              <Trash2 className="h-4 w-4 mr-2" />
               Reset Database
             </DialogTitle>
             <DialogDescription>
-              This action will delete ALL data from the database, including students, courses, programs, and more.
-              This cannot be undone. Are you sure you want to proceed?
+              This will clear all student data and reset the system. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           
           {resetResults && (
-            <div className={`p-3 rounded-md ${resetResults.success ? 'bg-green-100' : 'bg-red-100'}`}>
-              <p className="font-medium">{resetResults.message}</p>
-              {resetResults.success && (
-                <div className="mt-2 text-sm">
-                  <p>Records deleted:</p>
-                  <ul className="list-disc pl-5 mt-1">
-                    {Object.entries(resetResults.deletedCount)
-                      .filter(([_, count]) => count > 0)
-                      .map(([collection, count]) => (
+            <Alert 
+              variant={resetResults.success ? "default" : "destructive"}
+              className={resetResults.success ? "bg-green-50 border-green-200" : ""}
+            >
+              <AlertTitle className={resetResults.success ? "text-green-700" : ""}>
+                {resetResults.success ? "Success" : "Error"}
+              </AlertTitle>
+              <AlertDescription className={resetResults.success ? "text-green-700" : ""}>
+                {resetResults.message}
+                {resetResults.success && resetResults.deletedCount && (
+                  <div className="mt-2">
+                    <strong>Deleted records:</strong>
+                    <ul className="list-disc pl-5">
+                      {Object.entries(resetResults.deletedCount).map(([collection, count]) => (
                         <li key={collection}>
                           {collection}: {count} records
                         </li>
@@ -1580,11 +1898,23 @@ export default function StudentManagement() {
                   </ul>
                 </div>
               )}
-            </div>
+              </AlertDescription>
+            </Alert>
           )}
           
-          <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
-            <Button variant="outline" onClick={() => setIsResetDialogOpen(false)}>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-gray-500">
+              Type <strong>RESET</strong> to confirm this action.
+            </p>
+            <Input 
+              placeholder="Type RESET to confirm"
+              onChange={(e) => e.target.value === 'RESET' ? setIsResetting(false) : setIsResetting(true)}
+              className="border-red-300"
+            />
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsResetDialogOpen(false)} disabled={isResetting}>
               Cancel
             </Button>
             <Button 
@@ -1592,17 +1922,7 @@ export default function StudentManagement() {
               onClick={handleResetDatabase}
               disabled={isResetting}
             >
-              {isResetting ? (
-                <>
-                  <span className="animate-spin mr-2">⟳</span> 
-                  Resetting...
-                </>
-              ) : (
-                <>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Yes, Reset Everything
-                </>
-              )}
+              Reset Database
             </Button>
           </DialogFooter>
         </DialogContent>

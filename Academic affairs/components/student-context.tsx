@@ -173,7 +173,7 @@ export function StudentProvider({ children }: { children: ReactNode }) {
   }
 
   const getStudentsByCourse = (courseCode: string) => {
-    return students.filter((student) => student.enrolledCourses.includes(courseCode))
+    return students.filter((student) => Array.isArray(student.enrolledCourses) && student.enrolledCourses.includes(courseCode))
   }
 
   const calculateGrade = (total: number) => {
@@ -338,10 +338,10 @@ export function StudentProvider({ children }: { children: ReactNode }) {
     const missingPrereqs: string[] = []
 
     // Mock prerequisite checking
-    if (courseCode === "CS 301" && !student.enrolledCourses.includes("CS 201")) {
+    if (courseCode === "CS 301" && !(Array.isArray(student.enrolledCourses) && student.enrolledCourses.includes("CS 201"))) {
       missingPrereqs.push("CS 201")
     }
-    if (courseCode === "CS 201" && !student.enrolledCourses.includes("CS 101")) {
+    if (courseCode === "CS 201" && !(Array.isArray(student.enrolledCourses) && student.enrolledCourses.includes("CS 101"))) {
       missingPrereqs.push("CS 101")
     }
 
@@ -400,7 +400,7 @@ export function StudentProvider({ children }: { children: ReactNode }) {
   const validateEnrollmentCapacity = (courseCode: string) => {
     // Mock implementation
     const maxCapacity = 30
-    const currentCount = students.filter((student) => student.enrolledCourses.includes(courseCode)).length
+    const currentCount = students.filter((student) => Array.isArray(student.enrolledCourses) && student.enrolledCourses.includes(courseCode)).length
     return { canEnroll: currentCount < maxCapacity, currentCount, maxCapacity }
   }
 

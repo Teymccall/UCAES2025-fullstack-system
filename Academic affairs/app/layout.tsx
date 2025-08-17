@@ -8,6 +8,8 @@ import { AuthProvider } from "@/components/auth-context"
 import { CourseProvider } from "@/components/course-context"
 import { AcademicProvider } from "@/components/academic-context"
 import { StudentProvider } from "@/components/student-context"
+import { FirebaseProvider } from "@/components/firebase-context"
+import { SpinnerContainer } from "@/components/ui/spinner"
 import dynamic from 'next/dynamic'
 
 const inter = Inter({ subsets: ["latin"] })
@@ -18,7 +20,13 @@ const DynamicMongoDBProvider = dynamic(
   () => import('@/components/mongodb-context').then((mod) => mod.MongoDBProvider),
   { 
     ssr: false,
-    loading: () => <div>Loading database connection...</div>
+    loading: () => (
+      <div className="flex items-center justify-center h-screen">
+        <SpinnerContainer>
+          Loading database connection...
+        </SpinnerContainer>
+      </div>
+    )
   }
 )
 
@@ -36,13 +44,15 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           <DynamicMongoDBProvider>
-            <AuthProvider>
-              <CourseProvider>
-                <AcademicProvider>
-                  <StudentProvider>{children}</StudentProvider>
-                </AcademicProvider>
-              </CourseProvider>
-            </AuthProvider>
+            <FirebaseProvider>
+              <AuthProvider>
+                <CourseProvider>
+                  <AcademicProvider>
+                    <StudentProvider>{children}</StudentProvider>
+                  </AcademicProvider>
+                </CourseProvider>
+              </AuthProvider>
+            </FirebaseProvider>
           </DynamicMongoDBProvider>
         </ThemeProvider>
       </body>

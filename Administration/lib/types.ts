@@ -9,7 +9,8 @@ export interface Student {
   programme: string
   level: string
   entryQualification: string
-  status: "Active" | "Inactive" | "Graduated" | "Suspended" | string
+  status: "Active" | "Inactive" | "Graduated" | "Suspended" | "pending" | "active" | string
+  scheduleType?: "Regular" | "Weekend" | "Evening" | "Distance" | string
   email: string
   phone: string
   address: string | {

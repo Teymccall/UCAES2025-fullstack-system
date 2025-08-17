@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloudinary Upload Test</title>
+</head>
+<body>
+    <h1>Cloudinary Upload Test</h1>
+    <input type="file" id="fileInput" accept="image/*">
+    <button onclick="uploadImage()">Upload to Cloudinary</button>
+    <div id="result"></div>
+
+    <script>
+        async function uploadImage() {
+            const fileInput = document.getElementById('fileInput');
+            const resultDiv = document.getElementById('result');
+            
+            if (!fileInput.files[0]) {
+                resultDiv.innerHTML = '<p style="color: red;">Please select a file first</p>';
+                return;
+            }
+
+            const file = fileInput.files[0];
+            console.log('File selected:', file.name, file.size, file.type);
+
+            // Cloudinary configuration
+            const CLOUDINARY_CLOUD_NAME = "dxkkv9nbn";
+            const CLOUDINARY_UPLOAD_PRESET = "studentspassport";
+            const CLOUDINARY_API_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+
+            try {
+                resultDiv.innerHTML = '<p>Uploading...</p>';
+                
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+
+                console.log('Sending request to:', CLOUDINARY_API_URL);
+                console.log('Upload preset:', CLOUDINARY_UPLOAD_PRESET);
+
+                const response = await fetch(CLOUDINARY_API_URL, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                console.log('Response status:', response.status);
+                console.log('Response ok:', response.ok);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Upload failed:', errorText);
+                    resultDiv.innerHTML = `<p style="color: red;">Upload failed: ${errorText}</p>`;
+                    return;
+                }
+
+                const result = await response.json();
+                console.log('Upload successful:', result);
+                
+                resultDiv.innerHTML = `
+                    <p style="color: green;">Upload successful!</p>
+                    <p><strong>Secure URL:</strong> <a href="${result.secure_url}" target="_blank">${result.secure_url}</a></p>
+                    <p><strong>Public ID:</strong> ${result.public_id}</p>
+                    <p><strong>Format:</strong> ${result.format}</p>
+                    <p><strong>Size:</strong> ${result.bytes} bytes</p>
+                    <p><strong>Dimensions:</strong> ${result.width} x ${result.height}</p>
+                    <img src="${result.secure_url}" alt="Uploaded image" style="max-width: 300px; margin-top: 10px;">
+                `;
+
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html> 

@@ -1,117 +1,167 @@
 "use client"
 
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from "@/components/ui/sidebar"
-import { Home, User, Users, GraduationCap, BookOpen, LogOut, School, Award, Settings } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
+import { usePathname, useRouter } from "next/navigation"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { logoutStudent } from "@/lib/auth"
-import { useRouter } from "next/navigation"
+import { 
+  Home, 
+  User, 
+  BookOpen, 
+  FileText, 
+  Settings, 
+  GraduationCap,
+  Bell,
+  LogOut
+} from "lucide-react"
+import { useAuth } from "@/components/auth-provider"
+import { useState, useEffect } from "react"
+import { collection, query, where, getDocs } from "firebase/firestore"
+import { db } from "@/lib/firebase"
+import Loader from "./ui/loader"
 
-const menuItems = [
-  {
-    title: "Dashboard",
-    url: "/",
-    icon: Home,
-  },
-  {
-    title: "Personal Information",
-    url: "/personal-info",
-    icon: User,
-  },
-  {
-    title: "Contact Details",
-    url: "/contact-details",
-    icon: Users,
-  },
-  {
-    title: "Academic Records",
-    url: "/academic-records",
-    icon: GraduationCap,
-  },
-  {
-    title: "Grades & Results",
-    url: "/grades",
-    icon: Award,
-  },
-  {
-    title: "Course Registration",
-    url: "/course-registration",
-    icon: BookOpen,
-  },
-  {
-    title: "Settings",
-    url: "/settings",
-    icon: Settings,
-  },
-]
-
-export function AppSidebar() {
+export default function AppSidebar() {
+  const pathname = usePathname()
   const router = useRouter()
+  const { logout } = useAuth()
+  const [unreadNotifications, setUnreadNotifications] = useState(0)
+  const [loadingLink, setLoadingLink] = useState<string | null>(null)
 
-  const handleLogout = async () => {
-    try {
-      await logoutStudent()
-      router.push("/login")
-    } catch (error) {
-      console.error("Logout error:", error)
+  // Check for unread notifications
+  useEffect(() => {
+    const checkNotifications = async () => {
+      try {
+        const notificationsQuery = query(
+          collection(db, "notifications"),
+          where("read", "==", false)
+        )
+        const snapshot = await getDocs(notificationsQuery)
+        setUnreadNotifications(snapshot.size)
+      } catch (error) {
+        console.error("Error checking notifications:", error)
+      }
     }
+
+    checkNotifications()
+    // Check every 30 seconds for new notifications
+    const interval = setInterval(checkNotifications, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Handle navigation with loading state
+  const handleNavigation = (href: string) => {
+    setLoadingLink(href)
+    router.push(href)
   }
 
+  // Clear loading state when pathname changes
+  useEffect(() => {
+    setLoadingLink(null)
+  }, [pathname])
+
+  const menuItems = [
+    {
+      title: "Dashboard",
+      href: "/dashboard",
+      icon: Home
+    },
+    {
+      title: "Personal Info",
+      href: "/personal-info",
+      icon: User
+    },
+    {
+      title: "Course Registration",
+      href: "/course-registration",
+      icon: BookOpen
+    },
+    {
+      title: "Grades & Results",
+      href: "/grades",
+      icon: GraduationCap
+    },
+    {
+      title: "Defer Program",
+      href: "/defer-program",
+      icon: FileText
+    },
+    {
+      title: "Settings",
+      href: "/settings",
+      icon: Settings
+    }
+  ]
+
   return (
-    <Sidebar className="border-r border-gray-200">
-      <SidebarHeader className="border-b border-gray-200 p-4">
+    <div className="flex flex-col h-full bg-white border-r">
+      <div className="p-4 sm:p-6">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-full bg-green-600 flex items-center justify-center">
-            <School className="h-6 w-6 text-white" />
+          <div className="flex-shrink-0">
+            <Image
+              src="/logo.png"
+              alt="UCAES Logo"
+              width={40}
+              height={40}
+              className="w-8 h-8 sm:w-10 sm:h-10"
+              priority
+            />
           </div>
-          <div>
-            <h2 className="font-semibold text-gray-900">UCAES</h2>
-            <p className="text-sm text-gray-600">Student Portal</p>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm sm:text-lg font-semibold text-gray-900 truncate">UCAES Portal</h2>
+            <p className="text-xs text-gray-500 hidden sm:block">Student Dashboard</p>
           </div>
         </div>
-      </SidebarHeader>
-
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-gray-700 font-medium">Navigation</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild className="hover:bg-green-50 hover:text-green-700">
-                    <Link href={item.url} className="flex items-center gap-3">
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-
-      <SidebarFooter className="border-t border-gray-200 p-4">
+      </div>
+      
+      <nav className="flex-1 px-4 space-y-2">
+        {menuItems.map((item) => {
+          const isLoading = loadingLink === item.href
+          const isActive = pathname === item.href
+          
+          return (
+            <button
+              key={item.href}
+              onClick={() => handleNavigation(item.href)}
+              disabled={isLoading || isActive}
+              className={cn(
+                "flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors w-full text-left",
+                isActive
+                  ? "bg-blue-50 text-blue-700 cursor-default"
+                  : isLoading
+                  ? "bg-gray-50 text-gray-500 cursor-not-allowed"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50 cursor-pointer"
+              )}
+            >
+              {isLoading ? (
+                <Loader className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+              ) : (
+                <item.icon className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+              )}
+              <span className="truncate">{item.title}</span>
+              {item.title === "Defer Program" && unreadNotifications > 0 && (
+                <div className="ml-auto">
+                  <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                    {unreadNotifications}
+                  </span>
+                </div>
+              )}
+            </button>
+          )
+        })}
+      </nav>
+      
+      <div className="p-3 sm:p-4 border-t">
         <Button
-          variant="ghost"
-          className="w-full justify-start text-gray-600 hover:text-red-600 hover:bg-red-50"
-          onClick={handleLogout}
+          onClick={logout}
+          variant="outline"
+          className="w-full justify-start gap-2 sm:gap-3 text-xs sm:text-sm"
+          size="sm"
         >
-          <LogOut className="h-4 w-4 mr-2" />
-          Sign Out
+          <LogOut className="h-3 w-3 sm:h-4 sm:w-4" />
+          <span className="truncate">Logout</span>
         </Button>
-      </SidebarFooter>
-    </Sidebar>
+      </div>
+    </div>
   )
 }

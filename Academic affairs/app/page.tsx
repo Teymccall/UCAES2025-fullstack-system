@@ -1,154 +1,160 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, FormEvent } from "react"
+import { useRouter } from "next/navigation"
+import Image from "next/image"
+import { Eye, EyeOff, Lock, User as UserIcon, GraduationCap } from "lucide-react"
+import { useAuth } from "@/components/auth-context"
+
 import { Button } from "@/components/ui/button"
-import Link from "next/link"
-import { ArrowRight, Database, RefreshCw, Check } from "lucide-react"
-import migrateToFirebase from "@/scripts/migrate-to-firebase"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 
 export default function HomePage() {
-  const [migrationStatus, setMigrationStatus] = useState<"idle" | "running" | "success" | "error">("idle")
-  const [dbInitialized, setDbInitialized] = useState(false)
-  
-  // Check if database needs initialization
-  useEffect(() => {
-    const checkDatabase = async () => {
-      try {
-        // We'll check localStorage for a flag indicating DB has been initialized
-        const isInitialized = localStorage.getItem("dbInitialized") === "true"
-        setDbInitialized(isInitialized)
-      } catch (error) {
-        console.error("Error checking database status:", error)
-      }
-    }
-    
-    checkDatabase()
-  }, [])
-  
-  const handleMigration = async () => {
-    setMigrationStatus("running")
+  const [username, setUsername] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const { login } = useAuth()
+  const router = useRouter()
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    setError("")
+    setIsLoading(true)
     
     try {
-      // Call API route to initialize the database
-      await fetch("/api/init-db", { method: "POST" })
-      // Then migrate any mock data
-      await migrateToFirebase()
+      const result = await login(username, password)
       
-      // Set success status
-      setMigrationStatus("success")
-      setDbInitialized(true)
-      
-      // Store initialization status in localStorage
-      localStorage.setItem("dbInitialized", "true")
+      if (result.success) {
+        // Redirect based on role
+        if (result.user?.role === "director") {
+          router.push("/director/dashboard")
+        } else if (result.user?.role === "Lecturer") {
+          router.push("/lecturer/dashboard")
+        } else {
+          router.push("/staff/dashboard")
+        }
+      } else {
+        setError(result.error || "Invalid username or password")
+      }
     } catch (error) {
-      console.error("Migration error:", error)
-      setMigrationStatus("error")
+      console.error("Login error:", error)
+      setError("An unexpected error occurred. Please try again.")
+    } finally {
+      setIsLoading(false)
     }
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <main className="flex-1">
-        <section className="w-full py-12 md:py-24 lg:py-32">
-          <div className="container px-4 md:px-6">
-            <div className="flex flex-col items-center justify-center space-y-4 text-center">
-              <div className="space-y-2">
-                <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl">
-                  Academic Affairs Portal
+    <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-gradient-to-br from-green-50 to-gray-50">
+      <div className="w-full max-w-md">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center mb-4">
+            <GraduationCap className="h-12 w-12 text-green-600 mr-3" />
+            <h1 className="text-2xl font-bold text-gray-900">
+                  Administration
                 </h1>
-                <p className="mx-auto max-w-[700px] text-gray-500 md:text-xl dark:text-gray-400">
-                  Manage academic programs, student registrations, and staff activities efficiently.
+          </div>
+          <p className="text-gray-600">
+            University College of Agriculture and Environmental Studies
                 </p>
               </div>
-              <div className="w-full max-w-sm space-y-2">
-                <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                  <Link href="/director/dashboard" className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-8 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50">
-                    Director Dashboard
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                  <Link href="/staff/dashboard" className="inline-flex h-10 items-center justify-center rounded-md border border-input bg-background px-8 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50">
-                    Staff Dashboard
-                  </Link>
+
+        <Card className="shadow-lg">
+          <CardHeader className="space-y-1 text-center">
+            <div className="flex justify-center mb-2">
+              <Image
+                src="/uceslogo.png"
+                alt="UCAES Logo"
+                width={80}
+                height={80}
+                style={{ objectFit: "contain", borderRadius: 0 }}
+              />
                 </div>
-                
-                {/* Database Migration Card - Only show if not initialized */}
-                {!dbInitialized && (
-                  <Card className="mt-8 border-dashed border-2 border-gray-300">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <Database className="h-5 w-5 text-blue-600" />
-                        Database Setup Required
-                      </CardTitle>
+            <CardTitle className="text-xl font-bold">Sign In</CardTitle>
                       <CardDescription>
-                        Initialize the database with real data
+              Enter your credentials to access the system
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-sm mb-4">
-                        This appears to be your first time using the system. 
-                        Click the button below to set up the database with all required data.
-                      </p>
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
+                {error}
+              </div>
+            )}
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <div className="relative">
+                  <UserIcon className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="username"
+                    placeholder="Enter your username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="pl-10"
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-10 pr-10"
+                    required
+                    disabled={isLoading}
+                  />
                       <Button 
-                        onClick={handleMigration}
-                        disabled={migrationStatus === "running"}
-                        className="w-full"
-                      >
-                        {migrationStatus === "running" ? (
-                          <>
-                            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                            Setting up database...
-                          </>
-                        ) : migrationStatus === "success" ? (
-                          <>
-                            <Check className="mr-2 h-4 w-4" />
-                            Database Ready!
-                          </>
-                        ) : (
-                          <>
-                            <Database className="mr-2 h-4 w-4" />
-                            Initialize Database
-                          </>
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                    disabled={isLoading}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4 text-gray-400" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-gray-400" />
                         )}
                       </Button>
-                    </CardContent>
-                  </Card>
-                )}
+                </div>
               </div>
+
+              <Button 
+                type="submit" 
+                className="w-full bg-green-600 hover:bg-green-700" 
+                disabled={isLoading || !username || !password}
+              >
+                {isLoading ? "Signing in..." : "Sign In"}
+              </Button>
+            </form>
+            <div className="mt-4 text-center text-sm">
+              Don&apos;t have an account? <a href="/login/signup" className="text-blue-600 underline">Sign up as Director</a>
             </div>
-          </div>
-        </section>
-        <section className="w-full py-12 md:py-24 lg:py-32 bg-gray-100 dark:bg-gray-800">
-          <div className="container px-4 md:px-6">
-            <div className="grid gap-6 lg:grid-cols-3 lg:gap-12">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Academic Management</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p>Manage programs, courses, and academic sessions with ease.</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Student Management</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p>Track student registrations, academic progress, and results.</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Staff Oversight</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p>Supervise staff activities, monitor performance, and manage assignments.</p>
                 </CardContent>
               </Card>
             </div>
-          </div>
-        </section>
-      </main>
     </div>
   )
 }

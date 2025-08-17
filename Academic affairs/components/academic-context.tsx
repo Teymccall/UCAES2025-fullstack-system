@@ -23,6 +23,7 @@ export interface AcademicSemester {
   id: string
   name: string
   yearId: string
+  programType: "Regular" | "Weekend" // Add programType
   startDate: string
   endDate: string
   registrationStart: string
@@ -78,16 +79,20 @@ export interface OperationalHours {
 
 interface AcademicContextType {
   academicYears: AcademicYear[]
+  currentAcademicYear: AcademicYear | null // Add explicit currentAcademicYear
   currentSemester: AcademicSemester | null
+  currentRegularSemester: AcademicSemester | null // Add specific accessor for Regular
+  currentWeekendSemester: AcademicSemester | null // Add specific accessor for Weekend
   staffMembers: StaffMember[]
   dailyReports: DailyReport[]
   operationalHours: OperationalHours | null
   loading: boolean
+  refreshAcademicData: () => Promise<void> // Add explicit refresh method
 
   // Academic Year/Semester Management
   addAcademicYear: (year: Omit<AcademicYear, "id" | "createdAt" | "semesters">) => Promise<void>
   addSemester: (semester: Omit<AcademicSemester, "id" | "createdAt">) => Promise<void>
-  setCurrentSemester: (semesterId: string) => Promise<void>
+  setCurrentSemester: (semesterId: string, programType: "Regular" | "Weekend") => Promise<void>
   rolloverToNewSemester: (newSemesterData: Omit<AcademicSemester, "id" | "createdAt">) => Promise<void>
 
   // Staff Management
@@ -111,6 +116,7 @@ const AcademicContext = createContext<AcademicContextType | undefined>(undefined
 
 export function AcademicProvider({ children }: { children: ReactNode }) {
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
+  const [currentAcademicYear, setCurrentAcademicYear] = useState<AcademicYear | null>(null) // Add current year state
   const [semesters, setSemesters] = useState<AcademicSemester[]>([])
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([])
   const [dailyReports, setDailyReports] = useState<DailyReport[]>([])
@@ -118,12 +124,12 @@ export function AcademicProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   // Fetch Firebase data
-  const { data: firebaseYears, loading: yearsLoading } = useFirebaseData<AcademicYearType>(
+  const { data: firebaseYears, loading: yearsLoading, refreshData: refreshYears } = useFirebaseData<AcademicYearType>(
     'academic-years',
     { orderBy: [['year', 'desc']] }
   )
 
-  const { data: firebaseSemesters, loading: semestersLoading } = useFirebaseData<SemesterType>(
+  const { data: firebaseSemesters, loading: semestersLoading, refreshData: refreshSemesters } = useFirebaseData<SemesterType>(
     'academic-semesters'
   )
 
@@ -132,29 +138,100 @@ export function AcademicProvider({ children }: { children: ReactNode }) {
     { orderBy: [['name', 'asc']] }
   )
 
+  // Add a function to explicitly refresh data from Firebase
+  const refreshAcademicData = async () => {
+    try {
+      // Don't update local state directly during refresh to avoid update loops
+      // Just trigger the Firebase refreshes, the listeners will handle state updates
+      await Promise.all([
+        refreshYears(), 
+        refreshSemesters()
+      ]);
+      
+      // Add a small timeout to ensure Firebase has time to process the updates
+      // This helps avoid React update depth exceeded errors
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      return Promise.resolve();
+    } catch (error) {
+      console.error("Error refreshing academic data:", error);
+      return Promise.reject(error);
+    }
+  };
+
   // Transform Firebase data to context format
   useEffect(() => {
     if (firebaseYears && firebaseSemesters) {
+      // Create a set to track which semesters have been assigned to avoid duplicates
+      const assignedSemesterIds = new Set<string>();
+      
       const transformedYears: AcademicYear[] = firebaseYears.map(year => {
-        const yearSemesters = firebaseSemesters.filter(
-          sem => sem.academicYear === year.id || sem.academicYear === year.year
-        );
+        // First, try to match by exact year ID, then by year string
+        // Prioritize ID matches to avoid duplicates when multiple years have the same year string
+        const yearSemesters = firebaseSemesters.filter(sem => {
+          // Skip if this semester was already assigned to another year
+          if (assignedSemesterIds.has(sem.id)) {
+            return false;
+          }
+          
+          // Check for exact ID match first (most specific)
+          if (sem.academicYear === year.id) {
+            assignedSemesterIds.add(sem.id);
+            return true;
+          }
+          
+          // If no ID match, check year string match (less specific)
+          // But only if this semester hasn't been assigned via ID match
+          if (sem.academicYear === year.year && !assignedSemesterIds.has(sem.id)) {
+            assignedSemesterIds.add(sem.id);
+            return true;
+          }
+          
+          return false;
+        });
+        
+        // Helper function to safely convert any date format to ISO string
+        const formatDateToISOString = (dateValue: any): string => {
+          if (!dateValue) return new Date().toISOString();
+          
+          try {
+            // Handle different date formats
+            if (dateValue instanceof Date) {
+              return dateValue.toISOString();
+            } else if (typeof dateValue === 'object' && dateValue.toDate) {
+              // Handle Firestore Timestamp
+              return dateValue.toDate().toISOString();
+            } else if (typeof dateValue === 'string') {
+              // Already a string, try to parse it as a date
+              const date = new Date(dateValue);
+              if (!isNaN(date.getTime())) {
+                return date.toISOString();
+              }
+            }
+            // Fallback
+            return String(dateValue);
+          } catch (e) {
+            console.error("Error converting date:", e);
+            return new Date().toISOString();
+          }
+        };
         
         const transformed: AcademicYear = {
           id: year.id || '',
           year: year.year,
-          startDate: year.startDate instanceof Date ? year.startDate.toISOString() : String(year.startDate),
-          endDate: year.endDate instanceof Date ? year.endDate.toISOString() : String(year.endDate),
+          startDate: formatDateToISOString(year.startDate),
+          endDate: formatDateToISOString(year.endDate),
           status: year.status as "active" | "completed" | "upcoming",
           createdAt: year.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
           semesters: yearSemesters.map(sem => ({
             id: sem.id || '',
             name: sem.name,
             yearId: year.id || '',
-            startDate: sem.startDate instanceof Date ? sem.startDate.toISOString() : String(sem.startDate),
-            endDate: sem.endDate instanceof Date ? sem.endDate.toISOString() : String(sem.endDate),
-            registrationStart: '',
-            registrationEnd: '',
+            programType: sem.programType || "Regular", // Default to Regular if not specified
+            startDate: formatDateToISOString(sem.startDate),
+            endDate: formatDateToISOString(sem.endDate),
+            registrationStart: sem.registrationStart ? formatDateToISOString(sem.registrationStart) : '',
+            registrationEnd: sem.registrationEnd ? formatDateToISOString(sem.registrationEnd) : '',
             status: sem.status as "active" | "completed" | "upcoming",
             isCurrentSemester: sem.status === 'active',
             createdAt: sem.createdAt?.toDate?.()?.toISOString() || new Date().toISOString()
@@ -165,6 +242,10 @@ export function AcademicProvider({ children }: { children: ReactNode }) {
       });
       
       setAcademicYears(transformedYears);
+      
+      // Find and set current active academic year
+      const activeYear = transformedYears.find(year => year.status === "active") || null;
+      setCurrentAcademicYear(activeYear);
       
       // Get all semesters
       const allSemesters = transformedYears.flatMap(y => y.semesters);
@@ -199,13 +280,24 @@ export function AcademicProvider({ children }: { children: ReactNode }) {
   }, [yearsLoading, semestersLoading, staffLoading]);
 
   const currentSemester = semesters.find((s) => s.isCurrentSemester) || null
+  const currentRegularSemester = semesters.find((s) => s.isCurrentSemester && s.programType === "Regular") || null
+  const currentWeekendSemester = semesters.find((s) => s.isCurrentSemester && s.programType === "Weekend") || null
 
   const addAcademicYear = async (yearData: Omit<AcademicYear, "id" | "createdAt" | "semesters">) => {
     try {
+      // Create Date objects for startDate and endDate
+      const startDate = yearData.startDate instanceof Date ? 
+        yearData.startDate : 
+        new Date(yearData.startDate);
+      
+      const endDate = yearData.endDate instanceof Date ? 
+        yearData.endDate : 
+        new Date(yearData.endDate);
+      
       const firebaseYear: AcademicYearType = {
         year: yearData.year,
-        startDate: new Date(yearData.startDate),
-        endDate: new Date(yearData.endDate),
+        startDate: startDate,
+        endDate: endDate,
         status: yearData.status
       };
       
@@ -224,10 +316,19 @@ export function AcademicProvider({ children }: { children: ReactNode }) {
         number: semesterData.name.includes('First') ? '1' : 
                 semesterData.name.includes('Second') ? '2' : 
                 semesterData.name.includes('Third') ? '3' : '1',
+        programType: semesterData.programType,
         startDate: new Date(semesterData.startDate),
         endDate: new Date(semesterData.endDate),
         status: semesterData.status
       };
+
+      // Only add registration dates if they are provided
+      if (semesterData.registrationStart && semesterData.registrationStart.trim() !== '') {
+        firebaseSemester.registrationStart = new Date(semesterData.registrationStart);
+      }
+      if (semesterData.registrationEnd && semesterData.registrationEnd.trim() !== '') {
+        firebaseSemester.registrationEnd = new Date(semesterData.registrationEnd);
+      }
       
       await SemestersService.create(firebaseSemester);
     } catch (error) {
@@ -236,32 +337,50 @@ export function AcademicProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const setCurrentSemester = async (semesterId: string) => {
+  // Update the setCurrentSemester function
+  const setCurrentSemester = async (semesterId: string, programType: "Regular" | "Weekend") => {
     try {
       // Find the semester
       const semesterToUpdate = semesters.find(s => s.id === semesterId);
       if (!semesterToUpdate) throw new Error('Semester not found');
       
-      // First reset any current semester
-      const currentSemester = semesters.find(s => s.isCurrentSemester);
-      if (currentSemester) {
-        await SemestersService.update(currentSemester.id, {
+      // Get the academic year of this semester
+      const academicYear = academicYears.find(y => y.id === semesterToUpdate.yearId);
+      if (!academicYear) throw new Error('Academic year not found');
+      
+      // First reset any current semester of the same program type
+      const currentSemestersOfType = semesters.filter(
+        s => s.isCurrentSemester && s.programType === programType
+      );
+      
+      for (const current of currentSemestersOfType) {
+        await SemestersService.update(current.id, {
           status: 'completed'
         });
+        
+        console.log(`Deactivated previous ${programType} semester/trimester: ${current.name}`);
       }
       
-      // Set the new current semester
+      // Set the new one as active
       await SemestersService.update(semesterId, {
         status: 'active'
       });
       
+      console.log(`Set ${programType} semester/trimester as active: ${semesterToUpdate.name} for ${academicYear.year}`);
+      
       // Update local state
       setSemesters(prev => prev.map(semester => ({
         ...semester,
-        isCurrentSemester: semester.id === semesterId,
+        isCurrentSemester: semester.id === semesterId || 
+                         (semester.isCurrentSemester && semester.programType !== programType),
         status: semester.id === semesterId ? 'active' : 
-                semester.isCurrentSemester ? 'completed' : semester.status
+                (semester.isCurrentSemester && semester.programType === programType) ? 'completed' : 
+                semester.status
       })));
+      
+      // Explicitly refresh data to ensure all components have the latest state
+      await refreshAcademicData();
+      
     } catch (error) {
       console.error('Error setting current semester:', error);
       throw error;
@@ -270,28 +389,48 @@ export function AcademicProvider({ children }: { children: ReactNode }) {
 
   const rolloverToNewSemester = async (newSemesterData: Omit<AcademicSemester, "id" | "createdAt">) => {
     try {
-      // Mark current semester as completed
-      if (currentSemester) {
-        await SemestersService.update(currentSemester.id, {
+      // Mark appropriate current semester as completed based on program type
+      const currentSemesterToComplete = newSemesterData.programType === "Regular" 
+        ? currentRegularSemester 
+        : currentWeekendSemester;
+        
+      if (currentSemesterToComplete) {
+        await SemestersService.update(currentSemesterToComplete.id, {
           status: 'completed'
         });
+        console.log(`Completed ${newSemesterData.programType} semester: ${currentSemesterToComplete.name}`);
+      } else {
+        console.log(`No active ${newSemesterData.programType} semester to complete`);
       }
       
-      // Add new semester as active
+      // Add new semester as active with complete data
       const firebaseSemester: SemesterType = {
         academicYear: newSemesterData.yearId,
         name: newSemesterData.name,
         number: newSemesterData.name.includes('First') ? '1' : 
                 newSemesterData.name.includes('Second') ? '2' : 
                 newSemesterData.name.includes('Third') ? '3' : '1',
+        programType: newSemesterData.programType,
         startDate: new Date(newSemesterData.startDate),
         endDate: new Date(newSemesterData.endDate),
         status: 'active'
       };
+
+      // Only add registration dates if they are provided
+      if (newSemesterData.registrationStart && newSemesterData.registrationStart.trim() !== '') {
+        firebaseSemester.registrationStart = new Date(newSemesterData.registrationStart);
+      }
+      if (newSemesterData.registrationEnd && newSemesterData.registrationEnd.trim() !== '') {
+        firebaseSemester.registrationEnd = new Date(newSemesterData.registrationEnd);
+      }
       
-      await SemestersService.create(firebaseSemester);
+      const newSemesterId = await SemestersService.create(firebaseSemester);
+      console.log(`Created new ${newSemesterData.programType} semester: ${newSemesterData.name} with ID ${newSemesterId}`);
       
-      console.log("Archiving previous semester data...");
+      // Refresh the context data to reflect changes throughout the system
+      await refreshAcademicData();
+      
+      return newSemesterId;
     } catch (error) {
       console.error('Error rolling over to new semester:', error);
       throw error;
@@ -444,11 +583,15 @@ export function AcademicProvider({ children }: { children: ReactNode }) {
     <AcademicContext.Provider
       value={{
         academicYears,
+        currentAcademicYear, // Add this
         currentSemester,
+        currentRegularSemester,
+        currentWeekendSemester,
         staffMembers,
         dailyReports,
         operationalHours,
         loading,
+        refreshAcademicData, // Add this
         addAcademicYear,
         addSemester,
         setCurrentSemester,

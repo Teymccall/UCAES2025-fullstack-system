@@ -26,6 +26,18 @@ export interface Program {
   status: 'active' | 'inactive' | 'pending' | 'discontinued';
   createdAt?: any;
   updatedAt?: any;
+  // Optional structured mapping used by Program Structure pages
+  coursesPerLevel?: {
+    [level: string]: {
+      [semester: string]: {
+        [year: string]: {
+          [studyMode: string]: string[];
+        };
+      };
+    };
+  };
+  // Optional flat list of course codes associated to program
+  courses?: string[];
 }
 
 export interface Course {
@@ -53,14 +65,16 @@ export interface AcademicYear {
   createdAt?: any;
 }
 
+// Update Semester interface to include programType
 export interface Semester {
   id?: string;
   academicYear: string;
   name: string;
   number: string;
+  programType?: 'Regular' | 'Weekend'; // Add programType field
   startDate: Date | string;
   endDate: Date | string;
-  status: 'active' | 'pending' | 'completed';
+  status: 'active' | 'pending' | 'completed' | 'upcoming';
   createdAt?: any;
 }
 
@@ -335,10 +349,21 @@ export const AcademicYearsService = {
       console.error('Error updating academic year:', error);
       throw error;
     }
+  },
+  
+  // Add delete method
+  async delete(id: string): Promise<void> {
+    try {
+      const docRef = doc(db, COLLECTIONS.ACADEMIC_YEARS, id);
+      await deleteDoc(docRef);
+    } catch (error) {
+      console.error('Error deleting academic year:', error);
+      throw error;
+    }
   }
 };
 
-// Semesters Service
+// Update Semesters Service
 export const SemestersService = {
   async getByYear(yearId: string): Promise<Semester[]> {
     try {
@@ -357,14 +382,34 @@ export const SemestersService = {
     }
   },
   
-  async getCurrent(): Promise<Semester | null> {
+  async getByProgramType(programType: 'Regular' | 'Weekend'): Promise<Semester[]> {
     try {
       const semestersRef = collection(db, COLLECTIONS.SEMESTERS);
       const q = query(
         semestersRef,
-        where('status', '==', 'active'),
-        limit(1)
+        where('programType', '==', programType)
       );
+      const snapshot = await getDocs(q);
+      
+      return snapshot.docs.map(doc => convertDoc<Semester>(doc));
+    } catch (error) {
+      console.error('Error getting semesters by program type:', error);
+      throw error;
+    }
+  },
+  
+  async getCurrent(programType?: 'Regular' | 'Weekend'): Promise<Semester | null> {
+    try {
+      const semestersRef = collection(db, COLLECTIONS.SEMESTERS);
+      let constraints: QueryConstraint[] = [where('status', '==', 'active')];
+      
+      // If program type specified, filter by it
+      if (programType) {
+        constraints.push(where('programType', '==', programType));
+      }
+      
+      constraints.push(limit(1));
+      const q = query(semestersRef, ...constraints);
       const snapshot = await getDocs(q);
       
       if (snapshot.empty) {
@@ -399,6 +444,43 @@ export const SemestersService = {
       await updateDoc(docRef, semesterData);
     } catch (error) {
       console.error('Error updating semester:', error);
+      throw error;
+    }
+  },
+  
+  // Add delete method
+  async delete(id: string): Promise<void> {
+    try {
+      const docRef = doc(db, COLLECTIONS.SEMESTERS, id);
+      await deleteDoc(docRef);
+    } catch (error) {
+      console.error('Error deleting semester:', error);
+      throw error;
+    }
+  },
+  
+  async setActive(id: string, programType: 'Regular' | 'Weekend'): Promise<void> {
+    try {
+      // First deactivate all semesters of the same program type
+      const semestersRef = collection(db, COLLECTIONS.SEMESTERS);
+      const activeQuery = query(
+        semestersRef,
+        where('programType', '==', programType),
+        where('status', '==', 'active')
+      );
+      
+      const snapshot = await getDocs(activeQuery);
+      const batch = snapshot.docs.map(doc => 
+        updateDoc(doc.ref, { status: 'completed' })
+      );
+      
+      await Promise.all(batch);
+      
+      // Now set the new one as active
+      const docRef = doc(db, COLLECTIONS.SEMESTERS, id);
+      await updateDoc(docRef, { status: 'active' });
+    } catch (error) {
+      console.error('Error setting active semester:', error);
       throw error;
     }
   }

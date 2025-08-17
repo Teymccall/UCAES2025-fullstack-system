@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useAuth } from "./useAuth"
+import { useAuth } from "@/components/auth-provider"
 import type { Student } from "@/lib/firebase-utils"
 
 export const useStudent = () => {

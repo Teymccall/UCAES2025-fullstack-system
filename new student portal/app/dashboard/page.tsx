@@ -2,16 +2,38 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useAuth } from "@/hooks/useAuth"
+import { useAuth } from "@/components/auth-provider"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowRight, BookOpen, GraduationCap, BookCopy, Calendar } from "lucide-react"
+import { ArrowRight, BookOpen, GraduationCap, BookCopy, Calendar, FileText } from "lucide-react"
 import Link from "next/link"
+import { Loader } from "@/components/ui/loader"
+import { getStudentCourseRegistration, getAcademicRecord } from "@/lib/academic-service"
+import { getStudentGrades } from "@/lib/firebase-utils"
+
+interface DashboardData {
+  registeredCourses: number
+  creditHours: number
+  totalGrades: number
+  currentSemester: string
+  academicRecord: any
+  loading: boolean
+  error: string | null
+}
 
 export default function DashboardPage() {
-  const { student, loading, isAuthenticated, refreshUserData } = useAuth()
+  const { student, loading: authLoading, isAuthenticated, refreshUserData } = useAuth()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
+  const [dashboardData, setDashboardData] = useState<DashboardData>({
+    registeredCourses: 0,
+    creditHours: 0,
+    totalGrades: 0,
+    currentSemester: "2nd",
+    academicRecord: null,
+    loading: true,
+    error: null
+  })
   
   // Use mounted state to avoid hydration issues
   useEffect(() => {
@@ -24,22 +46,66 @@ export default function DashboardPage() {
       console.log("Dashboard loaded - refreshing user data");
       refreshUserData().catch(console.error);
     }
-  }, [mounted, isAuthenticated, refreshUserData]);
+  }, [mounted, isAuthenticated, refreshUserData])
+
+  // Fetch dashboard data when student is available
+  useEffect(() => {
+    async function fetchDashboardData() {
+      if (!student?.id) return;
+      
+      setDashboardData(prev => ({ ...prev, loading: true, error: null }));
+      
+      try {
+        console.log("Fetching dashboard data for student:", student.id);
+        
+        // Fetch course registration data
+        const registration = await getStudentCourseRegistration(student.id);
+        console.log("Course registration data:", registration);
+        
+        // Fetch grades data
+        const grades = await getStudentGrades(student.id);
+        console.log("Grades data:", grades);
+        
+        // Fetch academic record
+        const academicRecord = await getAcademicRecord(student);
+        console.log("Academic record:", academicRecord);
+        
+        setDashboardData({
+          registeredCourses: registration?.courses?.length || 0,
+          creditHours: registration?.totalCredits || 0,
+          totalGrades: grades.length,
+          currentSemester: "2nd", // This could be dynamic based on current date
+          academicRecord,
+          loading: false,
+          error: null
+        });
+        
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+        setDashboardData(prev => ({
+          ...prev,
+          loading: false,
+          error: error instanceof Error ? error.message : "Failed to fetch dashboard data"
+        }));
+      }
+    }
+    
+    if (student?.id && mounted) {
+      fetchDashboardData();
+    }
+  }, [student?.id, mounted]);
 
   // Redirect if not authenticated
   useEffect(() => {
-    if (!loading && !isAuthenticated) {
+    if (!authLoading && !isAuthenticated) {
       router.push("/login")
     }
-  }, [loading, isAuthenticated, router])
+  }, [authLoading, isAuthenticated, router])
 
-  if (loading || !mounted) {
+  if (authLoading || !mounted) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="flex flex-col items-center gap-2">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-green-600" />
-          <p className="text-gray-500">Loading...</p>
-        </div>
+        <Loader />
       </div>
     )
   }
@@ -61,6 +127,13 @@ export default function DashboardPage() {
         <p className="text-sm mt-1">Index Number: {student.studentIndexNumber || student.registrationNumber}</p>
       </div>
 
+      {/* Error message */}
+      {dashboardData.error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <p className="text-red-800">Error loading dashboard data: {dashboardData.error}</p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
         <Card>
           <CardHeader className="pb-2">
@@ -81,7 +154,11 @@ export default function DashboardPage() {
           <CardContent>
             <div className="flex items-center">
               <BookOpen className="h-5 w-5 text-green-500 mr-2" />
-              <span className="text-2xl font-bold">-</span>
+              {dashboardData.loading ? (
+                <Loader className="h-5 w-5" />
+              ) : (
+                <span className="text-2xl font-bold">{dashboardData.registeredCourses}</span>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -93,23 +170,68 @@ export default function DashboardPage() {
           <CardContent>
             <div className="flex items-center">
               <BookCopy className="h-5 w-5 text-purple-500 mr-2" />
-              <span className="text-2xl font-bold">-</span>
+              {dashboardData.loading ? (
+                <Loader className="h-5 w-5" />
+              ) : (
+                <span className="text-2xl font-bold">{dashboardData.creditHours}</span>
+              )}
             </div>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Semester</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-500">Published Grades</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center">
               <Calendar className="h-5 w-5 text-amber-500 mr-2" />
-              <span className="text-2xl font-bold">2nd</span>
+              {dashboardData.loading ? (
+                <Loader className="h-5 w-5" />
+              ) : (
+                <span className="text-2xl font-bold">{dashboardData.totalGrades}</span>
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Academic Progress Section */}
+      {dashboardData.academicRecord && (
+        <div className="mb-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <GraduationCap className="h-5 w-5 text-blue-500 mr-2" />
+                Academic Progress
+              </CardTitle>
+              <CardDescription>Your current academic standing and progress</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center">
+                  <p className="text-sm text-gray-500">Current CGPA</p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {dashboardData.academicRecord.currentCGPA?.toFixed(2) || "N/A"}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-gray-500">Credits Earned</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {dashboardData.academicRecord.totalCreditsEarned || 0}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-gray-500">Academic Standing</p>
+                  <p className="text-lg font-semibold text-purple-600">
+                    {dashboardData.academicRecord.academicStanding || "Good Standing"}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
         <Card className="flex flex-col">
@@ -129,29 +251,6 @@ export default function DashboardPage() {
             <Link href="/personal-info">
               <Button className="w-full bg-blue-600 hover:bg-blue-700">
                 View Details
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
-          </div>
-        </Card>
-        
-        <Card className="flex flex-col">
-          <CardHeader>
-            <div className="bg-green-50 w-10 h-10 rounded-lg flex items-center justify-center mb-3">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-            </div>
-            <CardTitle>Academic Records</CardTitle>
-            <CardDescription>Check your academic progress</CardDescription>
-          </CardHeader>
-          <CardContent className="flex-grow">
-            {/* Content here */}
-          </CardContent>
-          <div className="px-6 pb-4">
-            <Link href="/academic-records">
-              <Button className="w-full bg-green-600 hover:bg-green-700">
-                View Records
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
@@ -180,30 +279,76 @@ export default function DashboardPage() {
             </Link>
           </div>
         </Card>
+
+        <Card className="flex flex-col">
+          <CardHeader>
+            <div className="bg-green-50 w-10 h-10 rounded-lg flex items-center justify-center mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </div>
+            <CardTitle>Contact Details</CardTitle>
+            <CardDescription>Update your contact information</CardDescription>
+          </CardHeader>
+          <CardContent className="flex-grow">
+            {/* Content here */}
+          </CardContent>
+          <div className="px-6 pb-4">
+            <Link href="/contact-details">
+              <Button className="w-full bg-green-600 hover:bg-green-700">
+                Update Contact
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </Card>
       </div>
 
-      <Card className="flex flex-col">
-        <CardHeader>
-          <div className="bg-purple-50 w-10 h-10 rounded-lg flex items-center justify-center mb-3">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+        <Card className="flex flex-col">
+          <CardHeader>
+            <div className="bg-purple-50 w-10 h-10 rounded-lg flex items-center justify-center mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <CardTitle>Course Registration</CardTitle>
+            <CardDescription>Register for courses this semester</CardDescription>
+          </CardHeader>
+          <CardContent className="flex-grow">
+            <p className="text-gray-600">Register for your courses for the current semester. Make sure to check your academic advisor's recommendations before registering.</p>
+          </CardContent>
+          <div className="px-6 pb-4">
+            <Link href="/course-registration">
+              <Button className="w-full bg-purple-600 hover:bg-purple-700">
+                Register Courses
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
           </div>
-          <CardTitle>Course Registration</CardTitle>
-          <CardDescription>Register for courses this semester</CardDescription>
-        </CardHeader>
-        <CardContent className="flex-grow">
-          <p className="text-gray-600">Register for your courses for the current semester. Make sure to check your academic advisor's recommendations before registering.</p>
-        </CardContent>
-        <div className="px-6 pb-4">
-          <Link href="/course-registration">
-            <Button className="w-full bg-purple-600 hover:bg-purple-700">
-              Register Courses
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </Link>
-        </div>
-      </Card>
+        </Card>
+
+        <Card className="flex flex-col">
+          <CardHeader>
+            <div className="bg-red-50 w-10 h-10 rounded-lg flex items-center justify-center mb-3">
+              <FileText className="h-6 w-6 text-red-500" />
+            </div>
+            <CardTitle>Defer Program</CardTitle>
+            <CardDescription>Request to defer your academic program</CardDescription>
+          </CardHeader>
+          <CardContent className="flex-grow">
+            <p className="text-gray-600">Submit a formal request to defer your academic program for the current semester. Please provide valid reasons for your deferment request.</p>
+          </CardContent>
+          <div className="px-6 pb-4">
+            <Link href="/defer-program">
+              <Button className="w-full bg-red-600 hover:bg-red-700">
+                Request Deferment
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </Card>
+      </div>
     </div>
   )
 } 

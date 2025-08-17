@@ -71,7 +71,9 @@ export function ProgramSelect({
           ) : programs.length === 0 && !loading ? (
             <div className="p-2 text-center text-gray-500 text-sm">No programs available</div>
           ) : (
-            programs.map((program) => (
+            programs
+              .filter(program => program.id && program.id.trim() !== "")
+              .map((program) => (
               <SelectItem key={program.id} value={program.id}>
                 {program.name} ({program.code})
               </SelectItem>

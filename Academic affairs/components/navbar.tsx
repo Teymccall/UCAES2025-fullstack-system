@@ -1,6 +1,7 @@
 "use client"
 
 import { Bell, LogOut, User } from "lucide-react"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -22,7 +23,16 @@ export function Navbar() {
     <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-16 items-center justify-between px-6">
         <div className="flex items-center space-x-4">
-          <h1 className="text-xl font-semibold">Academic Affairs Portal</h1>
+          <div className="flex items-center space-x-3">
+            <Image
+              src="/uceslogo.png"
+              alt="UCAES Logo"
+              width={40}
+              height={40}
+              style={{ objectFit: "contain", borderRadius: 0 }}
+            />
+            <h1 className="text-xl font-semibold">Academic Affairs Portal</h1>
+          </div>
         </div>
 
         <div className="flex items-center space-x-4">

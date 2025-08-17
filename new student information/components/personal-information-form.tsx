@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Upload, X, Loader2, CheckCircle } from "lucide-react"
+
 import type { FormData } from "@/app/register/page"
 import Image from "next/image"
 import { toast } from "@/components/ui/use-toast"
@@ -21,35 +21,85 @@ interface PersonalInformationFormProps {
 
 export default function PersonalInformationForm({ data, updateData }: PersonalInformationFormProps) {
   // Handle passport photo update from PassportUpload component
-  const handlePhotoUpdate = (photoData: { 
+  const handlePhotoUpdate = (photoData: {
     file: File | null;
     previewUrl: string | null;
     name: string;
     type: string;
     size: number;
     hasImage: boolean;
+    url?: string;
+    cloudinaryId?: string;
+    uploadFailed?: boolean;
   }) => {
-    // Store the file object and preview URL in the form data
-    updateData({ 
-      profilePicture: {
-        file: photoData.file,
-        url: photoData.previewUrl || '',
-        previewUrl: photoData.previewUrl,
-        name: photoData.name,
-        type: photoData.type,
-        size: photoData.size,
-        hasImage: photoData.hasImage
-      }
+    console.log("📸 handlePhotoUpdate called with:", {
+      hasFile: !!photoData.file,
+      fileType: photoData.file ? typeof photoData.file : 'null',
+      fileInstance: photoData.file instanceof File,
+      fileName: photoData.file?.name,
+      fileSize: photoData.file?.size,
+      previewUrl: photoData.previewUrl,
+      hasImage: photoData.hasImage,
+      hasCloudinaryUrl: !!photoData.url,
+      cloudinaryUrl: photoData.url,
+      cloudinaryId: photoData.cloudinaryId,
+      uploadFailed: photoData.uploadFailed
     });
+    
+    // Prefer Cloudinary info; do not keep raw File in state
+    const profilePictureData = {
+      file: null,
+      url: photoData.url || photoData.previewUrl || '',
+      previewUrl: photoData.previewUrl,
+      name: photoData.name,
+      type: photoData.type,
+      size: photoData.size,
+      hasImage: photoData.hasImage,
+      cloudinaryId: photoData.cloudinaryId,
+    } as any;
+    
+    console.log("📦 Profile picture data to be stored:", {
+      hasFile: !!profilePictureData.file,
+      fileInstance: profilePictureData.file instanceof File,
+      fileName: profilePictureData.file?.name
+    });
+    
+    // Update the form data directly to avoid any serialization issues
+    updateData({
+      profilePicture: profilePictureData,
+      // Also store explicit url/publicId at root for easier submission use
+      profilePictureUrl: photoData.url,
+      profilePicturePublicId: photoData.cloudinaryId,
+    });
+    
+    console.log("✅ Profile picture data updated in form");
   };
 
   // Get the initial photo URL from the form data if it exists
   const getInitialPhotoUrl = () => {
+    console.log("🔍 Getting initial photo URL from form data:", {
+      hasProfilePicture: !!data.profilePicture,
+      profilePictureType: typeof data.profilePicture,
+      isFile: data.profilePicture instanceof File
+    });
+    
     if (data.profilePicture) {
-      if (typeof data.profilePicture === 'object' && 'url' in data.profilePicture) {
-        return data.profilePicture.url;
+      if (typeof data.profilePicture === 'object' && 'previewUrl' in data.profilePicture) {
+        const url = data.profilePicture.previewUrl;
+        console.log("📸 Found previewUrl in profile picture object:", url);
+        return url;
+      } else if (typeof data.profilePicture === 'object' && 'url' in data.profilePicture) {
+        const url = data.profilePicture.url;
+        console.log("📸 Found URL in profile picture object:", url);
+        return url;
+      } else if (data.profilePicture instanceof File) {
+        console.log("📄 Profile picture is a File object, creating blob URL");
+        const blobUrl = URL.createObjectURL(data.profilePicture);
+        console.log("📸 Created blob URL:", blobUrl);
+        return blobUrl;
       }
     }
+    console.log("❌ No valid photo URL found");
     return null;
   };
 

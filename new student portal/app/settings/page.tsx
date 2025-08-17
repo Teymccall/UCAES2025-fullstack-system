@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Settings, Lock, User, Shield, CheckCircle, AlertCircle, Loader2 } from "lucide-react"
 import { useStudent } from "@/hooks/useStudent"
 import { changePassword, type PasswordChangeData } from "@/lib/auth"
+import Loader from '@/components/ui/loader'
 
 export default function SettingsPage() {
   const { student, loading: studentLoading } = useStudent()
@@ -74,11 +75,8 @@ export default function SettingsPage() {
 
   if (studentLoading) {
     return (
-      <div className="p-6 flex items-center justify-center">
-        <div className="flex items-center gap-2">
-          <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Loading settings...</span>
-        </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader size="default" />
       </div>
     )
   }
@@ -210,15 +208,12 @@ export default function SettingsPage() {
 
             <Button type="submit" className="bg-green-600 hover:bg-green-700" disabled={loading}>
               {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Changing Password...
-                </>
+                <div className="flex items-center gap-2">
+                  <Loader size="tiny" />
+                  <span>Updating...</span>
+                </div>
               ) : (
-                <>
-                  <Lock className="h-4 w-4 mr-2" />
-                  Change Password
-                </>
+                "Update Password"
               )}
             </Button>
           </form>

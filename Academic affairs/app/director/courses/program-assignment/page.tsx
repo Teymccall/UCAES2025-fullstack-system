@@ -28,6 +28,7 @@ export default function ProgramCourseAssignment() {
   const [selectedLevel, setSelectedLevel] = useState<string>("100")
   const [selectedSemester, setSelectedSemester] = useState<string>("First Semester")
   const [selectedAcademicYear, setSelectedAcademicYear] = useState<string>("")
+  const [selectedStudyMode, setSelectedStudyMode] = useState<string>("Regular") // Added study mode state
   const [assignedCourses, setAssignedCourses] = useState<Course[]>([])
   const [availableCourses, setAvailableCourses] = useState<Course[]>([])
   const [selectedAvailableCourses, setSelectedAvailableCourses] = useState<string[]>([])
@@ -43,7 +44,8 @@ export default function ProgramCourseAssignment() {
     prerequisites: [],
     semester: "",
     department: "",
-    status: "active"
+    status: "active",
+    studyMode: "Regular" // Added default study mode
   })
   const [showAddYearDialog, setShowAddYearDialog] = useState(false)
   const [yearForm, setYearForm] = useState({
@@ -56,8 +58,13 @@ export default function ProgramCourseAssignment() {
   // Level options for university programs
   const levelOptions = ["100", "200", "300", "400", "500", "600"]
   
-  // Semester options
-  const semesterOptions = ["First Semester", "Second Semester"]
+  // Semester options (support trimester for Weekend)
+  const semesterOptions = selectedStudyMode === 'Weekend'
+    ? ["First Trimester", "Second Trimester", "Third Trimester"]
+    : ["First Semester", "Second Semester"]
+
+  // Study mode options
+  const studyModeOptions = ["Regular", "Weekend"]
 
   // Set default academic year if available
   useEffect(() => {
@@ -80,15 +87,21 @@ export default function ProgramCourseAssignment() {
       setSelectedProgram(null)
       setAssignedCourses([])
     }
-  }, [selectedProgramId, selectedLevel, selectedSemester, selectedAcademicYear, getProgramById])
+  }, [selectedProgramId, selectedLevel, selectedSemester, selectedAcademicYear, selectedStudyMode, getProgramById])
 
   const loadAssignedCourses = () => {
     if (!selectedProgramId || !selectedAcademicYear) return
     
     setIsLoading(true)
     
-    // Get courses assigned to this program for the selected level, semester and academic year
-    const assignedCourses = getProgramCourses(selectedProgramId, selectedLevel, selectedSemester, selectedAcademicYear)
+    // Get courses assigned to this program for the selected level, semester, academic year and study mode
+    const assignedCourses = getProgramCourses(
+      selectedProgramId, 
+      selectedLevel, 
+      selectedSemester, 
+      selectedAcademicYear,
+      selectedStudyMode
+    )
     setAssignedCourses(assignedCourses)
     
     // Filter available courses (those not already assigned)
@@ -97,7 +110,10 @@ export default function ProgramCourseAssignment() {
       !assignedCourseCodes.includes(course.code) && 
       course.status === "active" &&
       (course.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       course.code.toLowerCase().includes(searchTerm.toLowerCase()))
+       course.code.toLowerCase().includes(searchTerm.toLowerCase())) &&
+      (!selectedStudyMode || selectedStudyMode === 'all' || 
+       course.studyMode === selectedStudyMode || 
+       (selectedStudyMode === 'Regular' && !course.studyMode)) // Filter by study mode
     )
     setAvailableCourses(availableCourses)
     
@@ -118,13 +134,14 @@ export default function ProgramCourseAssignment() {
       selectedLevel,
       selectedSemester,
       selectedAcademicYear,
-      selectedAvailableCourses
+      selectedAvailableCourses,
+      selectedStudyMode // Pass study mode to the function
     )
     
     if (success) {
       toast({
         title: "Courses Assigned",
-        description: `${selectedAvailableCourses.length} course(s) assigned to ${selectedProgram?.name} Level ${selectedLevel} Semester ${selectedSemester} for ${selectedAcademicYear}`,
+        description: `${selectedAvailableCourses.length} course(s) assigned to ${selectedProgram?.name} Level ${selectedLevel} Semester ${selectedSemester} for ${selectedAcademicYear} (${selectedStudyMode})`,
       })
       
       // Reload courses
@@ -150,13 +167,14 @@ export default function ProgramCourseAssignment() {
       selectedLevel,
       selectedSemester,
       selectedAcademicYear,
-      selectedAssignedCourses
+      selectedAssignedCourses,
+      selectedStudyMode // Pass study mode to the function
     )
     
     if (success) {
       toast({
         title: "Courses Removed",
-        description: `${selectedAssignedCourses.length} course(s) removed from ${selectedProgram?.name} Level ${selectedLevel} Semester ${selectedSemester} for ${selectedAcademicYear}`,
+        description: `${selectedAssignedCourses.length} course(s) removed from ${selectedProgram?.name} Level ${selectedLevel} Semester ${selectedSemester} for ${selectedAcademicYear} (${selectedStudyMode})`,
       })
       
       // Reload courses
@@ -213,7 +231,8 @@ export default function ProgramCourseAssignment() {
       prerequisites: newCourse.prerequisites || [],
       semester: newCourse.semester || "",
       department,
-      status: "active"
+      status: "active",
+      studyMode: newCourse.studyMode || "Regular" // Ensure study mode is set
     })
     
     toast({
@@ -230,7 +249,8 @@ export default function ProgramCourseAssignment() {
       prerequisites: [],
       semester: "",
       department: "",
-      status: "active"
+      status: "active",
+      studyMode: "Regular"
     })
     setShowAddCourseDialog(false)
     
@@ -332,80 +352,349 @@ export default function ProgramCourseAssignment() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <Link href="/director/courses">
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-1" /> Back
-              </Button>
-            </Link>
-            <h1 className="text-3xl font-bold">Program Course Assignment</h1>
-          </div>
-          <p className="text-muted-foreground">Assign courses to programs by level, semester and academic year</p>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-3xl font-bold">Program Course Assignment</h1>
+        
+        <div className="flex gap-2">
+          <Link href="/director/courses">
+            <Button variant="outline">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Courses
+            </Button>
+          </Link>
+          
+          <Button onClick={() => setShowAddCourseDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add New Course
+          </Button>
         </div>
       </div>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Assign Courses to Program</CardTitle>
+          <CardDescription>
+            Select a program and assign courses to specific levels, semesters, and study modes
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            <div>
+              <Label htmlFor="program">Program</Label>
+              <Select value={selectedProgramId} onValueChange={setSelectedProgramId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select program" />
+                </SelectTrigger>
+                <SelectContent>
+                  {programs
+                    .filter(program => program.id && program.id.trim() !== "") // Filter out programs with empty/null IDs
+                    .map((program) => (
+                    <SelectItem key={program.id} value={program.id}>
+                      {program.name}
+                    </SelectItem>
+                  ))}
+                  {programs.filter(program => !program.id || program.id.trim() === "").length > 0 && (
+                    <div className="p-2 text-center text-gray-500 text-sm">
+                      Some programs have invalid IDs and are not shown
+                    </div>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label htmlFor="level">Level</Label>
+              <Select value={selectedLevel} onValueChange={setSelectedLevel}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select level" />
+                </SelectTrigger>
+                <SelectContent>
+                  {levelOptions.map((level) => (
+                    <SelectItem key={level} value={level}>
+                      Level {level}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label htmlFor="semester">Semester</Label>
+              <Select value={selectedSemester} onValueChange={setSelectedSemester}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select semester" />
+                </SelectTrigger>
+                <SelectContent>
+                  {semesterOptions.map((semester) => (
+                    <SelectItem key={semester} value={semester}>
+                      {semester}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label htmlFor="academicYear">Academic Year</Label>
+              <div className="flex items-center space-x-2">
+                <Select value={selectedAcademicYear} onValueChange={setSelectedAcademicYear} className="flex-1">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select year" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {academicYears.map((year) => (
+                      <SelectItem key={year.id} value={year.year}>
+                        {year.year} {year.status === "active" && "(Current)"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                <Button variant="outline" size="icon" onClick={() => setShowAddYearDialog(true)}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            
+            {/* Study Mode Selection */}
+            <div>
+              <Label htmlFor="studyMode">Study Mode</Label>
+              <Select value={selectedStudyMode} onValueChange={setSelectedStudyMode}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select mode" />
+                </SelectTrigger>
+                <SelectContent>
+                  {studyModeOptions.map((mode) => (
+                    <SelectItem key={mode} value={mode}>
+                      {mode}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-      {/* Add Course Button */}
+          {/* Rest of the UI */}
+          {selectedProgram ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Available courses */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg">Available Courses</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-2">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search courses..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="pl-8"
+                        />
+                      </div>
+                      <Button variant="outline" onClick={handleSearch}>
+                        Search
+                      </Button>
+                    </div>
+                    
+                    <div className="h-80 overflow-auto border rounded-md">
+                      {availableCourses.length === 0 ? (
+                        <div className="flex items-center justify-center h-full">
+                          <p className="text-muted-foreground">No available courses found</p>
+                        </div>
+                      ) : (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-12"></TableHead>
+                              <TableHead>Code</TableHead>
+                              <TableHead>Name</TableHead>
+                              <TableHead>Credits</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {availableCourses.map((course) => (
+                              <TableRow key={course.id}>
+                                <TableCell>
+                                  <Checkbox
+                                    checked={selectedAvailableCourses.includes(course.code)}
+                                    onCheckedChange={() => toggleAvailableCourse(course.code)}
+                                  />
+                                </TableCell>
+                                <TableCell>{course.code}</TableCell>
+                                <TableCell>{course.name}</TableCell>
+                                <TableCell>{course.credits}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      )}
+                    </div>
+                    
+                    <Button 
+                      onClick={handleAssignCourses} 
+                      disabled={selectedAvailableCourses.length === 0 || isLoading}
+                    >
+                      <ArrowRight className="h-4 w-4 mr-2" />
+                      Assign Selected Courses
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              {/* Assigned courses */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">Assigned Courses</CardTitle>
+                    <div className="flex flex-col items-end">
+                      <p className="text-sm font-medium">
+                        {selectedProgram.name} ({selectedProgram.code})
+                      </p>
+                      <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+                        <span>Level {selectedLevel}</span>
+                        <span>•</span>
+                        <span>{selectedSemester}</span>
+                        <span>•</span>
+                        <span>{selectedStudyMode}</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-80 overflow-auto border rounded-md">
+                    {assignedCourses.length === 0 ? (
+                      <div className="flex items-center justify-center h-full">
+                        <p className="text-muted-foreground">No courses assigned yet</p>
+                      </div>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-12"></TableHead>
+                            <TableHead>Code</TableHead>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Credits</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {assignedCourses.map((course) => (
+                            <TableRow key={course.id}>
+                              <TableCell>
+                                <Checkbox
+                                  checked={selectedAssignedCourses.includes(course.code)}
+                                  onCheckedChange={() => toggleAssignedCourse(course.code)}
+                                />
+                              </TableCell>
+                              <TableCell>{course.code}</TableCell>
+                              <TableCell>{course.name}</TableCell>
+                              <TableCell>{course.credits}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </div>
+                  
+                  <Button 
+                    variant="outline" 
+                    className="mt-4 text-destructive" 
+                    onClick={handleRemoveCourses}
+                    disabled={selectedAssignedCourses.length === 0 || isLoading}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Remove Selected Courses
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <div className="h-60 flex flex-col items-center justify-center bg-muted/20 rounded-md">
+              <BookOpen className="h-12 w-12 text-muted-foreground mb-2" />
+              <h3 className="text-lg font-semibold">Select a Program</h3>
+              <p className="text-muted-foreground text-sm">Choose a program to manage its courses</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Add Course Dialog */}
       <Dialog open={showAddCourseDialog} onOpenChange={setShowAddCourseDialog}>
-        <DialogTrigger asChild>
-          <Button className="mb-4">
-            <Plus className="h-4 w-4 mr-2" /> Add New Course
-          </Button>
-        </DialogTrigger>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Add New Course</DialogTitle>
-            <DialogDescription>
-              Fill in the details to add a new course to the system
-            </DialogDescription>
+            <DialogDescription>Create a new course that can be assigned to programs</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="code" className="text-right">Course Code</Label>
-              <Input
-                id="code"
-                value={newCourse.code}
-                onChange={(e) => setNewCourse({ ...newCourse, code: e.target.value })}
-                className="col-span-3"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="course-code">Course Code *</Label>
+                <Input
+                  id="course-code"
+                  value={newCourse.code}
+                  onChange={(e) => setNewCourse({ ...newCourse, code: e.target.value })}
+                  placeholder="e.g., CS101"
+                />
+              </div>
+              <div>
+                <Label htmlFor="credits">Credits *</Label>
+                <Input
+                  id="credits"
+                  type="number"
+                  value={newCourse.credits?.toString() || "3"}
+                  onChange={(e) => setNewCourse({ ...newCourse, credits: parseInt(e.target.value, 10) })}
+                  placeholder="3"
+                />
+              </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">Course Name</Label>
+            <div>
+              <Label htmlFor="course-name">Course Name *</Label>
               <Input
-                id="name"
+                id="course-name"
                 value={newCourse.name}
-                onChange={(e) => setNewCourse({ ...newCourse, name: e.target.value })}
-                className="col-span-3"
+                onChange={(e) => setNewCourse({ ...newCourse, name: e.target.value, title: e.target.value })}
+                placeholder="Introduction to Computer Science"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="description" className="text-right">Description</Label>
+            <div>
+              <Label htmlFor="course-description">Description *</Label>
               <Input
-                id="description"
+                id="course-description"
                 value={newCourse.description}
                 onChange={(e) => setNewCourse({ ...newCourse, description: e.target.value })}
-                className="col-span-3"
+                placeholder="Course description"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="credits" className="text-right">Credits</Label>
-              <Input
-                id="credits"
-                type="number"
-                value={newCourse.credits}
-                onChange={(e) => setNewCourse({ ...newCourse, credits: Number(e.target.value) })}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="department" className="text-right">Department</Label>
-              <Input
-                id="department"
-                value={newCourse.department}
-                onChange={(e) => setNewCourse({ ...newCourse, department: e.target.value })}
-                className="col-span-3"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="department">Department *</Label>
+                <Input
+                  id="department"
+                  value={newCourse.department}
+                  onChange={(e) => setNewCourse({ ...newCourse, department: e.target.value })}
+                  placeholder="Computer Science"
+                />
+              </div>
+              <div>
+                <Label htmlFor="study-mode">Study Mode *</Label>
+                <Select
+                  value={newCourse.studyMode || "Regular"}
+                  onValueChange={(value) => setNewCourse({ ...newCourse, studyMode: value as "Regular" | "Weekend" })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select mode" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {studyModeOptions.map((mode) => (
+                      <SelectItem key={mode} value={mode}>
+                        {mode}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -415,271 +704,63 @@ export default function ProgramCourseAssignment() {
         </DialogContent>
       </Dialog>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Select Program, Level, Semester and Academic Year</CardTitle>
-          <CardDescription>
-            Choose a program and specify the level, semester and academic year to manage course assignments
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Add Academic Year Dialog */}
+      <Dialog open={showAddYearDialog} onOpenChange={setShowAddYearDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Academic Year</DialogTitle>
+            <DialogDescription>Create a new academic year for course planning</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
             <div>
-              <Label htmlFor="program">Program</Label>
-              <Select 
-                value={selectedProgramId} 
-                onValueChange={setSelectedProgramId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a program" />
-                </SelectTrigger>
-                <SelectContent>
-                  {programs.map(program => (
-                    <SelectItem key={program.id} value={program.id}>
-                      {program.name} ({program.code})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="year">Academic Year *</Label>
+              <Input
+                id="year"
+                value={yearForm.year}
+                onChange={(e) => setYearForm({ ...yearForm, year: e.target.value })}
+                placeholder="e.g., 2023-2024"
+              />
             </div>
-            
-            <div>
-              <Label htmlFor="level">Level</Label>
-              <Select 
-                value={selectedLevel} 
-                onValueChange={setSelectedLevel}
-                disabled={!selectedProgramId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select level" />
-                </SelectTrigger>
-                <SelectContent>
-                  {levelOptions.map(level => (
-                    <SelectItem key={level} value={level}>
-                      {level}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="start-date">Start Date *</Label>
+                <Input
+                  id="start-date"
+                  type="date"
+                  value={yearForm.startDate}
+                  onChange={(e) => setYearForm({ ...yearForm, startDate: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="end-date">End Date *</Label>
+                <Input
+                  id="end-date"
+                  type="date"
+                  value={yearForm.endDate}
+                  onChange={(e) => setYearForm({ ...yearForm, endDate: e.target.value })}
+                />
+              </div>
             </div>
-            
             <div>
-              <Label htmlFor="semester">Semester</Label>
-              <Select 
-                value={selectedSemester} 
-                onValueChange={setSelectedSemester}
-                disabled={!selectedProgramId}
-              >
+              <Label htmlFor="status">Status</Label>
+              <Select value={yearForm.status} onValueChange={(value) => setYearForm({ ...yearForm, status: value as any })}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select semester" />
+                  <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
-                  {semesterOptions.map(semester => (
-                    <SelectItem key={semester} value={semester}>
-                      {semester}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="academicYear">Academic Year</Label>
-              <Select 
-                value={selectedAcademicYear} 
-                onValueChange={setSelectedAcademicYear}
-                disabled={!selectedProgramId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select academic year" />
-                </SelectTrigger>
-                <SelectContent>
-                  {academicYears.map(year => (
-                    <SelectItem key={year.id} value={year.year}>
-                      {year.year} {year.status === "active" ? "(Current)" : ""}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="upcoming">Upcoming</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {selectedProgram && selectedAcademicYear && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Available Courses */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Available Courses</span>
-                <Badge variant="outline">{availableCourses.length}</Badge>
-              </CardTitle>
-              <CardDescription>
-                Courses that can be assigned to this program
-              </CardDescription>
-              <div className="flex w-full max-w-sm items-center space-x-2 mt-2">
-                <Input
-                  placeholder="Search courses..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                <Button type="button" onClick={handleSearch}>
-                  <Search className="h-4 w-4 mr-2" />
-                  Search
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {availableCourses.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  No available courses found
-                </div>
-              ) : (
-                <div className="rounded-md border overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">
-                          <Checkbox 
-                            checked={
-                              selectedAvailableCourses.length === availableCourses.length && 
-                              availableCourses.length > 0
-                            }
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                setSelectedAvailableCourses(availableCourses.map(c => c.code))
-                              } else {
-                                setSelectedAvailableCourses([])
-                              }
-                            }}
-                            aria-label="Select all"
-                          />
-                        </TableHead>
-                        <TableHead>Code</TableHead>
-                        <TableHead>Course Name</TableHead>
-                        <TableHead>Credits</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {availableCourses.map((course) => (
-                        <TableRow key={course.id}>
-                          <TableCell>
-                            <Checkbox
-                              checked={selectedAvailableCourses.includes(course.code)}
-                              onCheckedChange={() => toggleAvailableCourse(course.code)}
-                              aria-label={`Select ${course.name}`}
-                            />
-                          </TableCell>
-                          <TableCell>{course.code}</TableCell>
-                          <TableCell>{course.name}</TableCell>
-                          <TableCell>{course.credits}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-              <div className="mt-4 flex justify-end">
-                <Button
-                  onClick={handleAssignCourses}
-                  disabled={selectedAvailableCourses.length === 0 || isLoading}
-                >
-                  {isLoading ? (
-                    <>Loading...</>
-                  ) : (
-                    <>
-                      <ArrowRight className="h-4 w-4 mr-2" />
-                      Assign Selected Courses
-                    </>
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Assigned Courses */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Assigned Courses</span>
-                <Badge variant="outline">{assignedCourses.length}</Badge>
-              </CardTitle>
-              <CardDescription>
-                Courses assigned to {selectedProgram.name} - Level {selectedLevel} Semester {selectedSemester} ({selectedAcademicYear})
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {assignedCourses.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  No courses assigned yet
-                </div>
-              ) : (
-                <div className="rounded-md border overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">
-                          <Checkbox
-                            checked={
-                              selectedAssignedCourses.length === assignedCourses.length && 
-                              assignedCourses.length > 0
-                            }
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                setSelectedAssignedCourses(assignedCourses.map(c => c.code))
-                              } else {
-                                setSelectedAssignedCourses([])
-                              }
-                            }}
-                            aria-label="Select all"
-                          />
-                        </TableHead>
-                        <TableHead>Code</TableHead>
-                        <TableHead>Course Name</TableHead>
-                        <TableHead>Credits</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {assignedCourses.map((course) => (
-                        <TableRow key={course.id}>
-                          <TableCell>
-                            <Checkbox
-                              checked={selectedAssignedCourses.includes(course.code)}
-                              onCheckedChange={() => toggleAssignedCourse(course.code)}
-                              aria-label={`Select ${course.name}`}
-                            />
-                          </TableCell>
-                          <TableCell>{course.code}</TableCell>
-                          <TableCell>{course.name}</TableCell>
-                          <TableCell>{course.credits}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-              <div className="mt-4 flex justify-end">
-                <Button
-                  variant="outline"
-                  onClick={handleRemoveCourses}
-                  disabled={selectedAssignedCourses.length === 0 || isLoading}
-                  className="text-red-600"
-                >
-                  {isLoading ? (
-                    <>Loading...</>
-                  ) : (
-                    <>
-                      <ArrowLeft className="h-4 w-4 mr-2" />
-                      Remove Selected Courses
-                    </>
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddYearDialog(false)}>Cancel</Button>
+            <Button onClick={handleAddAcademicYear}>Add Academic Year</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

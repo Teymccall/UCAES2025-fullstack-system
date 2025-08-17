@@ -15,7 +15,7 @@ export interface UserData {
   username: string
   email: string
   name: string
-  role: "director" | "staff"
+  role: "director" | "staff" | "Lecturer" | "finance_officer" | "exam_officer" | "admissions_officer" | "registrar"
   department?: string
   position?: string
   assignedCourses?: string[]

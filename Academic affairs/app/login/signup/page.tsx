@@ -2,9 +2,10 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 
 export default function SignupPage() {
@@ -46,8 +47,20 @@ export default function SignupPage() {
     <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-gray-50">
       <div className="w-full max-w-md">
         <Card className="shadow-lg">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold">Director Sign Up</CardTitle>
+          <CardHeader className="space-y-1 text-center">
+            <div className="flex justify-center mb-2">
+              <Image
+                src="/uceslogo.png"
+                alt="UCAES Logo"
+                width={100}
+                height={100}
+                style={{ objectFit: "contain", borderRadius: 0 }}
+              />
+            </div>
+            <CardTitle className="text-2xl font-bold">Administration</CardTitle>
+            <CardDescription>
+              Create your director account
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">{error}</div>}

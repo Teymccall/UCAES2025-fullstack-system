@@ -7,13 +7,13 @@ import { getStorage } from "firebase/storage"
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyApaxK4QH3MKKK_z56PwSy8NeHlWkRa-XE",
-  authDomain: "collage-of-agricuture.firebaseapp.com",
-  projectId: "collage-of-agricuture",
-  storageBucket: "collage-of-agricuture.appspot.com",
-  messagingSenderId: "657140601875",
-  appId: "1:657140601875:web:524f0c169e32f656611be6",
-  measurementId: "G-2WL7W0R9ZW",
+  apiKey: "AIzaSyCWj01Z1zScFJbTh5ChqsLEEZZdmBOjlUE",
+  authDomain: "ucaes2025.firebaseapp.com",
+  projectId: "ucaes2025",
+  storageBucket: "ucaes2025.appspot.com",
+  messagingSenderId: "543217800581",
+  appId: "1:543217800581:web:4f97ba0087f694deeea0ec",
+  measurementId: "G-8E3518ML0D"
 }
 
 // Initialize Firebase
@@ -24,12 +24,10 @@ export const db = getFirestore(app)
 export const auth = getAuth(app)
 export const storage = getStorage(app)
 
-// Initialize Analytics (only in browser)
-let analytics
+// Initialize Analytics only if in browser
+const analytics = typeof window !== "undefined" ? getAnalytics(app) : null
+
+// Log connection status for debugging
 if (typeof window !== "undefined") {
-  analytics = getAnalytics(app)
+  console.log("Administration module connected to Firebase project:", firebaseConfig.projectId)
 }
-
-export { analytics }
-
-export default app

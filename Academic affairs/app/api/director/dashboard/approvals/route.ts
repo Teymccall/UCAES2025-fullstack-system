@@ -1,21 +1,87 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
-import { getAuth } from '@clerk/nextjs/server';
+import { getDb } from '@/lib/firebase-admin';
 
 export async function GET(req: Request) {
   try {
-    const { userId } = getAuth(req as any);
-    if (!userId) {
-      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+    const adminDb = getDb();
+    const approvals: any[] = [];
+
+    // Fetch pending course registrations
+    try {
+      const registrationsSnapshot = await adminDb.collection('course-registrations')
+        .where('status', '==', 'pending')
+        .orderBy('registrationDate', 'desc')
+        .limit(5)
+        .get();
+
+      registrationsSnapshot.forEach(doc => {
+        const data = doc.data();
+        approvals.push({
+          id: doc.id,
+          type: "Course Registration",
+          student: `${data.studentName || 'Unknown Student'}`,
+          course: data.courses?.map((c: any) => c.courseCode).join(', ') || 'No courses',
+          status: data.status,
+          timestamp: data.registrationDate?.toDate() || new Date(),
+          registrationId: doc.id
+        });
+      });
+    } catch (error) {
+      console.error('Error fetching pending course registrations:', error);
     }
 
-    await connectToDatabase();
+    // Fetch pending student registrations
+    try {
+      const studentRegistrationsSnapshot = await adminDb.collection('student-registrations')
+        .where('status', '==', 'pending')
+        .orderBy('registrationDate', 'desc')
+        .limit(5)
+        .get();
 
-    // In a real application, you would fetch pending approvals from your database.
-    // For now, we return an empty array.
-    const mockApprovals = [];
+      studentRegistrationsSnapshot.forEach(doc => {
+        const data = doc.data();
+        approvals.push({
+          id: doc.id,
+          type: "Student Registration",
+          student: `${data.surname} ${data.otherNames}`,
+          course: data.programme || 'No program',
+          status: data.status,
+          timestamp: data.registrationDate?.toDate() || new Date(),
+          registrationId: doc.id
+        });
+      });
+    } catch (error) {
+      console.error('Error fetching pending student registrations:', error);
+    }
 
-    return NextResponse.json({ success: true, approvals: mockApprovals });
+    // Fetch pending results
+    try {
+      const resultsSnapshot = await adminDb.collection('results')
+        .where('status', '==', 'pending')
+        .orderBy('submittedAt', 'desc')
+        .limit(5)
+        .get();
+
+      resultsSnapshot.forEach(doc => {
+        const data = doc.data();
+        approvals.push({
+          id: doc.id,
+          type: "Result Approval",
+          staff: data.submittedBy || 'Unknown Staff',
+          course: data.courseCode || 'Unknown Course',
+          status: data.status,
+          timestamp: data.submittedAt?.toDate() || new Date(),
+          resultId: doc.id
+        });
+      });
+    } catch (error) {
+      console.error('Error fetching pending results:', error);
+    }
+
+    // Sort by timestamp (most recent first)
+    approvals.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    return NextResponse.json({ success: true, approvals: approvals.slice(0, 10) });
   } catch (error) {
     console.error('Error fetching pending approvals:', error);
     return NextResponse.json(

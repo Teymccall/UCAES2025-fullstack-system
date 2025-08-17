@@ -2,6 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Spinner Animation */
+@keyframes spinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  border: 2px solid hsl(var(--muted));
+  border-top-color: hsl(var(--primary));
+  animation: spinner 0.6s linear infinite;
+}
+
 body {
   font-family: Arial, Helvetica, sans-serif;
 }
@@ -10,6 +26,45 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+}
+
+/* Custom spinner animation */
+.spinner {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  animation: spinner-plncf9 3s infinite;
+}
+
+.spinner::before,
+.spinner::after {
+  content: "";
+  grid-area: 1/1;
+  border: 9px solid;
+  border-radius: 50%;
+  border-color: #474bff #474bff #0000 #0000;
+  mix-blend-mode: darken;
+  animation: spinner-plncf9 1s infinite linear;
+}
+
+.spinner::after {
+  border-color: #0000 #0000 #dbdcef #dbdcef;
+  animation-direction: reverse;
+}
+
+@keyframes spinner-plncf9 {
+  100% {
+    transform: rotate(1turn);
+  }
+}
+
+/* Dark mode support for spinner */
+.dark .spinner::before {
+  border-color: #6366f1 #6366f1 #0000 #0000;
+}
+
+.dark .spinner::after {
+  border-color: #0000 #0000 #3f3f46 #3f3f46;
 }
 
 @layer base {

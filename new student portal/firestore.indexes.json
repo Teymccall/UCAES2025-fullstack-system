@@ -1,41 +1,54 @@
 {
   "indexes": [
     {
-      "collectionGroup": "student-registrations",
+      "collectionGroup": "course-registrations",
       "queryScope": "COLLECTION",
       "fields": [
-        {
-          "fieldPath": "registrationNumber",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "student-registrations",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "studentIndexNumber",
-          "order": "ASCENDING"
-        }
+        { "fieldPath": "studentId", "order": "ASCENDING" },
+        { "fieldPath": "registrationDate", "order": "DESCENDING" }
       ]
     },
     {
       "collectionGroup": "course-registrations",
       "queryScope": "COLLECTION",
       "fields": [
-        {
-          "fieldPath": "studentId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "academicYear",
-          "order": "DESCENDING"
-        },
-        {
-          "fieldPath": "semester",
-          "order": "DESCENDING"
-        }
+        { "fieldPath": "studentId", "order": "ASCENDING" },
+        { "fieldPath": "academicYear", "order": "ASCENDING" },
+        { "fieldPath": "registrationDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "course-registrations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "studentId", "order": "ASCENDING" },
+        { "fieldPath": "academicYear", "order": "ASCENDING" },
+        { "fieldPath": "semester", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "course-registrations",
+      "queryScope": "COLLECTION", 
+      "fields": [
+        { "fieldPath": "email", "order": "ASCENDING" },
+        { "fieldPath": "registrationDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "course-registrations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "email", "order": "ASCENDING" },
+        { "fieldPath": "academicYear", "order": "ASCENDING" },
+        { "fieldPath": "semester", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "course-registrations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "registrationNumber", "order": "ASCENDING" },
+        { "fieldPath": "registrationDate", "order": "DESCENDING" }
       ]
     }
   ],

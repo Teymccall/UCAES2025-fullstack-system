@@ -14,7 +14,7 @@ const firebaseConfig = {
   authDomain: "ucaes2025.firebaseapp.com",
   databaseURL: "https://ucaes2025-default-rtdb.firebaseio.com",
   projectId: "ucaes2025",
-  storageBucket: "ucaes2025.appspot.com",
+  storageBucket: "ucaes2025.firebasestorage.app",
   messagingSenderId: "543217800581",
   appId: "1:543217800581:web:4f97ba0087f694deeea0ec",
   measurementId: "G-8E3518ML0D",
@@ -28,15 +28,16 @@ export const db = getFirestore(app)
 export const storage = getStorage(app)
 export const auth = getAuth(app)
 
-// Enable anonymous auth to fix permissions issues
+// Initialize auth state without automatic anonymous sign-in
+// Anonymous auth can conflict with user registration
 if (typeof window !== 'undefined') {
-  signInAnonymously(auth)
-    .then(() => {
-      console.log("Firebase: Anonymous authentication successful");
-    })
-    .catch((error) => {
-      console.error("Firebase: Anonymous authentication error:", error);
-    });
+  auth.onAuthStateChanged((user) => {
+    if (user) {
+      console.log("Firebase: User authenticated:", user.uid);
+    } else {
+      console.log("Firebase: No user authenticated");
+    }
+  });
 }
 
 // Initialize Analytics only on client side

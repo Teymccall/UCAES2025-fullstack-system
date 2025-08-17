@@ -70,9 +70,13 @@ export default function StaffDashboard() {
       // Fetch tasks for this staff member
       const fetchTasks = async () => {
         try {
+          if (!user.uid) {
+            console.warn("[StaffDashboard] Missing user.uid; skipping task fetch to avoid invalid Firestore query")
+            return
+          }
           const tasksQuery = query(
             collection(db, "tasks"), 
-            where("assignedTo", "==", user.id),
+            where("assignedTo", "==", user.uid),
             where("status", "==", "pending")
           )
           
@@ -124,6 +128,8 @@ export default function StaffDashboard() {
             status: "pending"
           }
         ])
+        // Ensure the local loading state clears even when using defaults
+        setLoading(false)
       } else {
         fetchTasks()
       }

@@ -1,7 +1,7 @@
-import { collection, doc, getDocs, getDoc, addDoc, updateDoc, query, where, orderBy, deleteDoc } from "firebase/firestore"
+import { collection, doc, getDocs, getDoc, addDoc, updateDoc, query, where, orderBy, deleteDoc, setDoc, writeBatch } from "firebase/firestore"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import { db, storage } from "./firebase"
-import type { Payment, FeeAccount, BulkUploadResult } from "./types"
+import type { Payment, FeeAccount, BulkUploadResult, Student } from "./types"
 
 // Fees Management Services
 
@@ -401,252 +401,244 @@ export const getFeeStatistics = async (academicYear: string = "2024/2025"): Prom
 }
 
 /**
- * Clear all Firebase collections (database reset)
- * This will delete all data from specified collections
+ * Sync student data from student-registrations collection to admin-students collection
+ * This function is more comprehensive and handles different data formats
  */
-export const clearAllData = async (): Promise<{ success: boolean, message: string, deletedCount: Record<string, number> }> => {
+export const syncModuleData = async (): Promise<{ 
+  success: boolean; 
+  message: string;
+  registrationsProcessed: number;
+  studentsCreated: number;
+  errors: string[] 
+}> => {
   try {
-    // Add more collections to ensure all data is cleared
-    const collections = [
-      "students", 
-      "courses", 
-      "programs", 
-      "users", 
-      "fees", 
-      "feeAccounts",
-      "registrations", 
-      "grades",
-      "academic-years",
-      "semesters",
-      "attendance",
-      "course-assignments",
-      "program-courses",
-      "student-programs",
-      "staff",
-      "course-registrations",
-      "announcements",
-      "departments",
-      "faculties",
-      "results",
-      "notifications",
-      "payments",
-      "payment-history",
-      "academic-records"
-    ];
+    console.log("Starting module data sync...");
     
+    const result = {
+      success: false,
+      message: "",
+      registrationsProcessed: 0,
+      studentsCreated: 0,
+      errors: [] as string[]
+    };
+
+    // 1. First sync student registrations to students collection
+    const registrationResult = await syncRegistrations();
+    result.registrationsProcessed = registrationResult.processed;
+    result.studentsCreated = registrationResult.created;
+    result.errors = [...result.errors, ...registrationResult.errors];
+    
+    // Update status based on registration sync results
+    result.success = registrationResult.success;
+    result.message = `Synced ${result.studentsCreated} student records from ${result.registrationsProcessed} registrations.`;
+    
+    return result;
+  } catch (error) {
+    console.error("Error in syncModuleData:", error);
+    return {
+      success: false,
+      message: `Error: ${error instanceof Error ? error.message : String(error)}`,
+      registrationsProcessed: 0,
+      studentsCreated: 0,
+      errors: [(error instanceof Error) ? error.message : String(error)]
+    };
+  }
+};
+
+/**
+ * Synchronize student registrations from student-registrations collection to students collection
+ * for better access in the administration module
+ */
+export const syncRegistrations = async (): Promise<{ 
+  success: boolean; 
+  processed: number;
+  created: number;
+  updated: number;
+  errors: string[] 
+}> => {
+  try {
+    console.log("Starting student registrations sync...");
+    
+    const result = {
+      success: false,
+      processed: 0,
+      created: 0,
+      updated: 0,
+      errors: [] as string[]
+    };
+    
+    // Get student registrations
+    const registrationsRef = collection(db, "student-registrations");
+    const registrationsSnapshot = await getDocs(registrationsRef);
+    result.processed = registrationsSnapshot.size;
+    
+    if (registrationsSnapshot.empty) {
+      console.log("No student registrations found");
+      result.success = true;
+      return result;
+    }
+    
+    console.log(`Found ${registrationsSnapshot.size} student registrations to process`);
+    
+    // Use batches for efficient Firestore operations
+    let batch = writeBatch(db);
+    let operationCount = 0;
+    const batchLimit = 500; // Firestore batch limit is 500
+    
+    for (const docSnapshot of registrationsSnapshot.docs) {
+      try {
+        const registrationData = docSnapshot.data();
+        const registrationId = docSnapshot.id;
+        
+        // Extract the student ID or index number
+        const studentId = registrationData.studentId || registrationData.id || registrationId;
+        const indexNumber = registrationData.studentIndexNumber || 
+                           registrationData.indexNumber || 
+                           registrationData.regNumber ||
+                           registrationData.registrationId;
+        
+        if (!indexNumber) {
+          result.errors.push(`Registration ${registrationId}: Missing index number`);
+          continue;
+        }
+        
+        // Map the registration data to a standard student object
+        const studentData: Partial<Student> = {
+          indexNumber: indexNumber,
+          surname: registrationData.surname || "",
+          otherNames: registrationData.otherNames || registrationData.firstName || registrationData.givenNames || "",
+          gender: registrationData.gender || "",
+          dateOfBirth: registrationData.dateOfBirth || "",
+          nationality: registrationData.nationality || "Ghanaian",
+          programme: registrationData.programme || registrationData.program || "",
+          level: registrationData.level || registrationData.currentLevel || "100",
+          entryQualification: registrationData.entryQualification || "WASSCE",
+          status: registrationData.status || "Active",
+          scheduleType: registrationData.scheduleType || "Regular",
+          email: registrationData.email || "",
+          phone: registrationData.phone || registrationData.mobileNumber || registrationData.mobile || "",
+          address: typeof registrationData.address === "object" ? registrationData.address : {
+            street: registrationData.street || "",
+            city: registrationData.city || registrationData.town || "",
+            country: registrationData.country || "Ghana"
+          },
+          emergencyContact: {
+            name: registrationData.emergencyContactName || "",
+            phone: registrationData.emergencyContactPhone || "",
+            relationship: registrationData.emergencyContactRelationship || ""
+          },
+          profilePictureUrl: registrationData.profilePictureUrl || registrationData.profileImage || null,
+          religion: registrationData.religion || "",
+          maritalStatus: registrationData.maritalStatus || "",
+          nationalId: registrationData.nationalId || registrationData.nationalIdNumber || "",
+          registrationDate: registrationData.registrationDate || registrationData.createdAt || new Date().toISOString(),
+          yearOfEntry: registrationData.yearOfEntry || "",
+          entryLevel: registrationData.entryLevel || "100",
+          // Handle different guardian data formats
+          ...(registrationData.guardian ? { guardian: registrationData.guardian } : {}),
+          ...(registrationData.guardianDetails ? { guardianDetails: registrationData.guardianDetails } : {}),
+          ...(registrationData.guardianName ? { 
+            guardianName: registrationData.guardianName,
+            guardianContact: registrationData.guardianContact || "",
+            guardianEmail: registrationData.guardianEmail || "",
+            guardianAddress: registrationData.guardianAddress || ""
+          } : {}),
+          createdAt: registrationData.createdAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        
+        // Set the document in the students collection
+        // Using indexNumber as the document ID for easy reference
+        const studentDocRef = doc(db, "students", indexNumber);
+        batch.set(studentDocRef, studentData, { merge: true });
+        result.created++;
+        
+        // Commit batch if we've reached the limit
+        operationCount++;
+        if (operationCount >= batchLimit) {
+          await batch.commit();
+          batch = writeBatch(db);
+          operationCount = 0;
+          console.log(`Committed batch of ${batchLimit} operations`);
+        }
+      } catch (error) {
+        const errorMessage = `Error processing registration ${docSnapshot.id}: ${error instanceof Error ? error.message : String(error)}`;
+        console.error(errorMessage);
+        result.errors.push(errorMessage);
+      }
+    }
+    
+    // Commit any remaining operations
+    if (operationCount > 0) {
+      await batch.commit();
+      console.log(`Committed final batch of ${operationCount} operations`);
+    }
+    
+    console.log(`Sync complete: Processed ${result.processed}, Created/Updated ${result.created}, Errors: ${result.errors.length}`);
+    result.success = true;
+    return result;
+  } catch (error) {
+    console.error("Error syncing student registrations:", error);
+    return {
+      success: false,
+      processed: 0,
+      created: 0,
+      updated: 0,
+      errors: [(error instanceof Error) ? error.message : String(error)]
+    };
+  }
+};
+
+/**
+ * Clear all data from specified collections for testing/reset purposes
+ */
+export const clearAllData = async (): Promise<{
+  success: boolean;
+  message: string;
+  deletedCount: Record<string, number>;
+}> => {
+  try {
+    const collections = ['admin-students', 'students'];
     const deletedCount: Record<string, number> = {};
-    let totalDeleted = 0;
     
-    // Delete documents from each collection
     for (const collectionName of collections) {
       try {
-        console.log(`Attempting to clear collection: ${collectionName}`);
+        console.log(`Clearing collection: ${collectionName}`);
         const collectionRef = collection(db, collectionName);
         const snapshot = await getDocs(collectionRef);
         
-        if (!snapshot.empty) {
-          deletedCount[collectionName] = snapshot.size;
-          totalDeleted += snapshot.size;
-          
-          // Delete each document
-          for (const document of snapshot.docs) {
-            try {
-              await deleteDoc(doc(db, collectionName, document.id));
-            } catch (docError) {
-              console.error(`Error deleting document ${document.id} in ${collectionName}:`, docError);
-            }
-          }
-          
-          console.log(`Deleted ${snapshot.size} documents from ${collectionName}`);
-        } else {
+        if (snapshot.empty) {
           deletedCount[collectionName] = 0;
-          console.log(`Collection ${collectionName} is empty or does not exist`);
+          continue;
         }
-      } catch (collectionError) {
-        console.error(`Error processing collection ${collectionName}:`, collectionError);
-        deletedCount[collectionName] = 0;
+        
+        let count = 0;
+        const batch = writeBatch(db);
+        
+        snapshot.forEach(doc => {
+          batch.delete(doc.ref);
+          count++;
+        });
+        
+        await batch.commit();
+        deletedCount[collectionName] = count;
+        console.log(`Deleted ${count} documents from ${collectionName}`);
+      } catch (error) {
+        console.error(`Error clearing collection ${collectionName}:`, error);
       }
     }
     
     return {
       success: true,
-      message: `Successfully cleared all data. Deleted ${totalDeleted} documents across ${collections.length} collections.`,
+      message: "Database cleared successfully",
       deletedCount
     };
   } catch (error) {
     console.error("Error clearing database:", error);
     return {
       success: false,
-      message: `Error clearing database: ${error instanceof Error ? error.message : "Unknown error"}`,
+      message: `Error clearing database: ${error instanceof Error ? error.message : String(error)}`,
       deletedCount: {}
     };
   }
-}
-
-/**
- * Sync data between modules after reset
- */
-export const syncModuleData = async (): Promise<{ success: boolean, message: string }> => {
-  try {
-    // 1. Get initial data
-    const initialData = {
-      programs: [
-        { code: "BESM", name: "B.Sc. Environmental Science and Management", faculty: "Environmental Studies" },
-        { code: "BSA", name: "B.Sc. Sustainable Agriculture", faculty: "Agricultural Sciences" },
-        { code: "BLE", name: "B.Sc. Land Economy", faculty: "Environmental Studies" }
-      ],
-      academicYears: [
-        { id: "2024-2025", name: "2024/2025", current: true },
-        { id: "2023-2024", name: "2023/2024", current: false }
-      ],
-      semesters: [
-        { id: "first", name: "First Semester", current: true },
-        { id: "second", name: "Second Semester", current: false }
-      ],
-      // Add default courses for each program
-      courses: [
-        // Environmental Science courses
-        { 
-          code: "BESM101", 
-          title: "Introduction to Environmental Science", 
-          creditHours: 3,
-          semester: "First",
-          level: "100",
-          department: "Environmental Science",
-          program: "BESM",
-          description: "An introduction to the fundamentals of environmental science and sustainability.",
-          lecturer: "Dr. Francis Nyame",
-          status: "Active",
-          prerequisites: []
-        },
-        { 
-          code: "BESM102", 
-          title: "Environmental Chemistry", 
-          creditHours: 3,
-          semester: "First",
-          level: "100",
-          department: "Environmental Science",
-          program: "BESM",
-          description: "Study of chemical processes in the environment and their impact on ecosystems.",
-          lecturer: "Dr. Rebecca Ansah",
-          status: "Active",
-          prerequisites: []
-        },
-        { 
-          code: "BESM201", 
-          title: "Ecology and Biodiversity", 
-          creditHours: 3,
-          semester: "First",
-          level: "200",
-          department: "Environmental Science",
-          program: "BESM",
-          description: "Study of ecosystems, biodiversity and conservation practices.",
-          lecturer: "Dr. Samuel Owusu",
-          status: "Active",
-          prerequisites: ["BESM101"]
-        },
-        // Agriculture courses
-        { 
-          code: "BSA101", 
-          title: "Introduction to Sustainable Agriculture", 
-          creditHours: 3,
-          semester: "First",
-          level: "100",
-          department: "Agriculture",
-          program: "BSA",
-          description: "Overview of sustainable agricultural principles and practices.",
-          lecturer: "Prof. Joseph Mensah",
-          status: "Active",
-          prerequisites: []
-        },
-        { 
-          code: "BSA102", 
-          title: "Soil Science", 
-          creditHours: 3,
-          semester: "First",
-          level: "100",
-          department: "Agriculture",
-          program: "BSA",
-          description: "Study of soil properties, classification, and management for sustainable agriculture.",
-          lecturer: "Dr. Emmanuel Boadu",
-          status: "Active",
-          prerequisites: []
-        },
-        // Land Economy courses
-        { 
-          code: "BLE101", 
-          title: "Principles of Land Economy", 
-          creditHours: 3,
-          semester: "First",
-          level: "100",
-          department: "Land Economy",
-          program: "BLE",
-          description: "Introduction to land management, valuation, and economics.",
-          lecturer: "Dr. Victoria Addo",
-          status: "Active",
-          prerequisites: []
-        }
-      ]
-    };
-
-    // 2. Create programs collection
-    for (const program of initialData.programs) {
-      await addDoc(collection(db, "programs"), {
-        ...program,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-    }
-
-    // 3. Create academic years
-    for (const year of initialData.academicYears) {
-      await addDoc(collection(db, "academic-years"), {
-        ...year,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-    }
-
-    // 4. Create semesters
-    for (const semester of initialData.semesters) {
-      await addDoc(collection(db, "semesters"), {
-        ...semester,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-    }
-    
-    // 5. Create default courses
-    for (const course of initialData.courses) {
-      await addDoc(collection(db, "courses"), {
-        ...course,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-    }
-    
-    // 6. Create program-course mappings
-    for (const course of initialData.courses) {
-      await addDoc(collection(db, "program-courses"), {
-        programCode: course.program,
-        courseCode: course.code,
-        level: course.level,
-        semester: course.semester,
-        required: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-    }
-
-    return {
-      success: true,
-      message: "Successfully synchronized data between modules with initial values."
-    };
-  } catch (error) {
-    console.error("Error syncing module data:", error);
-    return {
-      success: false,
-      message: `Error syncing module data: ${error instanceof Error ? error.message : "Unknown error"}`
-    };
-  }
-} 
+}; 

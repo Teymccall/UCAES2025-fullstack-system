@@ -157,13 +157,17 @@ export default function UploadCoursesPage() {
               <Select onValueChange={setSelectedProgram}>
                 <SelectTrigger><SelectValue placeholder="Select Program" /></SelectTrigger>
                 <SelectContent>
-                  {programs.map(p => <SelectItem key={p._id} value={p._id}>{p.name}</SelectItem>)}
+                  {programs
+                    .filter(p => p._id && p._id.trim() !== "")
+                    .map(p => <SelectItem key={p._id} value={p._id}>{p.name}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select onValueChange={setSelectedYear}>
                 <SelectTrigger><SelectValue placeholder="Select Academic Year" /></SelectTrigger>
                 <SelectContent>
-                  {academicYears.map(y => <SelectItem key={y._id} value={y.name}>{y.name}</SelectItem>)}
+                  {academicYears
+                    .filter(y => y.name && y.name.trim() !== "")
+                    .map(y => <SelectItem key={y._id} value={y.name}>{y.name}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select onValueChange={setSelectedSemester}>

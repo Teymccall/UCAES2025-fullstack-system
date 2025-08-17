@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
-import { GraduationCap, ArrowLeft, ArrowRight, CheckCircle } from "lucide-react"
+import { GraduationCap } from "lucide-react"
 import Link from "next/link"
 import PersonalInformationForm from "@/components/personal-information-form"
 import ContactDetailsForm from "@/components/contact-details-form"
@@ -38,6 +38,8 @@ export interface FormData {
     hasImage: boolean;
     cloudinaryId?: string;
   } | null
+  profilePictureUrl?: string // Added after submission to Firebase
+  profilePicturePublicId?: string // Added after submission to Firebase
   studentIndexNumber: string
 
   // Contact Details
@@ -108,6 +110,7 @@ export default function RegisterPage() {
   const [activeTab, setActiveTab] = useState("personal")
   const [formData, setFormData] = useState<FormData>(defaultFormData)
   const [isLoaded, setIsLoaded] = useState(false)
+  const [fileObjectInMemory, setFileObjectInMemory] = useState<File | null>(null) // Store File object separately
 
   // Load saved form data from localStorage on component mount
   useEffect(() => {
@@ -123,6 +126,17 @@ export default function RegisterPage() {
           // If it's a custom photo object with URL, we can restore it
           if ('url' in parsedData.profilePicture) {
             // This is a custom photo object, which can be restored
+            console.log("📸 Restoring profile picture from localStorage:", {
+              hasUrl: !!parsedData.profilePicture.url,
+              isFileObject: parsedData.profilePicture.isFileObject
+            });
+            
+            // Note: File object cannot be restored from localStorage, so we'll need to re-upload
+            if (parsedData.profilePicture.isFileObject) {
+              console.log("⚠️ File object was lost during localStorage serialization - user will need to re-upload");
+              // Clear the profile picture since we can't restore the File object
+              parsedData.profilePicture = null;
+            }
           } else {
             // This was a File object which can't be restored from localStorage
             parsedData.profilePicture = null
@@ -154,23 +168,105 @@ export default function RegisterPage() {
         // Handle profilePicture specially
         if (storageData.profilePicture) {
           if (storageData.profilePicture instanceof File) {
-            // For File objects, just store null as we can't serialize them
-            storageData.profilePicture = null
+            // For File objects, we can't serialize them, so we'll store metadata
+            console.log("📸 Converting File object for localStorage storage");
+            // Store the File object in memory for later use
+            setFileObjectInMemory(storageData.profilePicture);
+            // Create a blob URL for preview that can be stored
+            const blobUrl = URL.createObjectURL(storageData.profilePicture);
+            storageData.profilePicture = {
+              file: null, // File objects can't be serialized
+              url: null,
+              previewUrl: blobUrl, // Store the blob URL for preview
+              name: storageData.profilePicture.name,
+              type: storageData.profilePicture.type,
+              size: storageData.profilePicture.size,
+              hasImage: true,
+              isFileObject: true // Flag to indicate this was originally a File
+            };
           } else if (typeof storageData.profilePicture === 'object' && 'url' in storageData.profilePicture) {
-            // For custom photo objects, we can store them as is
-            // These have url, name, type, size, hasImage properties
+            // For custom photo objects, preserve the structure but remove the File object
+            console.log("📸 Converting custom photo object for localStorage storage");
+            const photoObj = storageData.profilePicture as any;
+            // Store the File object in memory if it exists and is valid
+            if (photoObj.file instanceof File) {
+              console.log("📄 Storing File object in memory:", photoObj.file.name);
+              setFileObjectInMemory(photoObj.file);
+              
+              // Also store the file data as base64 for review page
+              const reader = new FileReader();
+              reader.onload = () => {
+                const base64Data = reader.result as string;
+                const fileDataToStore = {
+                  name: photoObj.file.name,
+                  type: photoObj.file.type,
+                  size: photoObj.file.size,
+                  data: base64Data
+                };
+                localStorage.setItem("registrationFileData", JSON.stringify(fileDataToStore));
+                console.log("💾 File data saved to localStorage for review page:", {
+                  name: fileDataToStore.name,
+                  type: fileDataToStore.type,
+                  size: fileDataToStore.size,
+                  dataLength: fileDataToStore.data.length
+                });
+              };
+              reader.readAsDataURL(photoObj.file);
+            } else if (photoObj.file && Object.keys(photoObj.file).length === 0) {
+              console.log("⚠️ File object is empty, clearing it");
+              photoObj.file = null;
+            }
+            
+            // Check if we have a previewUrl (which indicates a file was uploaded)
+            // and store the file data if we haven't already
+            if (photoObj.previewUrl && photoObj.previewUrl.startsWith('blob:') && !localStorage.getItem("registrationFileData")) {
+              console.log("📄 Detected blob URL, attempting to store file data from memory");
+              // Try to get the file from memory
+              if (fileObjectInMemory) {
+                const reader = new FileReader();
+                reader.onload = () => {
+                  const base64Data = reader.result as string;
+                  localStorage.setItem("registrationFileData", JSON.stringify({
+                    name: fileObjectInMemory.name,
+                    type: fileObjectInMemory.type,
+                    size: fileObjectInMemory.size,
+                    data: base64Data
+                  }));
+                  console.log("💾 File data saved to localStorage for review page (from memory)");
+                };
+                reader.readAsDataURL(fileObjectInMemory);
+              }
+            }
+            storageData.profilePicture = {
+              file: null, // File objects can't be serialized
+              url: photoObj.url,
+              previewUrl: photoObj.previewUrl,
+              name: photoObj.name,
+              type: photoObj.type,
+              size: photoObj.size,
+              hasImage: photoObj.hasImage,
+              isFileObject: photoObj.file instanceof File || (photoObj.previewUrl && photoObj.previewUrl.startsWith('blob:')) // Flag if it had a File object or has blob URL
+            };
           }
         }
         
         return storageData
       }
       
-      localStorage.setItem("registrationFormInProgress", JSON.stringify(prepareDataForStorage(formData)))
+      const storageData = prepareDataForStorage(formData);
+      console.log("💾 Saving to localStorage:", {
+        hasProfilePicture: !!storageData.profilePicture,
+        profilePictureType: typeof storageData.profilePicture,
+        isFileObject: storageData.profilePicture?.isFileObject,
+        fileObjectInMemory: !!fileObjectInMemory
+      });
+      
+      localStorage.setItem("registrationFormInProgress", JSON.stringify(storageData))
       localStorage.setItem("registrationActiveTab", activeTab)
     } catch (error) {
       console.error("Error saving registration data:", error)
     }
-  }, [formData, activeTab, isLoaded])
+  }, [formData, activeTab, isLoaded, fileObjectInMemory])
 
   const tabs = [
     { id: "personal", label: "Personal Info", step: 1 },
@@ -237,12 +333,21 @@ export default function RegisterPage() {
   }
 
   const handleSubmit = () => {
+    console.log("🚀 REGISTER PAGE: handleSubmit called");
+    console.log("📋 Form data being stored:", {
+      hasProfilePicture: !!formData.profilePicture,
+      profilePictureType: typeof formData.profilePicture,
+      isFile: formData.profilePicture instanceof File
+    });
+    
     // Store form data in localStorage for the confirmation page
     localStorage.setItem("registrationData", JSON.stringify(formData))
     
     // Clear the in-progress data since we're moving to confirmation
     localStorage.removeItem("registrationFormInProgress")
     localStorage.removeItem("registrationActiveTab")
+    
+    console.log("💾 Form data stored in localStorage, redirecting to confirmation");
     
     toast({
       title: "Form Completed",
@@ -275,7 +380,7 @@ export default function RegisterPage() {
           <div className="flex flex-col sm:flex-row items-center justify-between mb-6">
             <Link href="/" className="mb-4 sm:mb-0">
               <Button variant="ghost" size="sm" className="flex items-center">
-                <ArrowLeft className="h-4 w-4 mr-2" />
+                <span className="mr-2">←</span>
                 Back to Home
               </Button>
             </Link>
@@ -304,7 +409,7 @@ export default function RegisterPage() {
             {isLoaded && Object.values(formData).some(val => val !== "" && val !== null) && (
               <div className="mt-3 border-t border-green-200 pt-3 flex flex-col sm:flex-row justify-center items-center gap-3">
                 <p className="text-sm text-green-700 font-medium">
-                  <CheckCircle className="h-4 w-4 inline-block mr-1" />
+                  <span className="inline-block mr-1">✓</span>
                   Your progress has been saved. You can safely refresh the page.
                 </p>
                 <Button variant="outline" size="sm" onClick={handleClearForm} className="text-xs">
@@ -400,7 +505,7 @@ export default function RegisterPage() {
                   disabled={currentStep === 1}
                   className="flex items-center justify-center border-gray-300"
                 >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  <span className="mr-2">←</span>
                   Previous Step
                 </Button>
 
@@ -411,7 +516,7 @@ export default function RegisterPage() {
                     disabled={!validateCurrentStep()}
                   >
                     Next Step
-                    <ArrowRight className="h-4 w-4 ml-2" />
+                    <span className="ml-2">→</span>
                   </Button>
                 ) : (
                   <Button
@@ -420,7 +525,7 @@ export default function RegisterPage() {
                     disabled={!validateCurrentStep()}
                   >
                     Review & Submit
-                    <CheckCircle className="h-4 w-4 ml-2" />
+                    <span className="ml-2">✓</span>
                   </Button>
                 )}
               </div>

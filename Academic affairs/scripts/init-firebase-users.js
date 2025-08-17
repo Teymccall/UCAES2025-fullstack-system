@@ -1,20 +1,22 @@
 // Script to initialize Firebase users
 
 const { initializeApp } = require("firebase/app")
-const { getFirestore, collection, query, where, getDocs, setDoc, doc } = require("firebase/firestore")
+const { getFirestore, collection, query, where, getDocs, setDoc, doc, addDoc } = require("firebase/firestore")
 const { getAuth, createUserWithEmailAndPassword, updateProfile } = require("firebase/auth")
+const bcrypt = require("bcryptjs")
+const { v4: uuidv4 } = require("uuid")
 
-// Firebase configuration - replace with your own config
+// Firebase configuration for UCAES
 const firebaseConfig = {
-  apiKey: "AIzaSyApaxK4QH3MKKK_z56PwSy8NeHlWkRa-XE",
-  authDomain: "collage-of-agricuture.firebaseapp.com",
-  databaseURL: "https://collage-of-agricuture-default-rtdb.firebaseio.com",
-  projectId: "collage-of-agricuture",
-  storageBucket: "collage-of-agricuture.firebasestorage.app",
-  messagingSenderId: "657140601875",
-  appId: "1:657140601875:web:524f0c169e32f656611be6",
-  measurementId: "G-2WL7W0R9ZW",
-}
+  apiKey: "AIzaSyCWj01Z1zScFJbTh5ChqsLEEZZdmBOjlUE",
+  authDomain: "ucaes2025.firebaseapp.com",
+  databaseURL: "https://ucaes2025-default-rtdb.firebaseio.com",
+  projectId: "ucaes2025",
+  storageBucket: "ucaes2025.appspot.com",
+  messagingSenderId: "543217800581",
+  appId: "1:543217800581:web:4f97ba0087f694deeea0ec",
+  measurementId: "G-8E3518ML0D"
+};
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig)
@@ -72,6 +74,8 @@ const initialUsers = [
 // Create a user in Firebase Auth and Firestore
 async function createUser(userData) {
   try {
+    console.log(`Checking if user ${userData.username} already exists...`)
+    
     // Check if username already exists
     const usernameQuery = query(
       collection(db, "users"),
@@ -96,19 +100,13 @@ async function createUser(userData) {
       return
     }
     
-    // Create user in Firebase Auth
-    const userCredential = await createUserWithEmailAndPassword(
-      auth,
-      userData.email,
-      userData.password
-    )
+    console.log(`Creating user ${userData.username}...`)
     
-    // Set display name
-    await updateProfile(userCredential.user, {
-      displayName: userData.name
-    })
+    // Hash password for storage
+    const hashedPassword = await bcrypt.hash(userData.password, 10)
     
-    const { uid } = userCredential.user
+    // Generate a unique ID
+    const uid = uuidv4()
     
     // Create user document in Firestore
     const userDoc = {
@@ -116,17 +114,31 @@ async function createUser(userData) {
       username: userData.username,
       name: userData.name,
       email: userData.email,
+      password: hashedPassword, // Store hashed password
       role: userData.role,
       department: userData.department,
       position: userData.position,
       assignedCourses: userData.assignedCourses || [],
       permissions: userData.permissions,
       status: userData.status,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      createdAt: new Date(),
+      updatedAt: new Date()
     }
     
-    await setDoc(doc(db, "users", uid), userDoc)
+    // Add to users collection
+    await addDoc(collection(db, "users"), userDoc)
+    
+    // Add to academic-staff collection if staff role
+    if (userData.role === 'staff') {
+      await addDoc(collection(db, "academic-staff"), {
+        uid,
+        name: userData.name,
+        email: userData.email,
+        department: userData.department,
+        permissions: userData.permissions,
+        status: userData.status
+      })
+    }
     
     console.log(`User ${userData.username} created successfully`)
     return userDoc

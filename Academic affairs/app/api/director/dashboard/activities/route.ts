@@ -1,21 +1,100 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
-import { getAuth } from '@clerk/nextjs/server';
+import { adminDb } from '@/lib/firebase-admin';
 
 export async function GET(req: Request) {
   try {
-    const { userId } = getAuth(req as any);
-    if (!userId) {
-      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+    const activities: any[] = [];
+
+    // Fetch recent course registrations
+    try {
+      const registrationsSnapshot = await adminDb.collection('course-registrations')
+        .orderBy('registrationDate', 'desc')
+        .limit(10)
+        .get();
+
+      registrationsSnapshot.forEach(doc => {
+        const data = doc.data();
+        activities.push({
+          id: doc.id,
+          action: "COURSE_REGISTRATION_SUBMITTED",
+          details: `Course registration submitted by ${data.studentName || 'Unknown Student'}`,
+          timestamp: data.registrationDate?.toDate() || new Date(),
+          type: data.status === 'approved' ? 'success' : data.status === 'rejected' ? 'warning' : 'info'
+        });
+      });
+    } catch (error) {
+      console.error('Error fetching course registrations:', error);
     }
 
-    await connectToDatabase();
+    // Fetch recent student registrations
+    try {
+      const studentRegistrationsSnapshot = await adminDb.collection('student-registrations')
+        .orderBy('registrationDate', 'desc')
+        .limit(10)
+        .get();
 
-    // In a real application, you would fetch recent activities from your database.
-    // For now, we return an empty array.
-    const mockActivities = [];
+      studentRegistrationsSnapshot.forEach(doc => {
+        const data = doc.data();
+        activities.push({
+          id: doc.id,
+          action: "STUDENT_REGISTRATION_SUBMITTED",
+          details: `Student registration submitted by ${data.surname} ${data.otherNames}`,
+          timestamp: data.registrationDate?.toDate() || new Date(),
+          type: data.status === 'approved' ? 'success' : data.status === 'rejected' ? 'warning' : 'info'
+        });
+      });
+    } catch (error) {
+      console.error('Error fetching student registrations:', error);
+    }
 
-    return NextResponse.json({ success: true, activities: mockActivities });
+    // Fetch recent results submissions
+    try {
+      const resultsSnapshot = await adminDb.collection('results')
+        .orderBy('submittedAt', 'desc')
+        .limit(10)
+        .get();
+
+      resultsSnapshot.forEach(doc => {
+        const data = doc.data();
+        activities.push({
+          id: doc.id,
+          action: "RESULTS_SUBMITTED",
+          details: `Results submitted for ${data.courseCode || 'Unknown Course'} by ${data.submittedBy || 'Unknown Staff'}`,
+          timestamp: data.submittedAt?.toDate() || new Date(),
+          type: data.status === 'approved' ? 'success' : data.status === 'rejected' ? 'warning' : 'info'
+        });
+      });
+    } catch (error) {
+      console.error('Error fetching results:', error);
+    }
+
+    // Fetch recent course updates
+    try {
+      const coursesSnapshot = await adminDb.collection('courses')
+        .orderBy('updatedAt', 'desc')
+        .limit(10)
+        .get();
+
+      coursesSnapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.updatedAt) {
+          activities.push({
+            id: doc.id,
+            action: "COURSE_UPDATED",
+            details: `Course ${data.code || 'Unknown'} updated`,
+            timestamp: data.updatedAt?.toDate() || new Date(),
+            type: 'info'
+          });
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching course updates:', error);
+    }
+
+    // Sort by timestamp (most recent first) and take top 15
+    activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    return NextResponse.json({ success: true, activities: activities.slice(0, 15) });
   } catch (error) {
     console.error('Error fetching recent activities:', error);
     return NextResponse.json(

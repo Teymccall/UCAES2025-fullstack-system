@@ -9,34 +9,50 @@ import { Loader2 } from "lucide-react"
 
 interface RouteGuardProps {
   children: React.ReactNode
-  requiredRole?: "director" | "staff"
+  requiredRole?: "director" | "staff" | "finance_officer" | "exam_officer" | "admissions_officer" | "registrar" | "Lecturer"
   requiredPermissions?: string[]
 }
 
 export function RouteGuard({ children, requiredRole, requiredPermissions }: RouteGuardProps) {
-  const { user, isLoading, isAuthenticated } = useAuth()
+  const { user, loading, refreshAuth } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
+  const isAuthenticated = !!user
 
   useEffect(() => {
-    if (!isLoading) {
+    console.log("[RouteGuard] user:", user, "loading:", loading, "authenticated:", isAuthenticated)
+    
+    if (!loading) {
       // If not authenticated, redirect to login
       if (!isAuthenticated) {
+        console.log("[RouteGuard] Not authenticated, redirecting to /login")
         router.push("/login")
         return
       }
 
+      // Ensure Firebase Auth is properly signed in for Firestore access (throttled in context)
+      if (isAuthenticated && user) {
+        refreshAuth().catch(() => {})
+      }
+
       // Check role-based access
       if (requiredRole && user?.role !== requiredRole) {
-        // Redirect to appropriate dashboard based on user role
-        if (user?.role === "director") {
-          router.push("/director/dashboard")
-        } else if (user?.role === "staff") {
-          router.push("/staff/dashboard")
+        // Special case: if required role is "staff", allow any staff-type role
+        if (requiredRole === "staff" && ["staff", "finance_officer", "exam_officer", "admissions_officer", "registrar", "Lecturer"].includes(user?.role)) {
+          // Allow access - finance_officer can access staff routes
+          console.log("[RouteGuard] Finance officer accessing staff route - allowed")
         } else {
-          router.push("/login")
+          console.log("[RouteGuard] Role mismatch. Required:", requiredRole, "User role:", user?.role)
+          // Redirect to appropriate dashboard based on user role
+          if (user?.role === "director") {
+            router.push("/director/dashboard")
+          } else if (["staff", "finance_officer", "exam_officer", "admissions_officer", "registrar", "Lecturer"].includes(user?.role)) {
+            router.push("/staff/dashboard")
+          } else {
+            router.push("/login")
+          }
+          return
         }
-        return
       }
 
       // Check permission-based access
@@ -46,20 +62,21 @@ export function RouteGuard({ children, requiredRole, requiredPermissions }: Rout
         )
 
         if (!hasPermission) {
+          console.log("[RouteGuard] Permission denied")
           // Redirect to dashboard if no permission
           if (user?.role === "director") {
             router.push("/director/dashboard")
-          } else if (user?.role === "staff") {
+          } else if (["staff", "finance_officer", "exam_officer", "admissions_officer", "registrar", "Lecturer"].includes(user?.role)) {
             router.push("/staff/dashboard")
           }
           return
         }
       }
     }
-  }, [isLoading, isAuthenticated, user, requiredRole, requiredPermissions, router, pathname])
+  }, [loading, isAuthenticated, user, requiredRole, requiredPermissions, router, pathname, refreshAuth])
 
   // Show loading spinner while checking authentication
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -75,9 +92,14 @@ export function RouteGuard({ children, requiredRole, requiredPermissions }: Rout
     return null
   }
 
-  // Check role access
+  // Check role access - if checking for "staff", allow all staff-type roles
   if (requiredRole && user?.role !== requiredRole) {
-    return null
+    // Special case: if required role is "staff", allow any staff-type role
+    if (requiredRole === "staff" && ["staff", "finance_officer", "exam_officer", "admissions_officer", "registrar", "Lecturer"].includes(user?.role)) {
+      // Allow access
+    } else {
+      return null
+    }
   }
 
   // Check permission access

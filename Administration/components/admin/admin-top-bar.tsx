@@ -1,8 +1,9 @@
 "use client"
 
-import { Bell, Search, User, LogOut, Settings } from "lucide-react"
+import { Bell, Search, User, LogOut, Settings, Moon, Sun } from "lucide-react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
+import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -20,6 +21,7 @@ import { useAuth } from "@/lib/auth-context"
 
 export function AdminTopBar() {
   const { user, signOut } = useAuth()
+  const { theme, setTheme } = useTheme()
   const router = useRouter()
   
   const handleLogout = async () => {
@@ -37,8 +39,13 @@ export function AdminTopBar() {
   // Capitalize first letter of username
   const displayName = username.charAt(0).toUpperCase() + username.slice(1)
   
+  // Toggle between light and dark theme
+  const toggleTheme = () => {
+    setTheme(theme === 'dark' ? 'light' : 'dark')
+  }
+  
   return (
-    <header className="flex h-16 shrink-0 items-center gap-2 border-b bg-white px-4">
+    <header className="flex h-16 shrink-0 items-center gap-2 border-b bg-white dark:bg-gray-900 px-4">
       <SidebarTrigger className="-ml-1" />
       <Separator orientation="vertical" className="mr-2 h-4" />
       
@@ -52,19 +59,38 @@ export function AdminTopBar() {
             style={{ objectFit: 'contain' }}
           />
         </div>
-        <span className="font-semibold text-green-800">UCAES Admin</span>
+        <span className="font-semibold text-green-800 dark:text-green-400">UCAES Admin</span>
       </div>
 
       {/* Search */}
       <div className="flex flex-1 items-center gap-4">
         <div className="relative max-w-md flex-1">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-          <Input type="search" placeholder="Search students, courses..." className="pl-8" />
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500 dark:text-gray-400" />
+          <Input 
+            type="search" 
+            placeholder="Search students, courses..." 
+            className="pl-8 dark:bg-gray-800 dark:border-gray-700"
+          />
         </div>
       </div>
 
       {/* Right side */}
       <div className="flex items-center gap-2">
+        {/* Theme toggle button */}
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={toggleTheme}
+          className="text-gray-700 dark:text-gray-300"
+        >
+          {theme === 'dark' ? (
+            <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all" />
+          ) : (
+            <Moon className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all" />
+          )}
+          <span className="sr-only">Toggle theme</span>
+        </Button>
+        
         {/* Notifications */}
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-4 w-4" />

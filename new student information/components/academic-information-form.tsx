@@ -150,6 +150,46 @@ export default function AcademicInformationForm({ data, updateData }: AcademicIn
     fetchAcademicYears();
   }, []);
 
+  // Calculate current level based on academic year of entry
+  const calculateCurrentLevel = useCallback((academicYearOfEntry: string, entryLevel: string) => {
+    if (!academicYearOfEntry || !entryLevel) return entryLevel || "100";
+    
+    // Parse academic year (e.g., "2025/2026" -> 2025)
+    const entryYear = parseInt(academicYearOfEntry.split('/')[0]);
+    const currentYear = new Date().getFullYear();
+    const entryLevelNum = parseInt(entryLevel);
+    
+    // Calculate academic years since entry
+    // If student entered in 2025/2026 and we're in 2025 = same year = 0 years = Level 100
+    // If student entered in 2024/2025 and we're in 2025 = 1 year later = Level 200
+    const academicYearsSinceEntry = currentYear - entryYear;
+    
+    // Calculate current level based on academic years progression
+    // Each academic year advances one level (100 -> 200 -> 300 -> 400)
+    let currentLevel = entryLevelNum + (academicYearsSinceEntry * 100);
+    
+    // Cap at reasonable maximum levels (4-year programs typically)
+    const maxLevel = entryLevelNum + 300; // Maximum 4 levels above entry
+    currentLevel = Math.min(currentLevel, maxLevel);
+    
+    // Ensure we don't go below entry level
+    currentLevel = Math.max(currentLevel, entryLevelNum);
+    
+    return currentLevel.toString();
+  }, []);
+
+  // Auto-update current level when academic year of entry or entry level changes
+  useEffect(() => {
+    if (data.entryAcademicYear && data.entryLevel) {
+      const calculatedLevel = calculateCurrentLevel(data.entryAcademicYear, data.entryLevel);
+      
+      // Always update to the calculated level
+      if (calculatedLevel !== data.currentLevel) {
+        updateData({ currentLevel: calculatedLevel });
+      }
+    }
+  }, [data.entryAcademicYear, data.entryLevel, calculateCurrentLevel, updateData]);
+
   // Update program duration when program changes
   useEffect(() => {
     if (data.programme) {
@@ -288,6 +328,17 @@ export default function AcademicInformationForm({ data, updateData }: AcademicIn
                       {programme}
                     </SelectItem>
                   ))}
+                  <SelectItem value="Certificate in Environmental Science">
+                    Certificate in Environmental Science
+                  </SelectItem>
+                </SelectGroup>
+                
+                {/* Diploma Programs */}
+                <SelectGroup>
+                  <SelectLabel>2-Year Diploma Programme</SelectLabel>
+                  <SelectItem value="Diploma in Organic Agriculture">
+                    Diploma in Organic Agriculture
+                  </SelectItem>
                 </SelectGroup>
                 
                 {/* Certificate Programs */}
@@ -374,20 +425,7 @@ export default function AcademicInformationForm({ data, updateData }: AcademicIn
             </p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="yearOfEntry">Calendar Year of Entry *</Label>
-            <Input
-              id="yearOfEntry"
-              type="text"
-              value={data.yearOfEntry}
-              onChange={(e) => updateData({ yearOfEntry: e.target.value })}
-              placeholder="e.g., 2024"
-              required
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              The calendar year when you first enrolled (e.g. 2024)
-            </p>
-          </div>
+
 
           <div className="space-y-2">
             <Label htmlFor="entryQualification">Entry Qualification *</Label>
@@ -449,9 +487,12 @@ export default function AcademicInformationForm({ data, updateData }: AcademicIn
               </SelectContent>
             </Select>
             {data.entryLevel && data.currentLevel && (
-              <p className="text-xs text-gray-500 mt-1">
-                Current level must be at least your entry level
-              </p>
+              <div className="mt-1">
+                <p className="text-xs text-gray-500">
+                  Current level must be at least your entry level
+                </p>
+
+              </div>
             )}
           </div>
 

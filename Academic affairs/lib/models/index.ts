@@ -1,10 +1,23 @@
-// Export all models from a single file for easier imports
-export { default as Program } from './program';
-export { default as Course } from './course';
-export { default as AcademicYear } from './academic-year';
-export { default as Semester } from './semester';
-export { default as CourseEnrollment } from './course-enrollment';
-export { default as Result } from './result';
-export { default as Staff } from './staff';
-export { default as AuditLog } from './audit-log';
-export { default as User } from './user'; 
+// Firebase collection names for easier reference
+export const Collections = {
+  Program: 'programs',
+  Course: 'courses',
+  AcademicYear: 'academic-years',
+  Semester: 'semesters',
+  CourseEnrollment: 'course-enrollments',
+  Result: 'results',
+  Staff: 'staff',
+  AuditLog: 'audit-logs',
+  User: 'users'
+};
+
+// Export collection names as constants
+export const Program = Collections.Program;
+export const Course = Collections.Course;
+export const AcademicYear = Collections.AcademicYear;
+export const Semester = Collections.Semester;
+export const CourseEnrollment = Collections.CourseEnrollment;
+export const Result = Collections.Result;
+export const Staff = Collections.Staff;
+export const AuditLog = Collections.AuditLog;
+export const User = Collections.User; 

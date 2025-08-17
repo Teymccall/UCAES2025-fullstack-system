@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   collection, query, where, orderBy, onSnapshot, 
   QueryConstraint, DocumentData, limit, doc,
-  Firestore, DocumentSnapshot
+  Firestore, DocumentSnapshot, getDocs
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -23,32 +23,72 @@ export function useFirebaseData<T>(
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
+  
+  // Use refs to avoid dependency changes on every render
+  const optionsRef = useRef(options);
+  const collectionNameRef = useRef(collectionName);
+  
+  // Update refs if the inputs change
+  useEffect(() => {
+    optionsRef.current = options;
+    collectionNameRef.current = collectionName;
+  }, [options, collectionName]);
+
+  // Build query constraints function - extracted for reuse
+  const buildQueryConstraints = useCallback(() => {
+    const constraints: QueryConstraint[] = [];
+    const currentOptions = optionsRef.current;
+    
+    if (currentOptions.where) {
+      currentOptions.where.forEach(([field, operator, value]) => {
+        constraints.push(where(field, operator, value));
+      });
+    }
+    
+    if (currentOptions.orderBy) {
+      currentOptions.orderBy.forEach(([field, direction]) => {
+        constraints.push(orderBy(field, direction));
+      });
+    }
+    
+    if (currentOptions.limit) {
+      constraints.push(limit(currentOptions.limit));
+    }
+    
+    return constraints;
+  }, []); // No dependencies since we're using refs
+
+  // Function to manually refresh data
+  const refreshData = useCallback(async () => {
+    // Don't set loading state to avoid UI flicker during refresh
+    try {
+      const constraints = buildQueryConstraints();
+      const collectionRef = collection(db, collectionNameRef.current);
+      const q = constraints.length ? query(collectionRef, ...constraints) : query(collectionRef);
+      
+      const querySnapshot = await getDocs(q);
+      const items = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as T[];
+      
+      setData(items);
+      setError(null);
+      return Promise.resolve();
+    } catch (err: any) {
+      console.error(`Error refreshing ${collectionNameRef.current}:`, err);
+      setError(err);
+      return Promise.reject(err);
+    }
+  }, [buildQueryConstraints]);
 
   useEffect(() => {
     setLoading(true);
     setError(null);
 
-    // Build query constraints
-    const constraints: QueryConstraint[] = [];
-    
-    if (options.where) {
-      options.where.forEach(([field, operator, value]) => {
-        constraints.push(where(field, operator, value));
-      });
-    }
-    
-    if (options.orderBy) {
-      options.orderBy.forEach(([field, direction]) => {
-        constraints.push(orderBy(field, direction));
-      });
-    }
-    
-    if (options.limit) {
-      constraints.push(limit(options.limit));
-    }
-
     // Create query
-    const collectionRef = collection(db, collectionName);
+    const constraints = buildQueryConstraints();
+    const collectionRef = collection(db, collectionNameRef.current);
     const q = constraints.length ? query(collectionRef, ...constraints) : query(collectionRef);
 
     // Set up real-time listener
@@ -64,7 +104,7 @@ export function useFirebaseData<T>(
         setLoading(false);
       },
       (err) => {
-        console.error(`Error fetching ${collectionName}:`, err);
+        console.error(`Error fetching ${collectionNameRef.current}:`, err);
         setError(err);
         setLoading(false);
       }
@@ -72,9 +112,9 @@ export function useFirebaseData<T>(
 
     // Cleanup subscription
     return () => unsubscribe();
-  }, [...dependencies]);
+  }, [buildQueryConstraints, ...dependencies]);
 
-  return { data, loading, error };
+  return { data, loading, error, refreshData };
 }
 
 // Hook to fetch and listen to a single Firestore document

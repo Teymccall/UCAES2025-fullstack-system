@@ -25,27 +25,39 @@ import { Plus, Search, Edit, Trash2, BookOpen, GraduationCap, ChevronRight, Cale
 import { useToast } from "@/hooks/use-toast"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { Spinner, SpinnerContainer } from "@/components/ui/spinner"
 
 export default function CourseManagement() {
-  const { courses, programs, addCourse, addProgram, editCourse, editProgram, deleteCourse, deleteProgram } =
+  const { courses, programs = [], addCourse, addProgram, editCourse, editProgram, deleteCourse, deleteProgram, autoAlignProgramFromCatalog } =
     useCourses()
   const { academicYears } = useAcademic()
   const { toast } = useToast()
+  
+  // Debug logging
+  console.log("🔍 Course Management - Programs loaded:", programs.length, programs)
+  console.log("🔍 Course Management - Courses loaded:", courses.length, courses)
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddCourseOpen, setIsAddCourseOpen] = useState(false)
   const [isAddProgramOpen, setIsAddProgramOpen] = useState(false)
+  const [isAddingProgram, setIsAddingProgram] = useState(false)
+  const [isAddingCourse, setIsAddingCourse] = useState(false)
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null)
   const [selectedProgramView, setSelectedProgramView] = useState<"courses" | "structure">("structure")
-
+  const [isLoading, setIsLoading] = useState(true)
+  
   // Course form state
   const [courseForm, setCourseForm] = useState({
     code: "",
     name: "",
     description: "",
     credits: "",
+    level: "100",
+    semester: "1",
     prerequisites: "",
-    semester: "",
     department: "",
+    faculty: "",
+    programId: "",
+    courseType: "core" as const,
     status: "active" as const,
   })
 
@@ -55,19 +67,47 @@ export default function CourseManagement() {
     name: "",
     description: "",
     duration: "",
-    degreeType: "",
-    requirements: "",
-    courses: "",
-    status: "active" as const,
+    department: "",
+    coordinator: "",
+    entryRequirements: "",
+    status: "Active" as const,
   })
 
-  const handleAddCourse = () => {
-    if (!courseForm.code || !courseForm.name || !courseForm.credits) {
+  useEffect(() => {
+    // Set loading to false after data is loaded
+    if (courses.length > 0 || programs.length > 0) {
+      setIsLoading(false)
+    }
+    
+    // Fallback timeout in case no data loads
+    const timer = setTimeout(() => {
+      setIsLoading(false)
+    }, 3000)
+    
+    return () => clearTimeout(timer)
+  }, [courses, programs])
+  
+  // Display loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-[80vh]">
+        <SpinnerContainer>
+          Loading course data...
+        </SpinnerContainer>
+      </div>
+    )
+  }
+
+  const handleAddCourse = async () => {
+    setIsAddingCourse(true);
+    
+    if (!courseForm.code || !courseForm.name || !courseForm.credits || !courseForm.level || !courseForm.semester || !courseForm.programId || courseForm.programId === "none") {
       toast({
         title: "Validation Error",
-        description: "Please fill in all required fields (Code, Name, Credits)",
+        description: "Please fill in all required fields (Code, Name, Credits, Level, Semester, Program). Program is required for course registration to work.",
         variant: "destructive",
       })
+      setIsAddingCourse(false);
       return
     }
 
@@ -78,46 +118,90 @@ export default function CourseManagement() {
         description: "Course code already exists",
         variant: "destructive",
       })
+      setIsAddingCourse(false);
       return
     }
 
-    const newCourse: Omit<Course, "id" | "createdAt"> = {
-      code: courseForm.code,
-      name: courseForm.name,
-      description: courseForm.description,
-      credits: Number.parseInt(courseForm.credits),
-      prerequisites: courseForm.prerequisites ? courseForm.prerequisites.split(",").map((p) => p.trim()) : [],
-      semester: courseForm.semester,
-      department: courseForm.department,
-      status: courseForm.status,
-    }
+    try {
+      // Get current active academic year
+      const activeYear = academicYears.find(year => year.status === "active")
+      const academicYear = activeYear?.year || new Date().getFullYear().toString() + "/" + (new Date().getFullYear() + 1).toString()
 
-    addCourse(newCourse)
-    setCourseForm({
-      code: "",
-      name: "",
-      description: "",
-      credits: "",
-      prerequisites: "",
-      semester: "",
-      department: "",
-      status: "active",
-    })
-    setIsAddCourseOpen(false)
+      const newCourse: Omit<Course, "id" | "createdAt"> = {
+        code: courseForm.code,
+        title: courseForm.name, // Use title for Firebase compatibility
+        name: courseForm.name,
+        description: courseForm.description,
+        credits: Number.parseInt(courseForm.credits),
+        level: Number.parseInt(courseForm.level || "100"), // Add level field
+        semester: Number.parseInt(courseForm.semester || "1"), // Convert to number for Firebase
+        prerequisites: courseForm.prerequisites ? courseForm.prerequisites.split(",").map((p) => p.trim()) : [],
+        department: courseForm.department,
+        faculty: courseForm.faculty || courseForm.department || "General", // Add faculty field
+        programId: courseForm.programId, // Required program assignment
+        academicYear: academicYear, // Add academic year
+        status: courseForm.status,
+        courseType: courseForm.courseType || "core", // Add course type
+        crossProgram: false, // Default to false
+      }
 
-    toast({
-      title: "Success",
-      description: "Course added successfully",
-    })
-  }
+      console.log("🎯 Adding course to Firebase:", newCourse)
+      console.log("🔍 Selected Program ID:", courseForm.programId)
+      console.log("🔍 Available Programs:", programs.map(p => ({ id: p.id, code: p.code, name: p.name })))
+      await addCourse(newCourse)
+      
+      setCourseForm({
+        code: "",
+        name: "",
+        description: "",
+        credits: "",
+        level: "100",
+        semester: "1",
+        prerequisites: "",
+        department: "",
+        faculty: "",
+        programId: "",
+        courseType: "core",
+        status: "active",
+      })
+      setIsAddCourseOpen(false)
 
-  const handleAddProgram = () => {
-    if (!programForm.code || !programForm.name || !programForm.duration) {
       toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields (Code, Name, Duration)",
+        title: "Success",
+        description: `Course ${courseForm.code} added successfully to Firebase and is now available for course registration`,
+      })
+    } catch (error) {
+      console.error("Error adding course:", error)
+      toast({
+        title: "Error",
+        description: "Failed to add course. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setIsAddingCourse(false);
+    }
+  }
+
+  const handleAddProgram = async () => {
+    console.log("🔥 Add Program button clicked!", { programForm });
+    setIsAddingProgram(true);
+    
+    if (!programForm.code || !programForm.name || !programForm.duration || !programForm.department || !programForm.coordinator || !programForm.entryRequirements) {
+      console.log("❌ Validation failed:", {
+        code: !!programForm.code,
+        name: !!programForm.name,
+        duration: !!programForm.duration,
+        department: !!programForm.department,
+        coordinator: !!programForm.coordinator,
+        entryRequirements: !!programForm.entryRequirements
+      });
+      
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields (Code, Name, Duration, Department, Coordinator, Entry Requirements)",
+        variant: "destructive",
+      })
+      setIsAddingProgram(false);
       return
     }
 
@@ -128,38 +212,59 @@ export default function CourseManagement() {
         description: "Program code already exists",
         variant: "destructive",
       })
+      setIsAddingProgram(false);
       return
     }
 
-    const newProgram: Omit<Program, "id" | "createdAt"> = {
-      code: programForm.code,
-      name: programForm.name,
-      description: programForm.description,
-      duration: programForm.duration,
-      degreeType: programForm.degreeType,
-      requirements: programForm.requirements ? programForm.requirements.split(",").map((r) => r.trim()) : [],
-      courses: programForm.courses ? programForm.courses.split(",").map((c) => c.trim()) : [],
-      coursesPerLevel: {},
-      status: programForm.status,
+    try {
+      const newProgram: Omit<Program, "id" | "createdAt"> = {
+        code: programForm.code,
+        name: programForm.name,
+        description: programForm.description,
+        duration: programForm.duration,
+        department: programForm.department,
+        coordinator: programForm.coordinator,
+        entryRequirements: programForm.entryRequirements,
+        status: programForm.status,
+        coursesPerLevel: {
+          "100": { "1": [], "2": [] },
+          "200": { "1": [], "2": [] },
+          "300": { "1": [], "2": [] },
+          "400": { "1": [], "2": [] }
+        },
+      }
+
+      console.log("🎯 Adding program to Firebase:", newProgram)
+      await addProgram(newProgram)
+      console.log("✅ Program added successfully to Firebase!")
+      
+      setProgramForm({
+        code: "",
+        name: "",
+        description: "",
+        duration: "",
+        department: "",
+        coordinator: "",
+        entryRequirements: "",
+        status: "Active",
+      })
+      setIsAddProgramOpen(false)
+
+      toast({
+        title: "Success",
+        description: `Program ${programForm.code} added successfully to Firebase and is now available for course registration`,
+      })
+      console.log("🎉 Program form reset and dialog closed")
+    } catch (error) {
+      console.error("Error adding program:", error)
+      toast({
+        title: "Error", 
+        description: "Failed to add program. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsAddingProgram(false);
     }
-
-    addProgram(newProgram)
-    setProgramForm({
-      code: "",
-      name: "",
-      description: "",
-      duration: "",
-      degreeType: "",
-      requirements: "",
-      courses: "",
-      status: "active",
-    })
-    setIsAddProgramOpen(false)
-
-    toast({
-      title: "Success",
-      description: "Program added successfully",
-    })
   }
 
   const filteredCourses = courses.filter(
@@ -215,6 +320,17 @@ export default function CourseManagement() {
                 <BookOpen className="h-4 w-4" />
                 Course List
               </Button>
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  if (!selectedProgram?.id) return
+                  await autoAlignProgramFromCatalog(selectedProgram.id)
+                  // force rerender
+                  setSelectedProgram({ ...selectedProgram })
+                }}
+              >
+                Auto Align
+              </Button>
             </div>
           </div>
           
@@ -263,7 +379,7 @@ export default function CourseManagement() {
                         Add Program
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-2xl">
+                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
                         <DialogTitle>Add New Program</DialogTitle>
                         <DialogDescription>Create a new academic program</DialogDescription>
@@ -275,7 +391,7 @@ export default function CourseManagement() {
                             <Input
                               id="program-code"
                               value={programForm.code}
-                              onChange={(e) => setProgramForm({ ...programForm, code: e.target.value })}
+                              onChange={(e) => setProgramForm(prev => ({ ...prev, code: e.target.value }))}
                               placeholder="e.g., CS-MS"
                             />
                           </div>
@@ -284,7 +400,7 @@ export default function CourseManagement() {
                             <Input
                               id="duration"
                               value={programForm.duration}
-                              onChange={(e) => setProgramForm({ ...programForm, duration: e.target.value })}
+                              onChange={(e) => setProgramForm(prev => ({ ...prev, duration: e.target.value }))}
                               placeholder="4 years"
                             />
                           </div>
@@ -294,8 +410,8 @@ export default function CourseManagement() {
                           <Input
                             id="program-name"
                             value={programForm.name}
-                            onChange={(e) => setProgramForm({ ...programForm, name: e.target.value })}
-                            placeholder="Master of Science in Computer Science"
+                            onChange={(e) => setProgramForm(prev => ({ ...prev, name: e.target.value }))}
+                            placeholder="Bachelor of Science in Sustainable Agriculture"
                           />
                         </div>
                         <div>
@@ -307,47 +423,75 @@ export default function CourseManagement() {
                             placeholder="Program description..."
                           />
                         </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="department">Department *</Label>
+                            <Select
+                              value={programForm.department}
+                              onValueChange={(value) => setProgramForm({ ...programForm, department: value })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select department" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Agriculture">Agriculture</SelectItem>
+                                <SelectItem value="Forestry">Forestry</SelectItem>
+                                <SelectItem value="Environmental Studies">Environmental Studies</SelectItem>
+                                <SelectItem value="Water Resources">Water Resources</SelectItem>
+                                <SelectItem value="Renewable Energy">Renewable Energy</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label htmlFor="coordinator">Coordinator *</Label>
+                            <Input
+                              id="coordinator"
+                              value={programForm.coordinator}
+                              onChange={(e) => setProgramForm(prev => ({ ...prev, coordinator: e.target.value }))}
+                              placeholder="Dr. John Smith"
+                            />
+                          </div>
+                        </div>
                         <div>
-                          <Label htmlFor="degree-type">Degree Type</Label>
+                          <Label htmlFor="entryRequirements">Entry Requirements *</Label>
+                          <Textarea
+                            id="entryRequirements"
+                            value={programForm.entryRequirements}
+                            onChange={(e) => setProgramForm({ ...programForm, entryRequirements: e.target.value })}
+                            placeholder="WASSCE with credits in English, Mathematics, and Science subjects"
+                            rows={2}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="status">Status</Label>
                           <Select
-                            value={programForm.degreeType}
-                            onValueChange={(value) => setProgramForm({ ...programForm, degreeType: value })}
+                            value={programForm.status}
+                            onValueChange={(value) => setProgramForm({ ...programForm, status: value as "Active" | "Inactive" })}
                           >
                             <SelectTrigger>
-                              <SelectValue placeholder="Select degree type" />
+                              <SelectValue placeholder="Select status" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="Bachelor's">Bachelor's</SelectItem>
-                              <SelectItem value="Master's">Master's</SelectItem>
-                              <SelectItem value="Doctorate">Doctorate</SelectItem>
-                              <SelectItem value="Certificate">Certificate</SelectItem>
+                              <SelectItem value="Active">Active</SelectItem>
+                              <SelectItem value="Inactive">Inactive</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
-                        <div>
-                          <Label htmlFor="requirements">Requirements (comma-separated)</Label>
-                          <Input
-                            id="requirements"
-                            value={programForm.requirements}
-                            onChange={(e) => setProgramForm({ ...programForm, requirements: e.target.value })}
-                            placeholder="120 credits, Capstone project, Internship"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="program-courses">Core Courses (comma-separated)</Label>
-                          <Input
-                            id="program-courses"
-                            value={programForm.courses}
-                            onChange={(e) => setProgramForm({ ...programForm, courses: e.target.value })}
-                            placeholder="CS 101, CS 201, CS 301"
-                          />
-                        </div>
                       </div>
                       <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsAddProgramOpen(false)}>
+                        <Button variant="outline" onClick={() => setIsAddProgramOpen(false)} disabled={isAddingProgram}>
                           Cancel
                         </Button>
-                        <Button onClick={handleAddProgram}>Add Program</Button>
+                        <Button onClick={handleAddProgram} disabled={isAddingProgram}>
+                          {isAddingProgram ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                              Adding Program...
+                            </>
+                          ) : (
+                            "Add Program"
+                          )}
+                        </Button>
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
@@ -396,7 +540,22 @@ export default function CourseManagement() {
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            onClick={() => deleteProgram(program.id)}
+                            onClick={async () => {
+                              try {
+                                await deleteProgram(program.id)
+                                toast({
+                                  title: "Success",
+                                  description: `Program ${program.code} deleted successfully from Firebase`,
+                                })
+                              } catch (error) {
+                                console.error("Error deleting program:", error)
+                                toast({
+                                  title: "Error",
+                                  description: "Failed to delete program. Please try again.",
+                                  variant: "destructive",
+                                })
+                              }
+                            }}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -421,7 +580,7 @@ export default function CourseManagement() {
                         Add Course
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-2xl">
+                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
                         <DialogTitle>Add New Course</DialogTitle>
                         <DialogDescription>Create a new course in the academic system</DialogDescription>
@@ -466,7 +625,40 @@ export default function CourseManagement() {
                             placeholder="Course description..."
                           />
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-3 gap-4">
+                          <div>
+                            <Label htmlFor="level">Level *</Label>
+                            <Select
+                              value={courseForm.level}
+                              onValueChange={(value) => setCourseForm({ ...courseForm, level: value })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select level" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="100">100</SelectItem>
+                                <SelectItem value="200">200</SelectItem>
+                                <SelectItem value="300">300</SelectItem>
+                                <SelectItem value="400">400</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label htmlFor="semester">Semester *</Label>
+                            <Select
+                              value={courseForm.semester}
+                              onValueChange={(value) => setCourseForm({ ...courseForm, semester: value })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select semester" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="1">First Semester</SelectItem>
+                                <SelectItem value="2">Second Semester</SelectItem>
+                                <SelectItem value="3">Third Semester</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                           <div>
                             <Label htmlFor="department">Department</Label>
                             <Select
@@ -482,22 +674,44 @@ export default function CourseManagement() {
                                 <SelectItem value="Engineering">Engineering</SelectItem>
                                 <SelectItem value="Business">Business</SelectItem>
                                 <SelectItem value="Liberal Arts">Liberal Arts</SelectItem>
+                                <SelectItem value="Agriculture">Agriculture</SelectItem>
+                                <SelectItem value="Environmental Studies">Environmental Studies</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="program">Program *</Label>
+                            <Select
+                              value={courseForm.programId}
+                              onValueChange={(value) => setCourseForm({ ...courseForm, programId: value })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select program" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {programs.map((program) => (
+                                  <SelectItem key={program.id} value={program.id}>
+                                    {program.code} - {program.name}
+                                  </SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                           </div>
                           <div>
-                            <Label htmlFor="semester">Semester</Label>
+                            <Label htmlFor="courseType">Course Type</Label>
                             <Select
-                              value={courseForm.semester}
-                              onValueChange={(value) => setCourseForm({ ...courseForm, semester: value })}
+                              value={courseForm.courseType}
+                              onValueChange={(value) => setCourseForm({ ...courseForm, courseType: value as "core" | "elective" | "general" })}
                             >
                               <SelectTrigger>
-                                <SelectValue placeholder="Select semester" />
+                                <SelectValue placeholder="Select course type" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="Fall 2024">Fall 2024</SelectItem>
-                                <SelectItem value="Spring 2025">Spring 2025</SelectItem>
-                                <SelectItem value="Summer 2025">Summer 2025</SelectItem>
+                                <SelectItem value="core">Core Course</SelectItem>
+                                <SelectItem value="elective">Elective Course</SelectItem>
+                                <SelectItem value="general">General Course</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -513,10 +727,19 @@ export default function CourseManagement() {
                         </div>
                       </div>
                       <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsAddCourseOpen(false)}>
+                        <Button variant="outline" onClick={() => setIsAddCourseOpen(false)} disabled={isAddingCourse}>
                           Cancel
                         </Button>
-                        <Button onClick={handleAddCourse}>Add Course</Button>
+                        <Button onClick={handleAddCourse} disabled={isAddingCourse}>
+                          {isAddingCourse ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                              Adding Course...
+                            </>
+                          ) : (
+                            "Add Course"
+                          )}
+                        </Button>
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
@@ -561,7 +784,26 @@ export default function CourseManagement() {
                             <Button variant="outline" size="sm">
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => deleteCourse(course.id)}>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={async () => {
+                                try {
+                                  await deleteCourse(course.id)
+                                  toast({
+                                    title: "Success",
+                                    description: `Course ${course.code} deleted successfully from Firebase`,
+                                  })
+                                } catch (error) {
+                                  console.error("Error deleting course:", error)
+                                  toast({
+                                    title: "Error",
+                                    description: "Failed to delete course. Please try again.",
+                                    variant: "destructive",
+                                  })
+                                }
+                              }}
+                            >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
@@ -804,10 +1046,7 @@ function ProgramCourseAssignment({ program }: { program: Program }) {
             >
               {loading ? (
                 <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
+                  <Spinner className="mr-2" />
                   Assigning...
                 </>
               ) : (
@@ -856,36 +1095,37 @@ function ProgramCourseAssignment({ program }: { program: Program }) {
 }
 
 function ProgramStructureView({ program }: { program: Program }) {
-  const { courses, getProgramCourses } = useCourses()
-  const { academicYears } = useAcademic()
   const [expandedYear, setExpandedYear] = useState<string | null>(null)
   const [expandedLevel, setExpandedLevel] = useState<string | null>(null)
   const [expandedSemester, setExpandedSemester] = useState<string | null>(null)
+  const { academicYears } = useAcademic()
+  const { getProgramCourses } = useCourses()
   
-  // Level options
-  const levelOptions = ["100", "200", "300", "400", "500", "600"]
+  // Level options: 100, 200, 300, 400
+  const levelOptions = ["100", "200", "300", "400"]
   
-  // Semester options
+  // Semester options: "First Semester", "Second Semester"
   const semesterOptions = ["First Semester", "Second Semester"]
   
-  // Set default expanded items on mount
   useEffect(() => {
-    if (academicYears.length > 0) {
-      const activeYear = academicYears.find(year => year.status === "active")
-      setExpandedYear(activeYear?.year || academicYears[0].year)
+    if (academicYears.length > 0 && !expandedYear) {
+      // Find the current academic year
+      const currentYear = academicYears.find(year => year.status === "active")
+      if (currentYear) {
+        setExpandedYear(currentYear.year)
+      } else {
+        setExpandedYear(academicYears[0].year)
+      }
     }
-    
-    setExpandedLevel("100")
-    setExpandedSemester("First Semester")
   }, [academicYears])
   
   const getCourseCountForYearLevelSemester = (year: string, level: string, semester: string) => {
-    const courses = getProgramCourses(program.id, level, semester, year)
+    const courses = getProgramCourses(program.id || '', level, semester, year)
     return courses.length
   }
   
   const getTotalCreditsForYearLevelSemester = (year: string, level: string, semester: string) => {
-    const assignedCourses = getProgramCourses(program.id, level, semester, year)
+    const assignedCourses = getProgramCourses(program.id || '', level, semester, year)
     return assignedCourses.reduce((total, course) => total + (course.credits || 0), 0)
   }
   
@@ -998,7 +1238,7 @@ function ProgramCoursesDisplay({
   const { courses, getProgramCourses } = useCourses()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   
-  const assignedCourses = getProgramCourses(program.id, level, semester, academicYear)
+  const assignedCourses = getProgramCourses(program.id || '', level, semester, academicYear)
   
   if (assignedCourses.length === 0) {
     return (

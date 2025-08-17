@@ -47,6 +47,12 @@ body {
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 98%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 98%;
+    --info: 217 91% 60%;
+    --info-foreground: 0 0% 98%;
   }
   .dark {
     --background: 0 0% 3.9%;
@@ -81,6 +87,12 @@ body {
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+    --success: 142 69% 58%;
+    --success-foreground: 0 0% 98%;
+    --warning: 48 96% 53%;
+    --warning-foreground: 0 0% 98%;
+    --info: 217 91% 65%;
+    --info-foreground: 0 0% 98%;
   }
 }
 
@@ -90,5 +102,93 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Custom styles for student management page */
+.student-table-container {
+  @apply rounded-md border border-gray-200 dark:border-gray-800 overflow-hidden;
+}
+
+.student-table {
+  @apply w-full text-sm;
+}
+
+.student-table thead tr {
+  @apply bg-gray-50 dark:bg-gray-800/60;
+}
+
+.student-table th {
+  @apply px-4 py-3 text-left font-medium text-gray-700 dark:text-gray-300;
+}
+
+.student-table tbody tr {
+  @apply border-t border-gray-200 dark:border-gray-800;
+}
+
+.student-table tbody tr:hover {
+  @apply bg-gray-50/60 dark:bg-gray-800/60;
+}
+
+.student-table td {
+  @apply px-4 py-3 dark:text-gray-300;
+}
+
+/* Status badges */
+.badge-active {
+  @apply bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400;
+}
+
+.badge-inactive {
+  @apply bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400;
+}
+
+.badge-pending {
+  @apply bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400;
+}
+
+.badge-suspended {
+  @apply bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400;
+}
+
+/* Schedule type badges */
+.badge-regular {
+  @apply bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-900/50;
+}
+
+.badge-weekend {
+  @apply bg-purple-50 text-purple-800 border-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-900/50;
+}
+
+.badge-evening {
+  @apply bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/50;
+}
+
+/* Smooth transitions for theme switching */
+.theme-transition {
+  @apply transition-colors duration-300;
+}
+
+html.dark {
+  @apply theme-transition;
+}
+
+/* Custom scrollbar for better dark mode experience */
+@media (min-width: 768px) {
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-100 dark:bg-gray-900;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 dark:bg-gray-700 rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400 dark:bg-gray-600;
   }
 }

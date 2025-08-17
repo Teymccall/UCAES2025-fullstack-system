@@ -124,15 +124,15 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
             <GraduationCap className="h-4 w-4" />
           </div>
           <div className="grid flex-1 text-left text-sm leading-tight">
-            <span className="truncate font-semibold text-green-700">UCAES</span>
-            <span className="truncate text-xs text-gray-600">Admin Panel</span>
+            <span className="truncate font-semibold text-green-700 dark:text-green-400">UCAES</span>
+            <span className="truncate text-xs text-gray-600 dark:text-gray-400">Admin Panel</span>
           </div>
         </div>
       </SidebarHeader>
       <SidebarContent>
         {navigationItems.map((group) => (
           <SidebarGroup key={group.title}>
-            <SidebarGroupLabel className="text-green-700 font-medium">{group.title}</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-green-700 dark:text-green-400 font-medium">{group.title}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.items.map((item) => (
@@ -140,7 +140,7 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                     <SidebarMenuButton
                       asChild
                       isActive={pathname === item.url}
-                      className="data-[active=true]:bg-green-100 data-[active=true]:text-green-700 hover:bg-green-50"
+                      className="data-[active=true]:bg-green-100 data-[active=true]:text-green-700 hover:bg-green-50 dark:data-[active=true]:bg-green-900/40 dark:data-[active=true]:text-green-400 dark:hover:bg-gray-800"
                     >
                       <Link href={item.url}>
                         <item.icon className="h-4 w-4" />
@@ -154,7 +154,7 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
           </SidebarGroup>
         ))}
       </SidebarContent>
-      <SidebarRail />
+      <SidebarRail className="dark:border-gray-800" />
     </Sidebar>
   )
 }

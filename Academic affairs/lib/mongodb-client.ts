@@ -1,33 +1,32 @@
-// Client-safe MongoDB connection utility
-// This file is for client components and avoids using Node.js-specific features
+// Firebase client interface
+// This file provides compatibility with code expecting MongoDB
 
-import mongoose from 'mongoose';
+import { db } from './firebase';
+import { collection, getDocs } from 'firebase/firestore';
 
-// MongoDB configuration
-let MONGODB_URI = process.env.NEXT_PUBLIC_MONGODB_URI;
+// For compatibility with code expecting mongoose
+export const mongoose = {
+  connection: {
+    isConnected: true
+  }
+};
 
-// Cache for connection status
-declare global {
-  var mongooseClientConnection: {
-    isConnected: boolean;
-  };
-}
-
-// Initialize the mongoose connection status
-global.mongooseClientConnection = global.mongooseClientConnection || { isConnected: false };
-
-// Simple connection check function for client components
+// Check Firestore connection by performing a simple query
 export async function checkConnection() {
+  try {
+    // Try to access a test collection
+    const querySnapshot = await getDocs(collection(db, 'connection_test'));
+    return { isConnected: true };
+  } catch (error) {
+    console.error("Firestore connection error:", error);
   return { 
-    isConnected: global.mongooseClientConnection?.isConnected || false 
+      isConnected: false, 
+      error: error instanceof Error ? error.message : "Unknown connection error" 
   };
+  }
 }
 
-// Dummy function that returns connection status for client components
-// Real connections should happen only in API routes or server components
+// Export functions for client components
 export async function connectToClientDatabase() {
   return checkConnection();
 }
-
-// Export mongoose for type usage in client components
-export { mongoose }; 

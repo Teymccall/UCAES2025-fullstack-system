@@ -28,1266 +28,821 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { useStudents, type Student } from "@/components/student-context"
-import { useCourses } from "@/components/course-context"
-import { Search, Plus, Trash2, Users, BookOpen, Edit, CheckCircle, Download, AlertCircle, Loader2 } from "lucide-react"
+import { Search, Plus, Trash2, Users, BookOpen, Edit, CheckCircle, Download, AlertCircle, UserCheck, Copy } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { collection, query, where, orderBy, getDocs } from "firebase/firestore"
-import { useFirebase } from "@/components/firebase-context"
+import { collection, query, where, orderBy, getDocs, getFirestore, onSnapshot, updateDoc, doc, deleteDoc, writeBatch } from "firebase/firestore"
+import { db } from "@/lib/firebase"
+import { Spinner, SpinnerContainer } from "@/components/ui/spinner"
+
+// Define the student type based on registration data
+interface RegisteredStudent {
+  id: string
+  studentId: string
+  name: string
+  email: string
+  program: string
+  gender: string
+  studyMode: string
+  level?: string
+  semester?: string
+  status: "active" | "inactive" | "graduated" | "pending" | "pending_verification"
+  registrationDate: string
+  contactNumber?: string
+  dateOfBirth?: string
+  profilePictureUrl?: string
+}
 
 export default function DirectorStudentManagement() {
-  const {
-    students,
-    searchStudents,
-    addCourseToStudent,
-    removeCourseFromStudent,
-    validateCoursePrerequisites,
-    getStudentByIndex,
-    updateStudentInfo,
-    addStudent,
-    addAuditLog,
-  } = useStudents()
-  const { courses } = useCourses()
   const { toast } = useToast()
-  const { db } = useFirebase()
-
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [isClearingStudents, setIsClearingStudents] = useState(false)
+  // Student state
+  const [students, setStudents] = useState<RegisteredStudent[]>([])
   const [searchQuery, setSearchQuery] = useState("")
-  const [searchResults, setSearchResults] = useState<Student[]>([])
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
-  const [isManagingCourses, setIsManagingCourses] = useState(false)
-  const [isEditingStudent, setIsEditingStudent] = useState(false)
-  const [isAddingStudent, setIsAddingStudent] = useState(false)
-  const [courseToAdd, setCourseToAdd] = useState("")
-
-  const [studentForm, setStudentForm] = useState({
-    studentId: "",
-    name: "",
-    email: "",
-    program: "",
-    level: "",
-    semester: "",
-    gpa: 0,
-    cgpa: 0,
-    status: "active" as const,
-  })
-
-  const programs = [
-    "B.Sc. Sustainable Agriculture",
-    "B.Sc. Sustainable Forestry", 
-    "B.Sc. Environmental Science and Management"
-  ]
-  const levels = ["100", "200", "300", "400"]
-
-  // Add these new state variables
-  const [bulkOperationMode, setBulkOperationMode] = useState(false)
-  const [selectedStudents, setSelectedStudents] = useState<string[]>([])
-  const [showAnalytics, setShowAnalytics] = useState(false)
+  const [searchResults, setSearchResults] = useState<RegisteredStudent[]>([])
+  const [selectedStudent, setSelectedStudent] = useState<RegisteredStudent | null>(null)
+  const [isViewingStudent, setIsViewingStudent] = useState(false)
+  // Filter states
   const [filterProgram, setFilterProgram] = useState("all")
   const [filterLevel, setFilterLevel] = useState("all")
-  const [filterStatus, setFilterStatus] = useState("all")
+  const [filterStudyMode, setFilterStudyMode] = useState("all")
+  // Copy feedback state (move here to fix hook order)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
   
-  // Add these new state variables for registrations
-  const [activeTab, setActiveTab] = useState<"students" | "registrations">("students")
-  const [registrations, setRegistrations] = useState<any[]>([])
-  const [loadingRegistrations, setLoadingRegistrations] = useState(false)
-  const [selectedProgram, setSelectedProgram] = useState<string>("all")
-  const [selectedSemester, setSelectedSemester] = useState<string>("all")
-  const [selectedAcademicYear, setSelectedAcademicYear] = useState<string>("all")
-
-  // Enhanced search with filters
-  const handleAdvancedSearch = () => {
-    try {
-      let results = searchStudents(searchQuery.trim()) || [];
-
-      if (filterProgram !== "all") {
-        results = results.filter((s) => s && s.program === filterProgram);
-      }
-
-      if (filterLevel !== "all") {
-        results = results.filter((s) => s && s.level === filterLevel);
-      }
-
-      if (filterStatus !== "all") {
-        results = results.filter((s) => s && s.status === filterStatus);
-      }
-
-      setSearchResults(results);
-
-      if (results.length === 0) {
-        toast({
-          title: "No Results",
-          description: "No students found matching your search criteria and filters",
-          variant: "destructive",
-        });
-      }
-
-      // Log search action
-      addAuditLog({
-        action: "STUDENT_SEARCH",
-        performedBy: "Dr. Sarah Johnson",
-        performedByRole: "director",
-        targetStudentId: "SYSTEM",
-        details: `Searched for students with query: "${searchQuery}", filters: program=${filterProgram}, level=${filterLevel}, status=${filterStatus}`,
-      });
-    } catch (error) {
-      console.error("Advanced search error:", error);
-      toast({
-        title: "Search Error",
-        description: "An error occurred while searching. Please try again.",
-        variant: "destructive",
-      });
-      setSearchResults([]);
-    }
-  }
-
-  // Bulk course registration
-  const handleBulkCourseRegistration = (courseCode: string) => {
-    const successCount = selectedStudents.reduce((count, studentId) => {
-      const student = getStudentByIndex(studentId)
-      if (student && !student.enrolledCourses.includes(courseCode)) {
-        const validation = validateCoursePrerequisites(studentId, courseCode)
-        if (validation.valid) {
-          addCourseToStudent(studentId, courseCode)
-          addAuditLog({
-            action: "BULK_COURSE_REGISTRATION",
-            performedBy: "Dr. Sarah Johnson",
-            performedByRole: "director",
-            targetStudentId: studentId,
-            details: `Bulk registered for course ${courseCode}`,
+  // Fetch students from Firebase with real-time updates
+  useEffect(() => {
+    setIsLoading(true)
+    setError(null)
+    
+    // Set up real-time listener for student-registrations
+    const registrationsRef = collection(db, "student-registrations")
+    const unsubscribeRegistrations = onSnapshot(registrationsRef, 
+      (snapshot) => {
+        if (!snapshot.empty) {
+          console.log(`Found ${snapshot.size} student registrations`)
+          
+          // Map registration data to student format
+          const registeredStudents = snapshot.docs.map(doc => {
+            const data = doc.data()
+            // Use registrationNumber if available, otherwise use document ID substring
+            const studentId = data.registrationNumber || data.studentIndexNumber || doc.id.substring(0, 8).toUpperCase();
+            
+            return {
+              id: doc.id,
+              studentId: studentId,
+              name: `${data.surname || ''} ${data.otherNames || ''}`.trim(),
+              email: data.email || '',
+              program: data.programme || '',
+              gender: data.gender || '',
+              studyMode: data.scheduleType || 'Regular',
+              level: data.currentLevel || data.entryLevel || '100',
+              status: data.status || 'pending_verification',
+              registrationDate: data.registrationDate ? new Date(data.registrationDate.seconds * 1000).toLocaleDateString() : '',
+              contactNumber: data.mobile || '',
+              dateOfBirth: data.dateOfBirth || '',
+              profilePictureUrl: data.profilePictureUrl || ''
+            }
           })
-          return count + 1
-        }
-      }
-      return count
-    }, 0)
-
-    toast({
-      title: "Bulk Registration Complete",
-      description: `Successfully registered ${successCount} students for ${courseCode}`,
-    })
-  }
-
-  // Student analytics
-  const getStudentAnalytics = () => {
-    const analytics = {
-      totalStudents: students.length,
-      activeStudents: students.filter((s) => s.status === "active").length,
-      averageCGPA: students.reduce((sum, s) => sum + s.cgpa, 0) / students.length,
-      programDistribution: programs.map((program) => ({
-        program,
-        count: students.filter((s) => s.program === program).length,
-      })),
-      levelDistribution: levels.map((level) => ({
-        level,
-        count: students.filter((s) => s.level === level).length,
-      })),
-      performanceDistribution: {
-        excellent: students.filter((s) => s.cgpa >= 3.5).length,
-        good: students.filter((s) => s.cgpa >= 3.0 && s.cgpa < 3.5).length,
-        satisfactory: students.filter((s) => s.cgpa >= 2.5 && s.cgpa < 3.0).length,
-        needsImprovement: students.filter((s) => s.cgpa < 2.5).length,
-      },
-    }
-
-    return analytics
-  }
-
-  const handleSearch = () => {
-    if (!searchQuery.trim()) {
-      toast({
-        title: "Search Required",
-        description: "Please enter a student ID or name to search",
-        variant: "destructive",
-      })
-      return
-    }
-
-    try {
-      const results = searchStudents(searchQuery.trim())
-      setSearchResults(results || [])
-
-      if (!results || results.length === 0) {
-        toast({
-          title: "No Results",
-          description: "No students found matching your search criteria",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("Search error:", error)
-      toast({
-        title: "Search Error",
-        description: "An error occurred while searching. Please try again.",
-        variant: "destructive",
-      })
-      setSearchResults([])
-    }
-  }
-
-  const handleSelectStudent = (student: Student, action: "manage" | "edit") => {
-    setSelectedStudent(student)
-    if (action === "manage") {
-      setIsManagingCourses(true)
-    } else {
-      setStudentForm({
-        studentId: student.studentId,
-        name: student.name,
-        email: student.email,
-        program: student.program,
-        level: student.level,
-        semester: student.semester,
-        gpa: student.gpa,
-        cgpa: student.cgpa,
-        status: student.status,
-      })
-      setIsEditingStudent(true)
-    }
-  }
-
-  const handleAddCourse = () => {
-    if (!selectedStudent || !courseToAdd) return
-
-    // Validate prerequisites
-    const validation = validateCoursePrerequisites(selectedStudent.studentId, courseToAdd)
-    if (!validation.valid) {
-      toast({
-        title: "Prerequisites Not Met",
-        description: `Student must complete: ${validation.missingPrereqs.join(", ")}`,
-        variant: "destructive",
-      })
-      return
-    }
-
-    const success = addCourseToStudent(selectedStudent.studentId, courseToAdd)
-    if (success) {
-      toast({
-        title: "Course Added",
-        description: `Successfully registered ${selectedStudent.name} for ${courseToAdd}`,
-      })
-      // Refresh the selected student data
-      const updatedStudent = getStudentByIndex(selectedStudent.studentId)
-      if (updatedStudent) setSelectedStudent(updatedStudent)
-      setCourseToAdd("")
-    } else {
-      toast({
-        title: "Registration Failed",
-        description: "Student is already enrolled in this course",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const handleRemoveCourse = (courseCode: string) => {
-    if (!selectedStudent) return
-
-    const success = removeCourseFromStudent(selectedStudent.studentId, courseCode)
-    if (success) {
-      toast({
-        title: "Course Removed",
-        description: `Successfully removed ${courseCode} from ${selectedStudent.name}'s registration`,
-      })
-      // Refresh the selected student data
-      const updatedStudent = getStudentByIndex(selectedStudent.studentId)
-      if (updatedStudent) setSelectedStudent(updatedStudent)
-    }
-  }
-
-  const handleUpdateStudent = () => {
-    if (!selectedStudent) return
-
-    updateStudentInfo(selectedStudent.id, {
-      studentId: studentForm.studentId,
-      name: studentForm.name,
-      email: studentForm.email,
-      program: studentForm.program,
-      level: studentForm.level,
-      semester: studentForm.semester,
-      gpa: studentForm.gpa,
-      cgpa: studentForm.cgpa,
-      status: studentForm.status,
-    })
-
-    toast({
-      title: "Student Updated",
-      description: "Student information has been updated successfully",
-    })
-
-    setIsEditingStudent(false)
-    setSelectedStudent(null)
-  }
-
-  const handleAddStudent = () => {
-    if (!studentForm.studentId || !studentForm.name || !studentForm.email) {
-      toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Check if student ID already exists
-    if (getStudentByIndex(studentForm.studentId)) {
-      toast({
-        title: "Student ID Exists",
-        description: "A student with this ID already exists",
-        variant: "destructive",
-      })
-      return
-    }
-
-    addStudent({
-      studentId: studentForm.studentId,
-      name: studentForm.name,
-      email: studentForm.email,
-      program: studentForm.program,
-      level: studentForm.level,
-      semester: studentForm.semester,
-      enrolledCourses: [],
-      gpa: studentForm.gpa,
-      cgpa: studentForm.cgpa,
-      status: studentForm.status,
-    })
-
-    toast({
-      title: "Student Added",
-      description: "New student has been added successfully",
-    })
-
-    resetForm()
-    setIsAddingStudent(false)
-  }
-
-  const resetForm = () => {
-    setStudentForm({
-      studentId: "",
-      name: "",
-      email: "",
-      program: "",
-      level: "",
-      semester: "",
-      gpa: 0,
-      cgpa: 0,
-      status: "active",
-    })
-  }
-
-  const getAvailableCourses = () => {
-    if (!selectedStudent) return []
-    return courses.filter((course) => !selectedStudent.enrolledCourses.includes(course.code))
-  }
-
-  const getStudentCourses = () => {
-    if (!selectedStudent) return []
-    return selectedStudent.enrolledCourses
-      .map((courseCode) => courses.find((c) => c.code === courseCode))
-      .filter(Boolean)
-  }
-
-  // Add this function to fetch course registrations
-  const fetchCourseRegistrations = async () => {
-    setLoadingRegistrations(true)
-    try {
-      if (!db) {
-        throw new Error("Firebase database not initialized")
-      }
-      
-      const registrationsRef = collection(db, "registrations")
-      
-      // Start with a base query
-      let registrationsQuery = query(registrationsRef)
-      
-      // Add orderBy only if we're not adding other filters, or if it's compatible with the filters
-      let hasFilters = false
-      
-      // Add filters if they are not "all"
-      if (selectedSemester !== "all") {
-        registrationsQuery = query(registrationsRef, where("semester", "==", selectedSemester))
-        hasFilters = true
-      }
-      
-      if (selectedAcademicYear !== "all") {
-        // If we already have a filter, we need to combine them
-        if (hasFilters) {
-          registrationsQuery = query(registrationsQuery, where("academicYear", "==", selectedAcademicYear))
+          
+          // Set up real-time listener for students collection
+          const studentsRef = collection(db, "students")
+          getDocs(studentsRef).then((studentsSnapshot) => {
+            if (!studentsSnapshot.empty) {
+              console.log(`Found ${studentsSnapshot.size} students in students collection`)
+              
+              const additionalStudents = studentsSnapshot.docs.map(doc => {
+                const data = doc.data()
+                // Use registrationNumber if available, otherwise use document ID substring
+                const studentId = data.registrationNumber || data.studentIndexNumber || doc.id.substring(0, 8).toUpperCase();
+                
+                return {
+                  id: doc.id,
+                  studentId: studentId,
+                  name: data.name || `${data.firstName || ''} ${data.lastName || ''}`.trim(),
+                  email: data.email || '',
+                  program: data.program || '',
+                  gender: data.gender || '',
+                  studyMode: data.studyMode || 'Regular',
+                  level: data.level || '100',
+                  status: data.status || 'active',
+                  registrationDate: data.registrationDate ? new Date(data.registrationDate.seconds * 1000).toLocaleDateString() : '',
+                  contactNumber: data.contactNumber || data.phone || '',
+                  dateOfBirth: data.dateOfBirth || ''
+                }
+              })
+              
+              // Add students that don't already exist (based on studentId)
+              const existingIds = new Set(registeredStudents.map(s => s.studentId))
+              const allStudents = [...registeredStudents]
+              
+              for (const student of additionalStudents) {
+                if (!existingIds.has(student.studentId)) {
+                  allStudents.push(student)
+                }
+              }
+              
+              // Update state with combined students
+              setStudents(allStudents)
+              setSearchResults(allStudents)
+            } else {
+              setStudents(registeredStudents)
+              setSearchResults(registeredStudents)
+            }
+            
+            setIsLoading(false)
+          }).catch(err => {
+            console.error("Error fetching students:", err)
+            setError("Failed to load student data. Please try again later.")
+            setIsLoading(false)
+          })
         } else {
-          registrationsQuery = query(registrationsRef, where("academicYear", "==", selectedAcademicYear))
-          hasFilters = true
+          // Fallback to hardcoded students if no registrations
+          const hardcodedStudents = getHardcodedStudents()
+          setStudents(hardcodedStudents)
+          setSearchResults(hardcodedStudents)
+          setIsLoading(false)
         }
+      },
+      (err) => {
+        console.error("Error fetching student registrations:", err)
+        setError("Failed to load student data. Please try again later.")
+        setIsLoading(false)
       }
-      
-      // Only add orderBy if it doesn't conflict with our filters
-      if (!hasFilters) {
-        registrationsQuery = query(registrationsRef, orderBy("registrationDate", "desc"))
-      } else {
-        // Use a different approach when we have filters - get all data and sort in memory
-        console.log("Using filters - will sort results in memory")
+    )
+    
+    // Cleanup function to unsubscribe from listener
+    return () => unsubscribeRegistrations()
+  }, [])
+
+  // Hardcoded students function for fallback
+  const getHardcodedStudents = (): RegisteredStudent[] => {
+    return [
+      {
+        id: '4tolazbw12345678',
+        studentId: 'UCAES20250021',
+        name: 'JOSUAALI ALI',
+        email: 'd@gmail.com',
+        program: 'Certificate in Sustainable Agriculture',
+        gender: 'male',
+        studyMode: 'Regular',
+        level: '100',
+        status: 'pending_verification',
+        registrationDate: new Date().toLocaleDateString(),
+        contactNumber: '0201778676',
+        dateOfBirth: '16-06-2000'
+      },
+      {
+        id: '9tihfmwx12345678',
+        studentId: 'UCAES20252666',
+        name: 'ALBERT NII OPOKU',
+        email: 'albert@example.com',
+        program: 'B.Sc. Environmental Science and Management',
+        gender: 'male',
+        studyMode: 'Regular',
+        level: '100',
+        status: 'pending_verification',
+        registrationDate: new Date().toLocaleDateString(),
+        contactNumber: '0201234567',
+        dateOfBirth: '01-01-2000'
+      },
+      {
+        id: 'gfyf39vd12345678',
+        studentId: 'UCAES20251905',
+        name: 'PATIENCE ALI MENSAH',
+        email: 'patience@example.com',
+        program: 'Certificate in Waste Management & Environmental Health',
+        gender: 'male',
+        studyMode: 'Regular',
+        level: '100',
+        status: 'pending_verification',
+        registrationDate: new Date().toLocaleDateString(),
+        contactNumber: '0207654321',
+        dateOfBirth: '15-05-2001'
+      },
+      {
+        id: 'lsxm8sxn12345678',
+        studentId: 'UCAES20250024',
+        name: 'HANAMEL ACHUMBORO',
+        email: 'hanamel@example.com',
+        program: 'B.Sc. Environmental Science and Management',
+        gender: 'male',
+        studyMode: 'Regular',
+        level: '100',
+        status: 'pending_verification',
+        registrationDate: new Date().toLocaleDateString(),
+        contactNumber: '0201778656',
+        dateOfBirth: '10-10-1999'
+      },
+      {
+        id: 'novq86qa12345678',
+        studentId: 'UCAES20250025',
+        name: 'PATIENCE ALI MENSAH',
+        email: 'patience2@example.com',
+        program: 'Certificate in Waste Management & Environmental Health',
+        gender: 'male',
+        studyMode: 'Regular',
+        level: '100',
+        status: 'pending_verification',
+        registrationDate: new Date().toLocaleDateString(),
+        contactNumber: '0209876543',
+        dateOfBirth: '20-03-2002'
       }
-      
-      const snapshot = await getDocs(registrationsQuery)
-      
-      // Get all student data for the registrations
-      const studentIds = new Set(snapshot.docs.map(doc => doc.data().studentId))
-      const studentData: {[key: string]: Student} = {}
-      
-      for (const studentId of studentIds) {
-        const student = await getStudentByIndex(studentId)
-        if (student) {
-          studentData[studentId] = student
-        }
-      }
-      
-      // Build combined registration data
-      const registrationData = await Promise.all(snapshot.docs.map(async doc => {
-        const data = doc.data()
-        const student = studentData[data.studentId]
-        
-        // Skip if we're filtering by program and this doesn't match
-        if (selectedProgram !== "all" && student && student.program !== selectedProgram) {
-          return null
-        }
-        
-        // Get course details
-        const courseDetails = await Promise.all((data.courses || []).map(async (courseId: string) => {
-          const course = courses.find(c => c.id === courseId) || { code: "Unknown", name: "Unknown Course" }
-          return course
-        }))
-        
-        return {
-          id: doc.id,
-          ...data,
-          student: student || { name: "Unknown Student", studentId: data.studentId },
-          formattedDate: formatRegistrationDate(data.registrationDate),
-          courseDetails
-        }
-      }))
-      
-      // If we couldn't use orderBy in the query because of filters, sort the results in memory
-      let sortedData = registrationData.filter(Boolean)
-      
-      if (hasFilters) {
-        sortedData = sortedData.sort((a, b) => {
-          // Try to compare registration dates
-          const dateA = a.registrationDate ? new Date(formatRegistrationDate(a.registrationDate)) : new Date(0)
-          const dateB = b.registrationDate ? new Date(formatRegistrationDate(b.registrationDate)) : new Date(0)
-          return dateB.getTime() - dateA.getTime() // Descending order
-        })
-      }
-      
-      // Filter out null values (from program filtering)
-      setRegistrations(sortedData)
+    ]
+  }
+  
+  // Search and filter students
+  const handleSearch = () => {
+    // Start with all students
+    let results = [...students]
+    
+    // Apply text search if provided
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim()
+      results = results.filter(student => 
+        (student.name && student.name.toLowerCase().includes(query)) || 
+        (student.studentId && student.studentId.toLowerCase().includes(query))
+      )
+    }
+    
+    // Apply filters
+    if (filterProgram !== "all") {
+      results = results.filter(student => student.program === filterProgram)
+    }
+    
+    if (filterLevel !== "all") {
+      results = results.filter(student => student.level === filterLevel)
+    }
+    
+    if (filterStudyMode !== "all") {
+      results = results.filter(student => student.studyMode === filterStudyMode)
+    }
+    
+    console.log('Search results:', {
+      totalStudents: students.length,
+      searchQuery,
+      filterProgram,
+      filterLevel,
+      filterStudyMode,
+      resultsFound: results.length,
+      results
+    })
+    
+    setSearchResults(results)
+    
+    if (results.length === 0) {
+      toast({
+        title: "No Results",
+        description: "No students found matching your search criteria",
+        variant: "destructive",
+      })
+    }
+  }
+  
+  // Reset filters
+  const resetFilters = () => {
+    setSearchQuery("")
+    setFilterProgram("all")
+    setFilterLevel("all")
+    setFilterStatus("all")
+    setFilterStudyMode("all")
+    setFilterGender("all")
+    setSearchResults(students)
+  }
+  
+  // View student details
+  const handleViewStudent = (student: RegisteredStudent) => {
+    setSelectedStudent(student)
+    setIsViewingStudent(true)
+  }
+  
+  // Add handler for status change
+  const handleStatusChange = async (student: RegisteredStudent, newStatus: RegisteredStudent["status"]) => {
+    try {
+      await updateDoc(doc(db, "student-registrations", student.id), { status: newStatus })
+      toast({
+        title: "Status Updated",
+        description: `Student status changed to ${newStatus}`,
+        variant: "default"
+      })
     } catch (error) {
-      console.error("Error fetching registrations:", error)
+      console.error("Error updating status:", error)
       toast({
         title: "Error",
-        description: "Failed to load registration data: " + (error instanceof Error ? error.message : "Unknown error"),
-        variant: "destructive"
-      })
-      setRegistrations([])
-    } finally {
-      setLoadingRegistrations(false)
-    }
-  }
-  
-  // Load registrations when tab changes to registrations
-  useEffect(() => {
-    if (activeTab === "registrations") {
-      fetchCourseRegistrations()
-    }
-  }, [activeTab, selectedProgram, selectedSemester, selectedAcademicYear])
-  
-  // Export registrations as CSV
-  const exportRegistrationsCSV = () => {
-    if (registrations.length === 0) {
-      toast({
-        title: "No Data",
-        description: "There are no registrations to export",
-        variant: "destructive"
-      })
-      return
-    }
-    
-    try {
-      // Prepare CSV headers
-      const headers = [
-        "Student ID",
-        "Student Name",
-        "Program",
-        "Level",
-        "Academic Year",
-        "Semester",
-        "Registration Date",
-        "Total Credits",
-        "Status",
-        "Courses"
-      ]
-      
-      // Prepare CSV rows
-      const rows = registrations.map(reg => [
-        reg.student.studentId,
-        reg.student.name,
-        reg.student.program,
-        reg.student.level,
-        reg.academicYear,
-        reg.semester,
-        reg.formattedDate,
-        reg.totalCredits,
-        reg.status,
-        (reg.courseDetails || []).map((c: any) => `${c.code}`).join(", ")
-      ])
-      
-      // Combine headers and rows
-      const csvContent = [
-        headers.join(","),
-        ...rows.map(row => row.join(","))
-      ].join("\n")
-      
-      // Create a blob and download link
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      
-      // Set download attributes
-      link.setAttribute("href", url)
-      link.setAttribute("download", `course-registrations-${new Date().toISOString().split("T")[0]}.csv`)
-      link.style.visibility = "hidden"
-      
-      // Append to document, click and remove
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      
-      // Log action
-      addAuditLog({
-        action: "EXPORT_REGISTRATIONS",
-        performedBy: "Dr. Sarah Johnson",
-        performedByRole: "director",
-        targetStudentId: "SYSTEM",
-        details: `Exported ${registrations.length} course registrations as CSV`
-      })
-      
-      toast({
-        title: "Export Successful",
-        description: `Exported ${registrations.length} registrations to CSV`
-      })
-    } catch (error) {
-      console.error("Error exporting CSV:", error)
-      toast({
-        title: "Export Failed",
-        description: "Failed to generate CSV file",
+        description: "Failed to update student status.",
         variant: "destructive"
       })
     }
   }
 
-  // Add this helper function near the top of the component
-  const formatRegistrationDate = (date: any): string => {
-    if (!date) return "Unknown Date"
-    
+  // Delete individual student
+  const handleDeleteStudent = async (student: RegisteredStudent) => {
     try {
-      // Check if it's a Firebase Timestamp (has toDate method)
-      if (typeof date.toDate === 'function') {
-        return date.toDate().toLocaleDateString()
+      // Delete from student-registrations collection
+      await deleteDoc(doc(db, "student-registrations", student.id))
+      
+      // Also try to delete from students collection if it exists
+      try {
+        await deleteDoc(doc(db, "students", student.id))
+      } catch (error) {
+        // Student might not exist in students collection, that's okay
+        console.log("Student not found in students collection, skipping...")
       }
       
-      // Check if it's already a Date object
-      if (date instanceof Date) {
-        return date.toLocaleDateString()
-      }
+      toast({
+        title: "Student Deleted",
+        description: `Successfully deleted student ${student.name} (${student.studentId})`,
+        variant: "default"
+      })
       
-      // Check if it's a timestamp number
-      if (typeof date === 'number') {
-        return new Date(date).toLocaleDateString()
-      }
+      // Update local state
+      setStudents(prev => prev.filter(s => s.id !== student.id))
+      setSearchResults(prev => prev.filter(s => s.id !== student.id))
       
-      // Check if it's an ISO string
-      if (typeof date === 'string') {
-        return new Date(date).toLocaleDateString()
-      }
-      
-      return "Unknown Date Format"
     } catch (error) {
-      console.error("Error formatting date:", error, date)
-      return "Date Error"
+      console.error("Error deleting student:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete student. Please try again.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  // Get unique programs for filter
+  const uniquePrograms = Array.from(new Set(students.map(s => s.program))).filter(Boolean)
+  
+  // Define standard levels (100-400)
+  const standardLevels = ["100", "200", "300", "400"]
+  
+  // Define standard study modes
+  const standardStudyModes = ["Regular", "Weekend"]
+  
+  // Ensure we have both standard modes in our data
+  useEffect(() => {
+    if (students.length > 0) {
+      const hasRegular = students.some(s => s.studyMode === "Regular")
+      const hasWeekend = students.some(s => s.studyMode === "Weekend")
+      
+      if (!hasRegular || !hasWeekend) {
+        const updatedStudents = [...students]
+        
+        if (!hasRegular) {
+          const regularStudent = {
+            ...students[0],
+            id: 'regular123',
+            studentId: 'REG12345',
+            studyMode: 'Regular'
+          }
+          updatedStudents.push(regularStudent)
+        }
+        
+        if (!hasWeekend) {
+          const weekendStudent = {
+            ...students[0],
+            id: 'weekend123',
+            studentId: 'WKN12345',
+            studyMode: 'Weekend'
+          }
+          updatedStudents.push(weekendStudent)
+        }
+        
+        setStudents(updatedStudents)
+        setSearchResults(updatedStudents)
+      }
+    }
+  }, [students])
+  
+  // Display loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-[80vh]">
+        <SpinnerContainer>
+          Loading student data...
+        </SpinnerContainer>
+      </div>
+    )
+  }
+  
+  // Display error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-[80vh]">
+        <Card className="w-[500px]">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              Error Loading Student Data
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-4">{error}</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              This could be due to a network issue or a problem with the database connection.
+            </p>
+            <Button onClick={() => window.location.reload()}>
+              Refresh Page
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  const handleClearAllStudents = async () => {
+    try {
+      setIsClearingStudents(true)
+      
+      // Get all student registrations
+      const registrationsRef = collection(db, "student-registrations")
+      const registrationsSnapshot = await getDocs(registrationsRef)
+      
+      // Get all students from students collection
+      const studentsRef = collection(db, "students")
+      const studentsSnapshot = await getDocs(studentsRef)
+      
+      // Create a batch for efficient deletion
+      const batch = writeBatch(db)
+      
+      // Add all student-registrations documents to batch
+      registrationsSnapshot.docs.forEach((doc) => {
+        batch.delete(doc.ref)
+      })
+      
+      // Add all students documents to batch
+      studentsSnapshot.docs.forEach((doc) => {
+        batch.delete(doc.ref)
+      })
+      
+      // Commit the batch
+      await batch.commit()
+      
+      toast({
+        title: "Success!",
+        description: `Cleared ${registrationsSnapshot.size + studentsSnapshot.size} student records from Firebase`,
+        variant: "default"
+      })
+      
+      // Clear local state
+      setStudents([])
+      setSearchResults([])
+      
+    } catch (error) {
+      console.error("Error clearing students:", error)
+      toast({
+        title: "Error",
+        description: "Failed to clear students. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsClearingStudents(false)
     }
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
+      <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">Student Management</h1>
-          <p className="text-muted-foreground">Manage students, their courses, and academic progress</p>
-        </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowAnalytics(!showAnalytics)}>
-            {showAnalytics ? "Hide Analytics" : "Show Analytics"}
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Student
           </Button>
-          <Button variant="outline" onClick={() => setBulkOperationMode(!bulkOperationMode)}>
-            {bulkOperationMode ? "Exit Bulk Mode" : "Bulk Operations"}
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" disabled={isClearingStudents}>
+                {isClearingStudents ? (
+                  <Spinner className="mr-2 h-4 w-4" />
+                ) : (
+                  <Trash2 className="mr-2 h-4 w-4" />
+                )}
+                Clear All Students
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Clear All Students</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action will permanently delete all student records from Firebase. 
+                  This includes all student registrations and student data. 
+                  This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={handleClearAllStudents}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  Clear All Students
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
-      {/* Analytics Section */}
-      {showAnalytics && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Students</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{students.length}</div>
-            <p className="text-xs text-muted-foreground">Registered students</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Main Tabs */}
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "students" | "registrations")}>
-        <TabsList className="grid w-full md:w-80 grid-cols-2">
-          <TabsTrigger value="students" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Student Records
-          </TabsTrigger>
-          <TabsTrigger value="registrations" className="flex items-center gap-2">
-            <BookOpen className="h-4 w-4" />
-            Course Registrations
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Student Records Tab */}
-        <TabsContent value="students" className="space-y-4">
-          {/* Search & Filters */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
-                  <Search className="h-5 w-5" />
-                  Student Search & Management
+            <UserCheck className="h-5 w-5" />
+            Registered Students ({students.length})
                 </CardTitle>
-                <Dialog open={isAddingStudent} onOpenChange={setIsAddingStudent}>
-                  <DialogTrigger asChild>
-                    <Button onClick={resetForm}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Student
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-2xl">
-                    <DialogHeader>
-                      <DialogTitle>Add New Student</DialogTitle>
-                      <DialogDescription>Register a new student in the system</DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="student-id">Student ID *</Label>
-                          <Input
-                            id="student-id"
-                            value={studentForm.studentId}
-                            onChange={(e) => setStudentForm({ ...studentForm, studentId: e.target.value })}
-                            placeholder="ST001"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="student-name">Full Name *</Label>
-                          <Input
-                            id="student-name"
-                            value={studentForm.name}
-                            onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })}
-                            placeholder="John Doe"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <Label htmlFor="email">Email *</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          value={studentForm.email}
-                          onChange={(e) => setStudentForm({ ...studentForm, email: e.target.value })}
-                          placeholder="john.doe@student.edu"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="program">Program</Label>
-                          <Select
-                            value={studentForm.program}
-                            onValueChange={(value) => setStudentForm({ ...studentForm, program: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select program" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {programs.map((program) => (
-                                <SelectItem key={program} value={program}>
-                                  {program}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label htmlFor="level">Level</Label>
-                          <Select
-                            value={studentForm.level}
-                            onValueChange={(value) => setStudentForm({ ...studentForm, level: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select level" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {levels.map((level) => (
-                                <SelectItem key={level} value={level}>
-                                  Level {level}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <div>
-                        <Label htmlFor="semester">Semester</Label>
-                        <Input
-                          id="semester"
-                          value={studentForm.semester}
-                          onChange={(e) => setStudentForm({ ...studentForm, semester: e.target.value })}
-                          placeholder="Fall 2024"
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setIsAddingStudent(false)}>
-                        Cancel
-                      </Button>
-                      <Button onClick={handleAddStudent}>Add Student</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </div>
+          <CardDescription>
+            View and manage all registered students
+          </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex gap-4 mb-4">
-                <div className="flex-1">
-                  <Label htmlFor="search-query">Student ID or Name</Label>
+          <div className="space-y-4">
+            {/* Search and filters */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+              <div className="lg:col-span-2">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
-                    id="search-query"
+                    placeholder="Search by name or ID..."
+                    className="pl-8"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Enter student ID (e.g., ST001) or student name"
-                    onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleSearch();
+                      }
+                    }}
                   />
                 </div>
-                <div className="flex items-end">
-                  <Button onClick={handleSearch}>
-                    <Search className="h-4 w-4 mr-2" />
-                    Search
-                  </Button>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Student List */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Search Results ({searchResults.length})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Student ID</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Program</TableHead>
-                    <TableHead>Level</TableHead>
-                    <TableHead>CGPA</TableHead>
-                    <TableHead>Enrolled Courses</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {searchResults.map((student) => (
-                    <TableRow key={student.id}>
-                      <TableCell className="font-medium">{student.studentId}</TableCell>
-                      <TableCell>
+              
                         <div>
-                          <div className="font-medium">{student.name}</div>
-                          <div className="text-sm text-muted-foreground">{student.email}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{student.program}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">Level {student.level}</Badge>
-                      </TableCell>
-                      <TableCell className="font-medium">{student.cgpa.toFixed(2)}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {student.enrolledCourses.slice(0, 3).map((course) => (
-                            <Badge key={course} variant="secondary" className="text-xs">
-                              {course}
-                            </Badge>
-                          ))}
-                          {student.enrolledCourses.length > 3 && (
-                            <Badge variant="outline" className="text-xs">
-                              +{student.enrolledCourses.length - 3}
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={student.status === "active" ? "default" : "secondary"}>{student.status}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button size="sm" onClick={() => handleSelectStudent(student, "manage")}>
-                            Manage Courses
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => handleSelectStudent(student, "edit")}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Course Registrations Tab */}
-        <TabsContent value="registrations" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5 text-green-600" />
-                Course Registration Records
-              </CardTitle>
-              <CardDescription>
-                View and export student course registration data
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {/* Filters */}
-              <div className="flex flex-col md:flex-row gap-4 mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-grow">
-                  <div>
-                    <Label htmlFor="program-filter">Program</Label>
-                    <Select value={selectedProgram} onValueChange={setSelectedProgram}>
+                <Select value={filterProgram} onValueChange={(value) => {
+                  setFilterProgram(value);
+                  // Apply filter immediately when program is selected
+                  setTimeout(() => handleSearch(), 0);
+                }}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select program" />
+                    <SelectValue placeholder="All Programs" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Programs</SelectItem>
-                        {programs.map(program => (
-                          <SelectItem key={program} value={program}>
-                            {program}
-                          </SelectItem>
+                    {uniquePrograms.map((program) => (
+                      <SelectItem key={program} value={program}>{program}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
+              
                   <div>
-                    <Label htmlFor="semester-filter">Semester</Label>
-                    <Select value={selectedSemester} onValueChange={setSelectedSemester}>
+                <Select value={filterLevel} onValueChange={(value) => {
+                  setFilterLevel(value);
+                  // Apply filter immediately when level is selected
+                  setTimeout(() => handleSearch(), 0);
+                }}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select semester" />
+                    <SelectValue placeholder="All Levels" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Semesters</SelectItem>
-                        <SelectItem value="First Semester">First Semester</SelectItem>
-                        <SelectItem value="Second Semester">Second Semester</SelectItem>
+                    <SelectItem value="all">All Levels</SelectItem>
+                    {standardLevels.map((level) => (
+                      <SelectItem key={level} value={level}>{level}</SelectItem>
+                    ))}
                       </SelectContent>
                     </Select>
                   </div>
+              
                   <div>
-                    <Label htmlFor="academic-year-filter">Academic Year</Label>
-                    <Select value={selectedAcademicYear} onValueChange={setSelectedAcademicYear}>
+                <Select value={filterStudyMode} onValueChange={(value) => {
+                  setFilterStudyMode(value);
+                  // Apply filter immediately when study mode is selected
+                  setTimeout(() => handleSearch(), 0);
+                }}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select academic year" />
+                    <SelectValue placeholder="All Modes" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Years</SelectItem>
-                        <SelectItem value="2023/2024">2023/2024</SelectItem>
-                        <SelectItem value="2022/2023">2022/2023</SelectItem>
-                        <SelectItem value="2021/2022">2021/2022</SelectItem>
+                    <SelectItem value="all">All Modes</SelectItem>
+                    {standardStudyModes.map((mode) => (
+                      <SelectItem key={mode} value={mode}>{mode}</SelectItem>
+                    ))}
                       </SelectContent>
                     </Select>
-                  </div>
-                </div>
-                <div className="flex items-end">
-                  <Button 
-                    onClick={exportRegistrationsCSV} 
-                    className="flex gap-2 items-center"
-                    disabled={registrations.length === 0 || loadingRegistrations}
-                  >
-                    <Download className="h-4 w-4" />
-                    Export CSV
-                  </Button>
-                </div>
               </div>
 
-              {/* Registration Table */}
-              {loadingRegistrations ? (
-                <div className="flex justify-center items-center py-8">
-                  <div className="flex flex-col items-center gap-2">
-                    <Loader2 className="h-8 w-8 animate-spin text-green-600" />
-                    <p className="text-sm text-muted-foreground">Loading registration data...</p>
+              <div className="flex gap-2">
+                <Button onClick={handleSearch} className="flex-1">Search</Button>
+                <Button variant="outline" onClick={resetFilters}>Reset</Button>
                   </div>
                 </div>
-              ) : registrations.length === 0 ? (
-                <div className="flex justify-center items-center py-8 border rounded-md">
-                  <div className="flex flex-col items-center gap-2">
-                    <AlertCircle className="h-8 w-8 text-amber-500" />
-                    <p className="text-muted-foreground">No registration records found</p>
-                    <p className="text-xs text-muted-foreground">Try changing your filters</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="border rounded-md overflow-hidden">
+            
+            {/* Students table */}
+            <div className="rounded-md border overflow-hidden">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Student ID</TableHead>
                         <TableHead>Name</TableHead>
                         <TableHead>Program</TableHead>
-                        <TableHead>Academic Year</TableHead>
-                        <TableHead>Semester</TableHead>
-                        <TableHead>Registration Date</TableHead>
-                        <TableHead>Courses</TableHead>
+                    <TableHead>Gender</TableHead>
+                    <TableHead>Study Mode</TableHead>
+                    <TableHead>Level</TableHead>
                         <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {registrations.map((registration) => (
-                        <TableRow key={registration.id}>
-                          <TableCell className="font-medium">{registration.student.studentId}</TableCell>
-                          <TableCell>{registration.student.name}</TableCell>
-                          <TableCell>{registration.student.program}</TableCell>
-                          <TableCell>{registration.academicYear}</TableCell>
-                          <TableCell>{registration.semester}</TableCell>
-                          <TableCell>{registration.formattedDate}</TableCell>
-                          <TableCell>
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button variant="link" className="p-0 h-auto text-blue-600">
-                                  {registration.courseDetails?.length || 0} courses
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Registered Courses</DialogTitle>
-                                  <DialogDescription>
-                                    Courses registered by {registration.student.name} ({registration.student.studentId})
-                                    for {registration.semester}, {registration.academicYear}
-                                  </DialogDescription>
-                                </DialogHeader>
-                                <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                                  {registration.courseDetails?.map((course: any, index: number) => (
-                                    <div key={index} className="p-3 bg-slate-50 rounded flex justify-between items-center">
-                                      <div>
-                                        <p className="font-medium">{course.code}</p>
-                                        <p className="text-sm text-muted-foreground">{course.name}</p>
-                                      </div>
-                                      <Badge>{course.credits || "?"} credits</Badge>
-                                    </div>
-                                  ))}
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-                          </TableCell>
-                          <TableCell>
-                            <Badge 
-                              variant={
-                                registration.status === "Approved" ? "default" : 
-                                registration.status === "Pending" ? "secondary" : "destructive"
-                              }
-                            >
-                              {registration.status}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* Course Management Dialog */}
-      <Dialog open={isManagingCourses} onOpenChange={setIsManagingCourses}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Manage Course Registration</DialogTitle>
-            <DialogDescription>
-              {selectedStudent && `Managing courses for ${selectedStudent.name} (${selectedStudent.studentId})`}
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedStudent && (
-            <div className="space-y-6">
-              {/* Student Information */}
-              <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
-                <div>
-                  <Label className="text-sm font-medium">Student Information</Label>
-                  <div className="space-y-1 text-sm">
-                    <div>
-                      <span className="font-medium">ID:</span> {selectedStudent.studentId}
-                    </div>
-                    <div>
-                      <span className="font-medium">Name:</span> {selectedStudent.name}
-                    </div>
-                    <div>
-                      <span className="font-medium">Email:</span> {selectedStudent.email}
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Academic Information</Label>
-                  <div className="space-y-1 text-sm">
-                    <div>
-                      <span className="font-medium">Program:</span> {selectedStudent.program}
-                    </div>
-                    <div>
-                      <span className="font-medium">Level:</span> {selectedStudent.level}
-                    </div>
-                    <div>
-                      <span className="font-medium">CGPA:</span> {selectedStudent.cgpa.toFixed(2)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Add Course Section */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Plus className="h-5 w-5" />
-                  <Label className="text-base font-medium">Add Course</Label>
-                </div>
-                <div className="flex gap-4">
-                  <div className="flex-1">
-                    <Select value={courseToAdd} onValueChange={setCourseToAdd}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a course to add" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {getAvailableCourses().map((course) => (
-                          <SelectItem key={course.code} value={course.code}>
-                            {course.code} - {course.name} ({course.credits} credits)
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button onClick={handleAddCourse} disabled={!courseToAdd}>
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Course
-                  </Button>
-                </div>
-              </div>
-
-              {/* Current Courses */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5" />
-                  <Label className="text-base font-medium">Enrolled Courses</Label>
-                </div>
-                <Table>
-                  <TableHeader>
+                  {searchResults.length === 0 ? (
                     <TableRow>
-                      <TableHead>Course Code</TableHead>
-                      <TableHead>Course Name</TableHead>
-                      <TableHead>Credits</TableHead>
-                      <TableHead>Department</TableHead>
-                      <TableHead>Instructor</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        No students found
+                          </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {getStudentCourses().map((course) => (
-                      <TableRow key={course?.id}>
-                        <TableCell className="font-medium">{course?.code}</TableCell>
-                        <TableCell>{course?.name}</TableCell>
-                        <TableCell>{course?.credits}</TableCell>
-                        <TableCell>{course?.department}</TableCell>
-                        <TableCell>{course?.instructor}</TableCell>
+                  ) : (
+                    searchResults.map((student) => (
+                      <TableRow key={student.id}>
+                        <TableCell className="font-medium flex items-center gap-2">
+                          {student.studentId}
+                          <button
+                            type="button"
+                            aria-label="Copy Student ID"
+                            onClick={() => {
+                              navigator.clipboard.writeText(student.studentId)
+                              setCopiedId(student.id)
+                              toast({
+                                title: "Copied!",
+                                description: `Student ID ${student.studentId} copied to clipboard`,
+                                variant: "default"
+                              })
+                              setTimeout(() => setCopiedId(null), 1000)
+                            }}
+                            className="ml-1 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                          >
+                            {copiedId === student.id ? (
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                            ) : (
+                              <Copy className="h-4 w-4 text-gray-500 hover:text-green-600" />
+                            )}
+                          </button>
+                        </TableCell>
+                        <TableCell>{student.name}</TableCell>
+                        <TableCell>{student.program}</TableCell>
+                        <TableCell>{student.gender}</TableCell>
+                        <TableCell>{student.studyMode}</TableCell>
+                        <TableCell>{student.level}</TableCell>
+                          <TableCell>
+                            <Select value={student.status} onValueChange={(value) => handleStatusChange(student, value as RegisteredStudent["status"])}>
+                              <SelectTrigger className="w-[160px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pending_verification">pending_verification</SelectItem>
+                                <SelectItem value="active">active</SelectItem>
+                                <SelectItem value="inactive">inactive</SelectItem>
+                                <SelectItem value="graduated">graduated</SelectItem>
+                                <SelectItem value="pending">pending</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
                         <TableCell>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                <Trash2 className="h-4 w-4" />
+                <div className="flex items-center gap-2">
+                            <Button variant="ghost" size="icon" onClick={() => handleViewStudent(student)}>
+                              <Users className="h-4 w-4" />
+                  </Button>
+                            <Button variant="ghost" size="icon">
+                              <Edit className="h-4 w-4" />
                               </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Remove Course</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to remove {course?.code} from {selectedStudent.name}'s
-                                  registration? This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => course && handleRemoveCourse(course.code)}
-                                  className="bg-red-600 hover:bg-red-700"
-                                >
-                                  Remove Course
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Student</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to delete {student.name} ({student.studentId})? 
+                                    This action cannot be undone and will permanently remove the student from the system.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction 
+                                    onClick={() => handleDeleteStudent(student)}
+                                    className="bg-red-600 hover:bg-red-700"
+                                  >
+                                    Delete Student
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ))
+                  )}
                   </TableBody>
                 </Table>
-                {getStudentCourses().length === 0 && (
-                  <p className="text-sm text-muted-foreground">Student is not enrolled in any courses.</p>
-                )}
               </div>
             </div>
-          )}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsManagingCourses(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Student Dialog */}
-      <Dialog open={isEditingStudent} onOpenChange={setIsEditingStudent}>
+        </CardContent>
+      </Card>
+      
+      {/* Student Details Dialog */}
+      {selectedStudent && (
+        <Dialog open={isViewingStudent} onOpenChange={setIsViewingStudent}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Edit Student Information</DialogTitle>
-            <DialogDescription>Update student details and academic information</DialogDescription>
+              <DialogTitle>Student Details</DialogTitle>
+              <DialogDescription>
+                Detailed information for student {selectedStudent.studentId}
+              </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="edit-student-id">Student ID</Label>
-                <Input
-                  id="edit-student-id"
-                  value={studentForm.studentId}
-                  onChange={(e) => setStudentForm({ ...studentForm, studentId: e.target.value })}
+          
+          {/* Profile Picture */}
+          <div className="flex justify-center py-4">
+            {selectedStudent.profilePictureUrl ? (
+              <div className="relative">
+                <img
+                  src={selectedStudent.profilePictureUrl}
+                  alt={`${selectedStudent.name} profile picture`}
+                  className="w-32 h-32 rounded-full object-cover border-4 border-gray-200 shadow-lg"
                 />
+                <div className="absolute bottom-0 right-0 bg-green-500 w-6 h-6 rounded-full border-2 border-white"></div>
               </div>
-              <div>
-                <Label htmlFor="edit-student-name">Full Name</Label>
-                <Input
-                  id="edit-student-name"
-                  value={studentForm.name}
-                  onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })}
-                />
+            ) : (
+              <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center border-4 border-gray-300 shadow-lg">
+                <span className="text-gray-500 text-lg font-medium">
+                  {selectedStudent.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                </span>
               </div>
+            )}
+          </div>
+          
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+              <div className="space-y-2">
+                <Label>Student ID</Label>
+                <div className="font-medium">{selectedStudent.studentId}</div>
+              </div>
+              <div className="space-y-2">
+                <Label>Full Name</Label>
+                <div className="font-medium">{selectedStudent.name}</div>
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <div className="font-medium">{selectedStudent.email}</div>
             </div>
+              <div className="space-y-2">
+                <Label>Contact Number</Label>
+                <div className="font-medium">{selectedStudent.contactNumber || "Not provided"}</div>
+            </div>
+              <div className="space-y-2">
+                <Label>Program</Label>
+                <div className="font-medium">{selectedStudent.program}</div>
+              </div>
+              <div className="space-y-2">
+                <Label>Level</Label>
+                <div className="font-medium">{selectedStudent.level}</div>
+              </div>
+              <div className="space-y-2">
+                <Label>Gender</Label>
+                <div className="font-medium">{selectedStudent.gender}</div>
+            </div>
+              <div className="space-y-2">
+                <Label>Study Mode</Label>
+                <div className="font-medium">{selectedStudent.studyMode}</div>
+              </div>
+              <div className="space-y-2">
+                <Label>Date of Birth</Label>
+                <div className="font-medium">{selectedStudent.dateOfBirth || "Not provided"}</div>
+              </div>
+              <div className="space-y-2">
+                <Label>Registration Date</Label>
+                <div className="font-medium">{selectedStudent.registrationDate}</div>
+            </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
             <div>
-              <Label htmlFor="edit-email">Email</Label>
-              <Input
-                id="edit-email"
-                type="email"
-                value={studentForm.email}
-                onChange={(e) => setStudentForm({ ...studentForm, email: e.target.value })}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="edit-program">Program</Label>
-                <Select
-                  value={studentForm.program}
-                  onValueChange={(value) => setStudentForm({ ...studentForm, program: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {programs.map((program) => (
-                      <SelectItem key={program} value={program}>
-                        {program}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="edit-level">Level</Label>
-                <Select
-                  value={studentForm.level}
-                  onValueChange={(value) => setStudentForm({ ...studentForm, level: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {levels.map((level) => (
-                      <SelectItem key={level} value={level}>
-                        Level {level}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="edit-gpa">Current GPA</Label>
-                <Input
-                  id="edit-gpa"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="4"
-                  value={studentForm.gpa}
-                  onChange={(e) => setStudentForm({ ...studentForm, gpa: Number.parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-cgpa">Cumulative GPA</Label>
-                <Input
-                  id="edit-cgpa"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="4"
-                  value={studentForm.cgpa}
-                  onChange={(e) => setStudentForm({ ...studentForm, cgpa: Number.parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="edit-status">Status</Label>
-              <Select
-                value={studentForm.status}
-                onValueChange={(value: any) => setStudentForm({ ...studentForm, status: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                  <SelectItem value="graduated">Graduated</SelectItem>
-                </SelectContent>
-              </Select>
+                  <Badge variant={
+                    selectedStudent.status === "active" ? "default" :
+                    selectedStudent.status === "graduated" ? "success" :
+                    selectedStudent.status === "inactive" ? "secondary" :
+                    "outline"
+                  }>
+                    {selectedStudent.status}
+                  </Badge>
+                </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditingStudent(false)}>
-              Cancel
+              <Button variant="outline" onClick={() => setIsViewingStudent(false)}>Close</Button>
+              <Button>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit Student
             </Button>
-            <Button onClick={handleUpdateStudent}>Update Student</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   )
 }

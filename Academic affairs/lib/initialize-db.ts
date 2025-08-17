@@ -1,6 +1,92 @@
-import { connectToDatabase, mongoose } from './mongodb';
-import { Program, Course, AcademicYear, Semester, Staff, AuditLog } from './models';
-import { COLLEGE_PROGRAMS } from './programs-db';
+import { getDb } from './firebase-admin';
+
+// Programs offered by the college - server-side data (embedded to avoid client-side import issues)
+const COLLEGE_PROGRAMS = [
+  {
+    name: "B.Sc. Sustainable Agriculture",
+    code: "BSA",
+    department: "Agriculture",
+    coordinator: "Dr. Kwame Boateng",
+    entryRequirements: "WASSCE with credits in English, Mathematics, and Science subjects",
+    duration: "4 years",
+    description: "Comprehensive program covering sustainable agricultural practices, crop production, soil management, and ecological farming systems.",
+    status: "Active",
+    coursesPerLevel: {
+      "100": {
+        "1": [],
+        "2": []
+      },
+      "200": {
+        "1": [],
+        "2": []
+      },
+      "300": {
+        "1": [],
+        "2": []
+      },
+      "400": {
+        "1": [],
+        "2": []
+      }
+    }
+  },
+  {
+    name: "B.Sc. Sustainable Forestry",
+    code: "BSF",
+    department: "Forestry",
+    coordinator: "Prof. Ama Serwaa",
+    entryRequirements: "WASSCE with credits in English, Mathematics, and Science subjects",
+    duration: "4 years",
+    description: "Study of forest ecosystems, conservation, sustainable timber harvesting, and forest resource management.",
+    status: "Active",
+    coursesPerLevel: {
+      "100": {
+        "1": [],
+        "2": []
+      },
+      "200": {
+        "1": [],
+        "2": []
+      },
+      "300": {
+        "1": [],
+        "2": []
+      },
+      "400": {
+        "1": [],
+        "2": []
+      }
+    }
+  },
+  {
+    name: "B.Sc. Environmental Science and Management",
+    code: "BESM",
+    department: "Environmental Science",
+    coordinator: "Dr. Samuel Adjei",
+    entryRequirements: "WASSCE with credits in English, Mathematics, and Science subjects",
+    duration: "4 years",
+    description: "Study of environmental systems, climate change, pollution control, and sustainable natural resource management.",
+    status: "Active",
+    coursesPerLevel: {
+      "100": {
+        "1": [],
+        "2": []
+      },
+      "200": {
+        "1": [],
+        "2": []
+      },
+      "300": {
+        "1": [],
+        "2": []
+      },
+      "400": {
+        "1": [],
+        "2": []
+      }
+    }
+  }
+];
 
 /**
  * Initialize the database with required data
@@ -8,10 +94,7 @@ import { COLLEGE_PROGRAMS } from './programs-db';
  */
 export async function initializeDatabase(): Promise<void> {
   try {
-    console.log('Starting MongoDB database initialization...');
-    
-    // Connect to the database
-    await connectToDatabase();
+    console.log('Starting Firebase database initialization...');
     
     // Initialize programs
     await initializePrograms();
@@ -22,26 +105,29 @@ export async function initializeDatabase(): Promise<void> {
     // Log database initialization
     await logDatabaseInitialization();
     
-    console.log('MongoDB database initialization complete.');
+    console.log('Firebase database initialization complete.');
   } catch (error) {
     console.error('Error initializing database:', error);
   }
 }
 
 /**
- * Initialize programs in MongoDB
+ * Initialize programs in Firebase
  */
 async function initializePrograms(): Promise<void> {
   try {
     // Check if we already have programs
-    const existingPrograms = await Program.find({}).lean();
+    const adminDb = getDb();
+    const programsCollection = adminDb.collection('programs');
+    const programsSnapshot = await programsCollection.get();
+    const existingPrograms = programsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     const existingProgramCodes = existingPrograms.map(p => p.code);
     
     // For each of our predefined programs
     for (const program of COLLEGE_PROGRAMS) {
       // If this program code doesn't exist yet, add it
       if (!existingProgramCodes.includes(program.code)) {
-        const newProgram = new Program({
+        const newProgram = {
           name: program.name,
           code: program.code,
           department: program.department,
@@ -51,19 +137,22 @@ async function initializePrograms(): Promise<void> {
           durationYears: parseInt(program.duration.split(' ')[0]),
           type: 'degree',
           credits: 120, // Default value
-          status: program.status.toLowerCase()
-        });
+          status: program.status.toLowerCase(),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
         
-        await newProgram.save();
-        console.log(`Program added to MongoDB: ${program.name} (${program.code})`);
+        // Add to Firestore with program code as document ID
+        await programsCollection.doc(program.code).set(newProgram);
+        console.log(`Program added to Firebase: ${program.name} (${program.code})`);
       } else {
-        console.log(`Program already exists in MongoDB: ${program.code}`);
+        console.log(`Program already exists in Firebase: ${program.code}`);
       }
     }
     
-    console.log('Program initialization in MongoDB complete.');
+    console.log('Program initialization in Firebase complete.');
   } catch (error) {
-    console.error('Error initializing programs in MongoDB:', error);
+    console.error('Error initializing programs in Firebase:', error);
     throw error;
   }
 }
@@ -77,69 +166,83 @@ async function initializeAcademicPeriod(): Promise<void> {
     const academicYearStr = `${currentYear}/${currentYear + 1}`;
     
     // Check if current academic year exists
-    const existingYear = await AcademicYear.findOne({ year: academicYearStr });
+    const adminDb = getDb();
+    const academicYearsCollection = adminDb.collection('academic-years');
+    const academicYearDoc = academicYearsCollection.doc(academicYearStr);
+    const academicYearSnapshot = await academicYearDoc.get();
     
-    if (!existingYear) {
+    if (!academicYearSnapshot.exists) {
       // Add the current academic year
-      const newAcademicYear = new AcademicYear({
+      const newAcademicYear = {
         year: academicYearStr,
         startDate: new Date(`${currentYear}-09-01`),
         endDate: new Date(`${currentYear + 1}-08-31`),
-        status: 'active'
-      });
+        status: 'active',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
       
-      await newAcademicYear.save();
-      console.log(`Initialized academic year in MongoDB: ${academicYearStr}`);
+      await academicYearDoc.set(newAcademicYear);
+      console.log(`Initialized academic year in Firebase: ${academicYearStr}`);
     }
     
     // Initialize semesters if needed
-    const existingSemesters = await Semester.find({ academicYear: academicYearStr });
+    const semestersCollection = adminDb.collection('semesters');
+    const semestersQuery = semestersCollection.where('academicYear', '==', academicYearStr);
+    const semestersSnapshot = await semestersQuery.get();
     
-    if (existingSemesters.length === 0) {
+    if (semestersSnapshot.empty) {
       // Add first and second semesters
-      const firstSemester = new Semester({
+      const firstSemester = {
         academicYear: academicYearStr,
         name: 'First Semester',
         number: '1',
         startDate: new Date(`${currentYear}-09-01`),
         endDate: new Date(`${currentYear + 1}-01-15`),
-        status: 'active'
-      });
+        status: 'active',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
       
-      const secondSemester = new Semester({
+      const secondSemester = {
         academicYear: academicYearStr,
         name: 'Second Semester',
         number: '2',
         startDate: new Date(`${currentYear + 1}-02-01`),
         endDate: new Date(`${currentYear + 1}-06-30`),
-        status: 'pending'
-      });
+        status: 'pending',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
       
       await Promise.all([
-        firstSemester.save(),
-        secondSemester.save()
+        semestersCollection.doc(`${academicYearStr}-1`).set(firstSemester),
+        semestersCollection.doc(`${academicYearStr}-2`).set(secondSemester)
       ]);
       
-      console.log(`Initialized semesters for academic year in MongoDB: ${academicYearStr}`);
+      console.log(`Initialized semesters for academic year in Firebase: ${academicYearStr}`);
     }
   } catch (error) {
-    console.error('Error initializing academic period in MongoDB:', error);
+    console.error('Error initializing academic period in Firebase:', error);
   }
 }
 
 // Log database initialization as a system audit
 async function logDatabaseInitialization(): Promise<void> {
   try {
-    const auditLog = new AuditLog({
+    const adminDb = getDb();
+    const auditLogsCollection = adminDb.collection('audit-logs');
+    const auditLog = {
       action: 'DATABASE_INITIALIZATION',
       entity: 'System',
       entityId: 'system',
       details: 'Database initialized with programs and academic periods',
       status: 'success',
-      userType: 'system'
-    });
+      userType: 'system',
+      timestamp: new Date()
+    };
     
-    await auditLog.save();
+    await auditLogsCollection.add(auditLog);
   } catch (error) {
     console.error('Error logging database initialization:', error);
   }

@@ -3,42 +3,80 @@
  * 
  * This script helps deploy the updated Firestore and Realtime Database security rules.
  * It requires the Firebase CLI to be installed and authenticated.
- * 
- * Usage:
- * 1. Ensure you have Firebase CLI installed: npm install -g firebase-tools
- * 2. Log in to Firebase: firebase login
- * 3. Run the deployment commands below
  */
 
-/**
- * To deploy only the Firestore security rules:
- * 
- * firebase deploy --only firestore:rules
- * 
- * To deploy only the Realtime Database security rules:
- * 
- * firebase deploy --only database
- * 
- * To deploy Firestore indexes:
- * 
- * firebase deploy --only firestore:indexes
- * 
- * To deploy everything (rules and indexes):
- * 
- * firebase deploy --only firestore,database
- * 
- * Note: Make sure to test these rules thoroughly in a development environment
- * before deploying to production, as overly restrictive rules can block legitimate
- * access, while overly permissive rules can create security vulnerabilities.
- */
+const { execSync } = require('child_process');
+const path = require('path');
+const fs = require('fs');
 
-// Manual verification checklist:
-// 
-// 1. Verify that users can only access data they're authorized to see
-// 2. Confirm that roles (director/staff) are properly enforced
-// 3. Test that course assignment restrictions work as expected
-// 4. Ensure that permission-based access controls function correctly
-// 5. Validate that data validation rules are enforced on write operations
+// Check if Firebase CLI is installed
+function checkFirebaseCLI() {
+  try {
+    execSync('firebase --version', { stdio: 'pipe' });
+    console.log('Firebase CLI is installed.');
+    return true;
+  } catch (error) {
+    console.error('Firebase CLI is not installed. Please install it using:');
+    console.error('npm install -g firebase-tools');
+    return false;
+  }
+}
 
-console.log('Use this script as a reference for deploying Firebase rules.');
-console.log('Run the appropriate commands manually as described in the comments above.'); 
+// Check if user is logged in to Firebase
+function checkFirebaseLogin() {
+  try {
+    const output = execSync('firebase projects:list --json', { stdio: 'pipe' }).toString();
+    const projects = JSON.parse(output);
+    
+    if (projects && projects.length > 0) {
+      console.log('Logged in to Firebase.');
+      return true;
+    } else {
+      console.error('Not logged in to Firebase or no projects available.');
+      console.error('Please login using: firebase login');
+      return false;
+    }
+  } catch (error) {
+    console.error('Not logged in to Firebase. Please login using:');
+    console.error('firebase login');
+    return false;
+  }
+}
+
+// Deploy Firebase rules
+function deployRules() {
+  try {
+    console.log('Deploying Firestore rules...');
+    execSync('firebase deploy --only firestore:rules', { stdio: 'inherit' });
+    
+    console.log('Deploying Firestore indexes...');
+    execSync('firebase deploy --only firestore:indexes', { stdio: 'inherit' });
+    
+    console.log('Deploying Database rules...');
+    execSync('firebase deploy --only database', { stdio: 'inherit' });
+    
+    console.log('All rules deployed successfully!');
+    return true;
+  } catch (error) {
+    console.error('Error deploying rules:', error.message);
+    return false;
+  }
+}
+
+// Main function
+function main() {
+  console.log('Starting Firebase rules deployment...');
+  
+  if (!checkFirebaseCLI()) {
+    return;
+  }
+  
+  if (!checkFirebaseLogin()) {
+    return;
+  }
+  
+  deployRules();
+}
+
+// Run the main function
+main(); 

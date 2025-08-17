@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
+import { resolveStudentPhoto } from './photo-utils'
 
 interface User {
   id: string
@@ -9,6 +10,12 @@ interface User {
   email: string
   studentId: string
   role: "student"
+  passportPhotoUrl?: string
+  profilePictureUrl?: string
+  programme?: string
+  currentLevel?: string
+  programmeType?: 'regular' | 'weekend'
+  level?: number
 }
 
 interface AuthContextType {
@@ -39,50 +46,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false)
   }, [])
 
-  const login = async (studentId: string, dateOfBirth: string): Promise<boolean> => {
+  const login = async (studentId: string, dateOfBirth: string) => {
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      setLoading(true)
+      // Import the authenticateStudent function here to avoid circular imports
+      const { authenticateStudent } = await import('./firebase')
+      
+      console.log('Attempting login for fees portal:', studentId)
+      
+      // Use real Firebase authentication
+      const studentData = await authenticateStudent(studentId, dateOfBirth)
+      
+      if (studentData) {
+        // Determine programme type from schedule
+        const scheduleType = studentData.scheduleType || "Regular"
+        const programmeType: 'regular' | 'weekend' = scheduleType.toLowerCase().includes('weekend') ? 'weekend' : 'regular'
+        
+        // Extract numeric level from currentLevel (e.g., "Level 100" -> 100)
+        const levelString = studentData.currentLevel || "Level 100"
+        const level = parseInt(levelString.replace(/\D/g, '')) || 100
 
-      // Mock validation - in real app, validate against Firebase/API
-      const validCredentials = [
-        { studentId: "AG/2021/001234", dateOfBirth: "2000-01-15", name: "John Doe", email: "john.doe@ucaes.edu.gh" },
-        {
-          studentId: "AG/2021/001235",
-          dateOfBirth: "2001-03-22",
-          name: "Jane Smith",
-          email: "jane.smith@ucaes.edu.gh",
-        },
-        {
-          studentId: "AG/2021/001236",
-          dateOfBirth: "1999-12-10",
-          name: "Mike Johnson",
-          email: "mike.johnson@ucaes.edu.gh",
-        },
-      ]
+        // Resolve passport photo using the new utility
+        const photoData = await resolveStudentPhoto(studentId, studentData)
 
-      const validUser = validCredentials.find(
-        (cred) => cred.studentId === studentId && cred.dateOfBirth === dateOfBirth,
-      )
-
-      if (validUser) {
         const userData: User = {
-          id: validUser.studentId,
-          name: validUser.name,
-          email: validUser.email,
-          studentId: validUser.studentId,
+          id: studentData.id,
+          name: studentData.name,
+          email: studentData.email,
+          studentId: studentData.studentId,
           role: "student",
+          passportPhotoUrl: photoData.url,
+          profilePictureUrl: photoData.url,
+          programme: studentData.programme,
+          currentLevel: studentData.currentLevel,
+          programmeType: programmeType,
+          level: level,
         }
-
+        
         setUser(userData)
         localStorage.setItem("ucaes_user", JSON.stringify(userData))
+        console.log('Login successful for fees portal:', userData.name)
         return true
       }
 
       return false
     } catch (error) {
       console.error("Login error:", error)
-      return false
+      throw error
+    } finally {
+      setLoading(false)
     }
   }
 

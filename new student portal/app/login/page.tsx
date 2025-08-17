@@ -3,14 +3,15 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { School, User, Calendar, Loader2, AlertCircle, Eye, EyeOff } from "lucide-react"
-import { useAuth } from "@/hooks/useAuth"
+import { User, Calendar, AlertCircle, CheckCircle, Eye, EyeOff } from "lucide-react"
+import { useAuth } from "@/components/auth-provider"
 import Image from 'next/image'
+import { Loader } from "@/components/ui/loader"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -18,6 +19,7 @@ export default function LoginPage() {
   const [dateOfBirth, setDateOfBirth] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<boolean>(false)
   const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(false)
   
@@ -34,127 +36,141 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError(null)
-    setLoading(true)
-
+    
+    // Validation
     if (!studentId || !dateOfBirth) {
-      setError("Please fill in all fields.")
-      setLoading(false)
+      setError('Please enter both your Student ID and Date of Birth')
       return
     }
-
-    // Validate date of birth format (DD-MM-YYYY)
-    const dobRegex = /^(0[1-9]|[12][0-9]|3[01])-(0[1-9]|1[0-2])-\d{4}$/
-    if (!dobRegex.test(dateOfBirth)) {
-      setError("Please enter date of birth in the format DD-MM-YYYY (e.g., 16-06-2000)")
-      setLoading(false)
-      return
-    }
-
+    
+    setLoading(true)
+    setError(null)
+    
     try {
-      // Call login function from auth context
-      await login({
-        studentId: studentId.trim(),
-        dateOfBirth: dateOfBirth.trim()
-      })
-
-      // Success - redirect to dashboard
-      router.push("/")
+      // Call the login function from the auth context
+      await login({ studentId, dateOfBirth })
+      
+      // Show success message
+      setSuccess(true)
+      
+      // Redirect to dashboard after a short delay to show success message
+      setTimeout(() => {
+        router.push('/')
+      }, 1500)
     } catch (err: any) {
-      // Show specific error message
-      setError(err.message || "Login failed. Please check your credentials.")
+      console.error('Login error:', err)
+      setError('Incorrect Student ID or Password')
+      setSuccess(false)
     } finally {
       setLoading(false)
     }
   }
 
+  // Don't render anything during hydration to avoid mismatch
   if (!mounted) {
     return null
   }
 
   return (
-    <div suppressHydrationWarning className="min-h-screen bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-md">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="h-16 w-16 rounded-full bg-green-600 flex items-center justify-center mx-auto mb-4">
-            <School className="h-8 w-8 text-white" />
+        <div className="text-center mb-6 sm:mb-10">
+          <div className="h-24 w-24 sm:h-32 sm:w-32 relative mx-auto mb-4 sm:mb-6">
+            <Image
+              src="/logo.png"
+              alt="UCAES Logo"
+              fill
+              style={{ objectFit: 'contain' }}
+              priority
+            />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">UCAES Student Portal</h1>
-          <p className="text-gray-600">University College of Agriculture and Environmental Studies</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">UCAES Student Portal</h1>
+          <p className="text-sm sm:text-base text-gray-600">University College of Agriculture and Environmental Studies</p>
         </div>
 
         {/* Login Form */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Student Login</CardTitle>
-            <CardDescription>Enter your Student ID and Date of Birth to access your portal</CardDescription>
+        <Card className="shadow-lg border-0">
+          <CardHeader className="pb-2 p-4 sm:p-6">
+            <CardTitle className="text-xl sm:text-2xl text-center">Student Login</CardTitle>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+          <CardContent className="pt-4 sm:pt-6 p-4 sm:p-6">
+            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
               {error && (
-                <Alert variant="destructive">
+                <Alert variant="destructive" className="mb-4 sm:mb-6">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
+                  <AlertDescription className="text-sm">{error}</AlertDescription>
+                </Alert>
+              )}
+              
+              {success && (
+                <Alert className="mb-4 sm:mb-6 bg-green-50 text-green-700 border-green-200">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-sm">Login successful! Redirecting...</AlertDescription>
                 </Alert>
               )}
 
-              <div className="space-y-2">
-                <Label htmlFor="studentId" className="flex items-center gap-2">
-                  <User className="h-4 w-4" />
+              <div className="space-y-2 sm:space-y-3">
+                <Label htmlFor="studentId" className="text-sm sm:text-base flex items-center gap-2">
+                  <User className="h-4 w-4 sm:h-5 sm:w-5" />
                   Student ID / Index Number
                 </Label>
                 <Input
                   id="studentId"
                   type="text"
-                  placeholder="e.g., 10288633 or UCAES2023001"
                   value={studentId}
                   onChange={(e) => setStudentId(e.target.value)}
-                  className="uppercase"
-                  disabled={loading}
+                  className="uppercase h-12 text-base"
+                  disabled={loading || success}
                   autoComplete="off"
                 />
-                <p className="text-xs text-gray-500">
-                  Enter your registration number or index number as provided during registration
-                </p>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="dateOfBirth" className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Date of Birth
+              <div className="space-y-3">
+                <Label htmlFor="dateOfBirth" className="text-base flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Date of Birth (DD-MM-YYYY)
                 </Label>
                 <div className="relative">
                   <Input
                     id="dateOfBirth"
                     type={showPassword ? "text" : "password"}
-                    placeholder="DD-MM-YYYY (e.g., 16-06-2000)"
                     value={dateOfBirth}
                     onChange={(e) => setDateOfBirth(e.target.value)}
-                    disabled={loading}
+                    className="h-12 text-base pr-10"
+                    disabled={loading || success}
                   />
                   <button
                     type="button"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 p-1"
                     onClick={() => setShowPassword(!showPassword)}
+                    disabled={loading || success}
                   >
                     {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
+                      <EyeOff className="h-5 w-5" />
                     ) : (
-                      <Eye className="h-4 w-4" />
+                      <Eye className="h-5 w-5" />
                     )}
                   </button>
                 </div>
-                <p className="text-xs text-gray-500">
-                  Enter your date of birth exactly as provided during registration (DD-MM-YYYY format)
-                </p>
               </div>
 
-              <Button type="submit" className="w-full bg-green-600 hover:bg-green-700" disabled={loading}>
+              <Button 
+                type="submit" 
+                className={`w-full h-12 text-base font-medium ${success ? 'bg-green-600' : 'bg-green-600 hover:bg-green-700'} mt-6`}
+                disabled={loading || success}
+              >
                 {loading ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="relative h-5 w-5">
+                      <Loader className="h-5 w-5" />
+                    </div>
+                    <span>Signing in</span>
+                  </div>
+                ) : success ? (
                   <>
-                    <span className="mr-2">Signing in</span>
-                    <div className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent"></div>
+                    <CheckCircle className="h-5 w-5 mr-2" />
+                    <span>Login Successful</span>
                   </>
                 ) : (
                   "Sign In"
@@ -162,18 +178,7 @@ export default function LoginPage() {
               </Button>
             </form>
           </CardContent>
-          <CardFooter className="flex flex-col gap-2 text-center">
-            <p className="text-sm text-gray-500">
-              Having trouble? Contact the IT Support Desk
-            </p>
-          </CardFooter>
         </Card>
-
-        {/* Footer */}
-        <div className="text-center mt-6 text-sm text-gray-600">
-          <p>Need help? Contact Student Affairs Office</p>
-          <p>Email: support@ucaes.edu.gh | Phone: +233 XX XXX XXXX</p>
-        </div>
       </div>
     </div>
   )

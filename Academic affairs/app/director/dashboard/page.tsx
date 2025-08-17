@@ -5,9 +5,11 @@ import { DashboardCard } from "@/components/dashboard-card"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Users, GraduationCap, ClipboardList, TrendingUp, AlertCircle, CheckCircle, Clock, LoaderCircle } from "lucide-react"
+import { Users, GraduationCap, ClipboardList, TrendingUp, AlertCircle, CheckCircle, Clock, LoaderCircle, Calendar, UserCheck, BookOpen } from "lucide-react"
 import { useAuth } from "@/components/auth-context"
+import { useAcademic } from "@/components/academic-context"
 import { useRouter } from "next/navigation"
+import { Spinner, SpinnerContainer } from "@/components/ui/spinner"
 
 interface ApprovalItem {
   id: string;
@@ -28,27 +30,33 @@ interface ActivityItem {
 }
 
 export default function DirectorDashboard() {
-  const { user, isLoading, isAuthenticated } = useAuth()
+  const { user, loading } = useAuth()
+  const { currentAcademicYear, staffMembers } = useAcademic()
   const router = useRouter()
   
   const [pendingApprovals, setPendingApprovals] = useState<ApprovalItem[]>([])
   const [recentActivities, setRecentActivities] = useState<ActivityItem[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loadingDashboardData, setLoading] = useState(true)
   const [stats, setStats] = useState({
     totalStudents: 0,
     pendingRegistrations: 0,
     pendingResults: 0,
-    averageCGPA: 0,
+    currentAcademicYear: '',
+    totalStaff: 0,
+    totalLecturers: 0,
   })
 
   useEffect(() => {
+    console.log('[Dashboard useEffect] user:', user, 'loading:', loading)
     // If not authenticated, redirect to login
-    if (!isLoading && !isAuthenticated) {
+    if (!loading && !user) {
+      console.log('[Dashboard useEffect] Not authenticated, redirecting to /login')
       router.push("/login")
       return
     }
 
-    if (!isLoading && user) {
+    if (!loading && user) {
+      console.log('[Dashboard useEffect] Authenticated user:', user)
       // Fetch data from MongoDB via API endpoints
       const fetchDashboardData = async () => {
         try {
@@ -57,7 +65,12 @@ export default function DirectorDashboard() {
           const statsData = await statsResponse.json();
           
           if (statsData.success) {
-            setStats(statsData.stats);
+            setStats({
+              ...statsData.stats,
+              currentAcademicYear: currentAcademicYear?.year || statsData.stats.currentAcademicYear,
+              totalStaff: staffMembers.length,
+              totalLecturers: staffMembers.filter(staff => staff.position === 'Lecturer').length
+            });
           }
           
           // Fetch pending approvals
@@ -95,7 +108,9 @@ export default function DirectorDashboard() {
             totalStudents: 120,
             pendingRegistrations: 5,
             pendingResults: 3,
-            averageCGPA: 3.2,
+            currentAcademicYear: currentAcademicYear?.year || new Date().getFullYear().toString(),
+            totalStaff: staffMembers.length,
+            totalLecturers: staffMembers.filter(staff => staff.position === 'Lecturer').length
           });
           
           // Use default approvals if fetch fails
@@ -116,18 +131,21 @@ export default function DirectorDashboard() {
 
       fetchDashboardData();
     }
-  }, [user, isLoading, isAuthenticated, router]);
+  }, [user, loading, router, currentAcademicYear, staffMembers]);
 
-  if (isLoading || loading) {
+  if (loading || loadingDashboardData) {
+    console.log('[Dashboard render] Loading... user:', user, 'loading:', loading, 'loadingDashboardData:', loadingDashboardData)
     return (
       <div className="flex justify-center items-center h-[50vh]">
-        <LoaderCircle className="h-10 w-10 animate-spin text-primary" />
-        <span className="ml-2">Loading dashboard data...</span>
+        <SpinnerContainer>
+          Loading dashboard data...
+        </SpinnerContainer>
       </div>
     )
   }
 
   if (!user) {
+    console.log('[Dashboard render] No user, access denied')
     return (
       <div className="text-center py-10">
         <h2 className="text-2xl font-bold">Access Denied</h2>
@@ -138,14 +156,14 @@ export default function DirectorDashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Academic Affairs Dashboard</h1>
-        <p className="text-muted-foreground">Welcome, {user.name}</p>
+    <div className="space-y-8 p-6">
+      <div className="space-y-2">
+        <h1 className="text-4xl font-bold tracking-tight">Academic Affairs Dashboard</h1>
+        <p className="text-lg text-muted-foreground">Welcome back, {user.name}</p>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <DashboardCard
           title="Total Students"
           value={stats.totalStudents.toString()}
@@ -165,19 +183,31 @@ export default function DirectorDashboard() {
           icon={GraduationCap} 
         />
         <DashboardCard
-          title="Average CGPA"
-          value={stats.averageCGPA.toFixed(2)}
-          description="Current semester"
-          icon={TrendingUp}
+          title="Academic Year"
+          value={stats.currentAcademicYear || new Date().getFullYear().toString()}
+          description="Current academic year"
+          icon={Calendar}
+        />
+        <DashboardCard
+          title="Total Staff"
+          value={stats.totalStaff.toString()}
+          description="All staff members"
+          icon={UserCheck}
+        />
+        <DashboardCard
+          title="Total Lecturers"
+          value={stats.totalLecturers.toString()}
+          description="Teaching staff"
+          icon={BookOpen}
         />
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-8 lg:grid-cols-2">
         {/* Pending Approvals */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5" />
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <AlertCircle className="h-5 w-5 text-orange-500" />
               Pending Approvals
             </CardTitle>
           </CardHeader>
@@ -221,10 +251,10 @@ export default function DirectorDashboard() {
         </Card>
 
         {/* Recent Activities */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5" />
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <CheckCircle className="h-5 w-5 text-green-500" />
               Recent Activities
             </CardTitle>
           </CardHeader>

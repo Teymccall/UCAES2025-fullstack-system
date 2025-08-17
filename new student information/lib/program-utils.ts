@@ -17,6 +17,10 @@ export const COLLEGE_PROGRAM_NAMES = [
   // 4-Year Degree Programs
   "B.Sc. Sustainable Agriculture",
   "B.Sc. Environmental Science and Management",
+  "Certificate in Agriculture", // Added as degree program
+  "Certificate in Environmental Science", // Added as degree program
+  // 2-Year Diploma Programs
+  "Diploma in Organic Agriculture",
   // 1-Year Certificate Courses
   "Certificate in Sustainable Agriculture",
   "Certificate in Waste Management & Environmental Health",
@@ -28,10 +32,18 @@ export const COLLEGE_PROGRAM_NAMES = [
 // Program categories and details
 export const PROGRAM_CATEGORIES = {
   degree: {
-    title: "4-Year Degree Programmes",
+    title: "Degree Programmes",
     programs: [
       "B.Sc. Sustainable Agriculture",
-      "B.Sc. Environmental Science and Management"
+      "B.Sc. Environmental Science and Management",
+      "Certificate in Agriculture", // This is a degree program (2-year)
+      "Certificate in Environmental Science" // Added degree program (2-year)
+    ]
+  },
+  diploma: {
+    title: "2-Year Diploma Programme",
+    programs: [
+      "Diploma in Organic Agriculture" // Only diploma program
     ]
   },
   certificate: {
@@ -80,10 +92,56 @@ export function getProgramsByCategory() {
 export function getProgramDuration(programName: string): number {
   if (programName.startsWith('B.Sc.')) {
     return 4;
+  } else if (programName.startsWith('Diploma')) {
+    return 2;
+  } else if (programName === 'Certificate in Agriculture' || programName === 'Certificate in Environmental Science') {
+    return 2; // These certificates are degree-level programs
   } else if (programName.startsWith('Certificate')) {
     return 1;
   }
   return 4; // Default to 4 years for unknown programs
+}
+
+/**
+ * Get program type based on program name
+ * @param programName The name of the program
+ * @returns Program type
+ */
+export function getProgramType(programName: string): 'degree' | 'diploma' | 'certificate' {
+  if (programName.startsWith('B.Sc.') || programName === 'Certificate in Agriculture' || programName === 'Certificate in Environmental Science') {
+    return 'degree';
+  } else if (programName.startsWith('Diploma')) {
+    return 'diploma';
+  } else {
+    return 'certificate';
+  }
+}
+
+/**
+ * Check if a program allows top-up to degree programs
+ * @param programName The name of the program
+ * @returns Boolean indicating if top-up is allowed
+ */
+export function isTopUpEligible(programName: string): boolean {
+  return programName.startsWith('Certificate') || programName.startsWith('Diploma');
+}
+
+/**
+ * Get available top-up programs for a given certificate/diploma
+ * @param currentProgram The current program name
+ * @returns Array of available degree programs for top-up
+ */
+export function getTopUpPrograms(currentProgram: string): string[] {
+  // Define mapping of certificate/diploma to degree programs
+  const topUpMapping: Record<string, string[]> = {
+    'Certificate in Sustainable Agriculture': ['B.Sc. Sustainable Agriculture', 'Certificate in Agriculture'],
+    'Certificate in Business Administration': ['B.Sc. Sustainable Agriculture', 'B.Sc. Environmental Science and Management'],
+    'Certificate in Agribusiness': ['B.Sc. Sustainable Agriculture'],
+    'Diploma in Organic Agriculture': ['B.Sc. Sustainable Agriculture', 'Certificate in Agriculture'],
+    // Add more mappings as needed
+  };
+  
+  return topUpMapping[currentProgram] || PROGRAM_CATEGORIES.degree.programs;
 }
 
 /**
@@ -130,4 +188,13 @@ async function fetchDataFromFirestore(collectionName: string, orderField: string
 // Update functions to use Firebase
 export async function getPrograms(): Promise<Program[]> {
   return fetchDataFromFirestore('programs');
+}
+
+/**
+ * Get programs by type
+ * @param type Program type (degree, diploma, certificate)
+ * @returns Programs of the specified type
+ */
+export function getProgramsByType(type: 'degree' | 'diploma' | 'certificate'): string[] {
+  return PROGRAM_CATEGORIES[type]?.programs || [];
 } 

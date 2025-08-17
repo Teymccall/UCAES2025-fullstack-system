@@ -1,6 +1,20 @@
-import { db } from './firebase';
-import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
-import { Student } from './auth';
+"use client"
+
+import { db } from './firebase'
+import { 
+  collection, 
+  getDocs, 
+  query, 
+  where, 
+  doc, 
+  getDoc,
+  Timestamp, 
+  addDoc, 
+  serverTimestamp,
+  orderBy,
+  limit
+} from "firebase/firestore"
+import { Student } from './auth'
 
 export interface AcademicLevel {
   level: string;
@@ -115,6 +129,156 @@ export async function getAcademicRecord(student: Student): Promise<AcademicRecor
   }
 }
 
+export async function getStudentCourseRegistration(studentId: string, academicYear?: string, semester?: string) {
+  try {
+    if (!studentId) {
+      console.error("No student ID provided to getStudentCourseRegistration");
+      return null;
+    }
+    
+    console.log(`Fetching registration for student ${studentId} (Year: ${academicYear || 'any'}, Semester: ${semester || 'any'})`);
+    
+    // Get current student info first so we have all possible identifiers
+    let studentInfo: any = null;
+    let regNumber = null;
+    let studentEmail = null;
+    let studentName = null;
+    
+    try {
+      // Try to get student info from users collection
+      const userDoc = await getDoc(doc(db, "users", studentId));
+      if (userDoc.exists()) {
+        studentInfo = userDoc.data();
+        regNumber = studentInfo.registrationNumber;
+        studentEmail = studentInfo.email?.toLowerCase();
+        studentName = `${studentInfo.surname || ''} ${studentInfo.otherNames || ''}`.trim();
+        console.log(`Found student in users collection: ${studentName}, Registration: ${regNumber}, Email: ${studentEmail}`);
+      }
+      
+      // If no info from users, try student-registrations
+      if (!studentInfo) {
+        const regDoc = await getDoc(doc(db, "student-registrations", studentId));
+        if (regDoc.exists()) {
+          studentInfo = regDoc.data();
+          regNumber = studentInfo.registrationNumber;
+          studentEmail = studentInfo.email?.toLowerCase();
+          studentName = `${studentInfo.surname || ''} ${studentInfo.otherNames || ''}`.trim();
+          console.log(`Found student in student-registrations: ${studentName}, Registration: ${regNumber}, Email: ${studentEmail}`);
+        }
+      }
+      
+      // If still no info, try students collection
+      if (!studentInfo) {
+        const studentDoc = await getDoc(doc(db, "students", studentId));
+        if (studentDoc.exists()) {
+          studentInfo = studentDoc.data();
+          regNumber = studentInfo.registrationNumber;
+          studentEmail = studentInfo.email?.toLowerCase();
+          studentName = studentInfo.name || `${studentInfo.surname || ''} ${studentInfo.otherNames || ''}`.trim();
+          console.log(`Found student in students collection: ${studentName}, Registration: ${regNumber}, Email: ${studentEmail}`);
+        }
+      }
+    } catch (error) {
+      console.error("Error getting student info:", error);
+    }
+    
+    // Now try all possible ways to find course registrations
+    let results: any[] = [];
+    
+    // Method 1: Try by studentId
+    console.log(`Method 1: Looking up registration by studentId: ${studentId}`);
+    let q = query(collection(db, "course-registrations"), where("studentId", "==", studentId));
+    if (academicYear) q = query(q, where("academicYear", "==", academicYear));
+    if (semester) q = query(q, where("semester", "==", semester));
+    let snapshot = await getDocs(q);
+    if (!snapshot.empty) {
+      console.log(`Found ${snapshot.docs.length} registrations by studentId`);
+      results = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    }
+    
+    // Method 2: Try by email
+    if (results.length === 0 && studentEmail) {
+      console.log(`Method 2: Looking up registration by email: ${studentEmail}`);
+      q = query(collection(db, "course-registrations"), where("email", "==", studentEmail));
+      if (academicYear) q = query(q, where("academicYear", "==", academicYear));
+      if (semester) q = query(q, where("semester", "==", semester));
+      snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        console.log(`Found ${snapshot.docs.length} registrations by email`);
+        results = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      }
+    }
+    
+    // Method 3: Try by registration number
+    if (results.length === 0 && regNumber) {
+      console.log(`Method 3: Looking up registration by registrationNumber: ${regNumber}`);
+      q = query(collection(db, "course-registrations"), where("registrationNumber", "==", regNumber));
+      if (academicYear) q = query(q, where("academicYear", "==", academicYear));
+      if (semester) q = query(q, where("semester", "==", semester));
+      snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        console.log(`Found ${snapshot.docs.length} registrations by registrationNumber`);
+        results = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      }
+    }
+    
+    // Method 4: Try by student name
+    if (results.length === 0 && studentName) {
+      console.log(`Method 4: Looking up registration by studentName: ${studentName}`);
+      q = query(collection(db, "course-registrations"), where("studentName", "==", studentName));
+      if (academicYear) q = query(q, where("academicYear", "==", academicYear));
+      if (semester) q = query(q, where("semester", "==", semester));
+      snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        console.log(`Found ${snapshot.docs.length} registrations by studentName`);
+        results = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      }
+    }
+    
+    // Method 5: Last resort, get all registrations and filter client-side
+    if (results.length === 0 && (studentEmail || regNumber || studentName)) {
+      console.log("Method 5: Trying manual case-insensitive matching...");
+      const allRegistrationsRef = collection(db, "course-registrations");
+      const allRegistrationsSnapshot = await getDocs(allRegistrationsRef);
+      
+      // Manually filter registrations by known student attributes
+      const matchingRegs = allRegistrationsSnapshot.docs.filter(doc => {
+        const data = doc.data();
+        return (
+          (studentEmail && data.email && data.email.toLowerCase() === studentEmail.toLowerCase()) ||
+          (regNumber && data.registrationNumber && data.registrationNumber === regNumber) ||
+          (studentName && data.studentName && data.studentName.toLowerCase().includes(studentName.toLowerCase()))
+        );
+      });
+      
+      if (matchingRegs.length > 0) {
+        console.log(`Found ${matchingRegs.length} registrations through manual matching`);
+        results = matchingRegs.map(doc => ({ id: doc.id, ...doc.data() }));
+      }
+    }
+    
+    if (results.length === 0) {
+      console.log("No registrations found after trying all methods");
+      return null;
+    }
+    
+    console.log(`Found ${results.length} total registrations for student`);
+    
+    // Sort by registration date (newest first)
+    results.sort((a, b) => {
+      const dateA = a.registrationDate?.toDate?.() || new Date(0);
+      const dateB = b.registrationDate?.toDate?.() || new Date(0);
+      return dateB.getTime() - dateA.getTime();
+    });
+    
+    console.log("Returning most recent registration:", results[0]);
+    return results[0];
+  } catch (error) {
+    console.error("Error getting student course registration:", error);
+    return null;
+  }
+}
+
 // Helper function to calculate expected completion year
 function calculateExpectedCompletionYear(startYear: string | undefined, duration: number): string {
   if (!startYear) return '';
@@ -133,6 +297,279 @@ function getProjectedClassification(cgpa: number): string {
   if (cgpa >= 2.0) return 'Third Class';
   if (cgpa >= 1.0) return 'Pass';
   return 'Not Available';
+}
+
+// Student self-registration functions
+
+// Helper function to get program ID from program name
+export async function getProgramIdFromName(programName: string): Promise<string | null> {
+  try {
+    console.log(`Looking for program ID for: ${programName}`);
+    
+    // Normalize program name for comparison
+    const normalizeProgramName = (name: string) => {
+      return name
+        .toLowerCase()
+        .replace(/[.\s]/g, '') // Remove dots and spaces
+        .replace(/bachelorofscience/g, 'bsc') // Handle "Bachelor of Science" variations
+        .replace(/bachelorof/g, 'bsc') // Handle "Bachelor of" variations
+        .trim();
+    };
+    
+    const normalizedSearchName = normalizeProgramName(programName);
+    console.log(`Normalized search name: "${normalizedSearchName}"`);
+    
+    const programsRef = collection(db, "academic-programs");
+    const programQuery = query(programsRef, where("name", "==", programName), limit(1));
+    const programSnapshot = await getDocs(programQuery);
+    
+    if (!programSnapshot.empty) {
+      const programId = programSnapshot.docs[0].id;
+      console.log(`Found program ID (exact match): ${programId} for program: ${programName}`);
+      return programId;
+    }
+    
+    // Try case-insensitive search
+    const allProgramsSnapshot = await getDocs(programsRef);
+    for (const doc of allProgramsSnapshot.docs) {
+      const data = doc.data();
+      if (data.name) {
+        const normalizedDbName = normalizeProgramName(data.name);
+        console.log(`Comparing: "${normalizedSearchName}" vs "${normalizedDbName}"`);
+        
+        if (normalizedDbName === normalizedSearchName) {
+          console.log(`Found program ID (normalized match): ${doc.id} for program: ${programName}`);
+          return doc.id;
+        }
+      }
+    }
+    
+    // Try partial matching as last resort
+    console.log('Trying partial matching...');
+    for (const doc of allProgramsSnapshot.docs) {
+      const data = doc.data();
+      if (data.name) {
+        const normalizedDbName = normalizeProgramName(data.name);
+        if (normalizedDbName.includes(normalizedSearchName) || normalizedSearchName.includes(normalizedDbName)) {
+          console.log(`Found program ID (partial match): ${doc.id} for program: ${programName}`);
+          return doc.id;
+        }
+      }
+    }
+    
+    console.log(`No program found for: ${programName}`);
+    return null;
+  } catch (error) {
+    console.error("Error getting program ID:", error);
+    return null;
+  }
+}
+
+// Helper function to convert level text to number
+function convertLevelToNumber(levelText: string): number {
+  if (typeof levelText === 'number') return levelText;
+  
+  const match = levelText.toString().match(/\d+/);
+  if (match) {
+    return parseInt(match[0]);
+  }
+  
+  // Default fallback
+  return 100;
+}
+
+export async function getAvailableCoursesForStudent(
+  studentId: string,
+  programId: string,
+  level: number,
+  semester: number,
+  academicYear: string
+): Promise<any[]> {
+  try {
+    console.log(`Getting available courses for student: ${studentId}`);
+    console.log(`Parameters: programId=${programId}, level=${level}, semester=${semester}, academicYear=${academicYear}`);
+    
+    // If programId is not provided, try to get it from the student's program name
+    if (!programId) {
+      console.log('No programId provided, attempting to get student data to find program...');
+      
+      // Get student data to find their program
+      const studentRef = doc(db, "student-registrations", studentId);
+      const studentSnap = await getDoc(studentRef);
+      
+      if (studentSnap.exists()) {
+        const studentData = studentSnap.data();
+        const programName = studentData.programme;
+        
+        if (programName) {
+          console.log(`Student program: ${programName}`);
+          programId = await getProgramIdFromName(programName) || '';
+          console.log(`Resolved program ID: ${programId}`);
+        }
+      }
+    }
+    
+    if (!programId) {
+      console.log('❌ No program ID available, cannot load courses');
+      return [];
+    }
+    
+    // Get program structure
+    const programDoc = await getDoc(doc(db, "academic-programs", programId));
+    if (!programDoc.exists()) {
+      console.log(`❌ Program not found: ${programId}`);
+      return [];
+    }
+    
+    const programData = programDoc.data();
+    const coursesPerLevel = programData.coursesPerLevel || {};
+    
+    console.log(`✅ Program found: ${programData.name}`);
+    console.log(`Available levels:`, Object.keys(coursesPerLevel));
+    
+    // Get courses for this level and semester
+    // FIXED: Use numeric keys (1, 2) instead of text keys to match Firebase structure
+    const levelKey = level.toString();
+    const semesterKey = semester.toString(); // Use "1" or "2" instead of "First Semester" / "Second Semester"
+    
+    console.log(`Looking for courses in: Level ${levelKey}, Semester ${semesterKey}`);
+    
+    if (coursesPerLevel[levelKey]) {
+      console.log(`Available semesters for level ${levelKey}:`, Object.keys(coursesPerLevel[levelKey]));
+    }
+    
+    if (!coursesPerLevel[levelKey] || !coursesPerLevel[levelKey][semesterKey]) {
+      console.log(`❌ No course structure found for Level ${levelKey}, Semester ${semesterKey}`);
+      return [];
+    }
+    
+    const semesterData = coursesPerLevel[levelKey][semesterKey];
+    console.log(`✅ Semester data found:`, semesterData);
+    
+    // Get course codes from the semester data
+    const courseCodes = semesterData.all?.Regular || [];
+    console.log(`Found ${courseCodes.length} course codes:`, courseCodes);
+    
+    if (courseCodes.length === 0) {
+      console.log(`❌ No course codes found for Level ${levelKey}, Semester ${semesterKey}`);
+      return [];
+    }
+    
+    // Get actual course details
+    const coursesQuery = query(
+      collection(db, "academic-courses"),
+      where("code", "in", courseCodes.slice(0, 10)) // Firestore 'in' query limit
+    );
+    
+    const coursesSnapshot = await getDocs(coursesQuery);
+    const availableCourses = coursesSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    console.log(`Retrieved ${availableCourses.length} courses from database`);
+    
+    // Check if student is already registered for any of these courses
+    const existingRegistration = await getStudentCourseRegistration(studentId, academicYear, semester);
+    const registeredCourseIds = existingRegistration?.courses?.map(c => c.id || c.courseId) || [];
+    
+    // Filter out already registered courses
+    const filteredCourses = availableCourses.filter(course => 
+      !registeredCourseIds.includes(course.id) && 
+      course.status === 'active'
+    );
+    
+    console.log(`Final filtered courses: ${filteredCourses.length} available for registration`);
+    
+    return filteredCourses;
+  } catch (error) {
+    console.error("Error getting available courses:", error);
+    return [];
+  }
+}
+
+export async function registerStudentForCourses(
+  studentId: string,
+  courses: any[],
+  academicYear: string,
+  semester: number,
+  registrationType: 'student' | 'director' = 'student'
+): Promise<{ success: boolean; registrationId?: string; error?: string }> {
+  try {
+    console.log(`Registering student ${studentId} for ${courses.length} courses`);
+    
+    // Get student information
+    const studentInfo = await getAcademicRecord(studentId);
+    if (!studentInfo) {
+      return { success: false, error: "Student not found" };
+    }
+    
+    // Validate course availability
+    const availableCourses = await getAvailableCoursesForStudent(
+      studentId,
+      studentInfo.programId,
+      studentInfo.currentLevel,
+      semester,
+      academicYear
+    );
+    
+    const availableCourseIds = availableCourses.map(c => c.id);
+    const invalidCourses = courses.filter(course => !availableCourseIds.includes(course.id));
+    
+    if (invalidCourses.length > 0) {
+      return { success: false, error: "Some courses are not available for registration" };
+    }
+    
+    // Create registration document
+    const registrationData = {
+      studentId,
+      studentName: studentInfo.studentName,
+      registrationNumber: studentInfo.registrationNumber,
+      email: studentInfo.email,
+      programId: studentInfo.programId,
+      programName: studentInfo.programName,
+      level: studentInfo.currentLevel,
+      semester,
+      academicYear,
+      courses: courses.map(course => ({
+        id: course.id,
+        code: course.code,
+        title: course.title,
+        credits: course.credits
+      })),
+      totalCredits: courses.reduce((sum, course) => sum + (course.credits || 0), 0),
+      registrationDate: new Date(),
+      registrationType,
+      status: 'active',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+    
+    const registrationRef = await addDoc(collection(db, "course-registrations"), registrationData);
+    
+    console.log(`Successfully registered student for ${courses.length} courses`);
+    return { success: true, registrationId: registrationRef.id };
+    
+  } catch (error) {
+    console.error("Error registering student for courses:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getStudentRegistrationHistory(studentId: string): Promise<any[]> {
+  try {
+    const registrationsQuery = query(
+      collection(db, "course-registrations"),
+      where("studentId", "==", studentId),
+      orderBy("registrationDate", "desc")
+    );
+    
+    const snapshot = await getDocs(registrationsQuery);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (error) {
+    console.error("Error getting registration history:", error);
+    return [];
+  }
 }
 
 // Helper function to generate default level data
@@ -177,3 +614,28 @@ function generateDefaultLevels(currentLevel: number, startYear: string, duration
   
   return levels;
 } 
+
+// This function will be used to convert program IDs to program names
+export async function getProgramName(programId: string): Promise<string> {
+  if (!programId) return "Unknown Program";
+  
+  try {
+    // First check if it's already a program name (not an ID)
+    if (programId.includes("BSc.") || programId.includes("B.Sc.")) {
+      return programId;
+    }
+    
+    // Look up the program in the academic-programs collection
+    const programDoc = await getDoc(doc(db, "academic-programs", programId));
+    
+    if (programDoc.exists()) {
+      const programData = programDoc.data();
+      return programData.name || "Unknown Program";
+    }
+    
+    return "Unknown Program";
+  } catch (error) {
+    console.error("Error getting program name:", error);
+    return programId; // Return the ID if we can't get the name
+  }
+}

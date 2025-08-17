@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,43 +17,125 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { useAcademic, type DailyReport } from "@/components/academic-context"
-import { Calendar, Search, Eye, FileText, CheckCircle, Clock, MessageSquare } from "lucide-react"
+import { Calendar, Search, Eye, FileText, CheckCircle, Clock, MessageSquare, Users, GraduationCap, DollarSign } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
-export default function DailyReports() {
-  const { dailyReports, staffMembers, updateDailyReport, getReportsByDate } = useAcademic()
+interface AdmissionApplication {
+  id: string
+  applicationId: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  program: string
+  level: string
+  status: 'draft' | 'submitted' | 'under_review' | 'accepted' | 'rejected'
+  paymentStatus: 'pending' | 'paid' | 'failed'
+  submittedAt: string
+  reviewedBy?: string
+  reviewedAt?: string
+  feedback?: string
+}
+
+export default function AdmissionsDashboard() {
   const { toast } = useToast()
 
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0])
-  const [selectedReport, setSelectedReport] = useState<DailyReport | null>(null)
+  const [selectedApplication, setSelectedApplication] = useState<AdmissionApplication | null>(null)
   const [feedback, setFeedback] = useState("")
+  const [applications, setApplications] = useState<AdmissionApplication[]>([])
 
-  const filteredReports = dailyReports.filter((report) => {
+  // Mock data - in real app, fetch from API
+  useEffect(() => {
+    const mockApplications: AdmissionApplication[] = [
+      {
+        id: "1",
+        applicationId: "APP-2024-0001",
+        firstName: "John",
+        lastName: "Doe",
+        email: "john.doe@email.com",
+        phone: "+233 24 123 4567",
+        program: "Bachelor of Agriculture",
+        level: "Undergraduate",
+        status: "submitted",
+        paymentStatus: "paid",
+        submittedAt: new Date().toISOString()
+      },
+      {
+        id: "2",
+        applicationId: "APP-2024-0002",
+        firstName: "Jane",
+        lastName: "Smith",
+        email: "jane.smith@email.com",
+        phone: "+233 20 987 6543",
+        program: "Diploma in Environmental Studies",
+        level: "Diploma",
+        status: "under_review",
+        paymentStatus: "paid",
+        submittedAt: new Date(Date.now() - 86400000).toISOString()
+      },
+      {
+        id: "3",
+        applicationId: "APP-2024-0003",
+        firstName: "Kwame",
+        lastName: "Mensah",
+        email: "kwame.mensah@email.com",
+        phone: "+233 26 555 1234",
+        program: "Master of Agricultural Economics",
+        level: "Postgraduate",
+        status: "accepted",
+        paymentStatus: "paid",
+        submittedAt: new Date(Date.now() - 172800000).toISOString()
+      },
+      {
+        id: "4",
+        applicationId: "APP-2024-0004",
+        firstName: "Ama",
+        lastName: "Osei",
+        email: "ama.osei@email.com",
+        phone: "+233 27 777 8888",
+        program: "Certificate in Horticulture",
+        level: "Certificate",
+        status: "draft",
+        paymentStatus: "pending",
+        submittedAt: new Date(Date.now() - 259200000).toISOString()
+      }
+    ]
+    setApplications(mockApplications)
+  }, [])
+
+  const filteredApplications = applications.filter((app) => {
     const matchesSearch =
-      report.staffName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.reportContent.toLowerCase().includes(searchTerm.toLowerCase())
+      app.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      app.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      app.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      app.applicationId.toLowerCase().includes(searchTerm.toLowerCase())
 
-    const matchesDate = selectedDate ? report.date === selectedDate : true
+    const matchesDate = selectedDate ? app.submittedAt.split("T")[0] === selectedDate : true
 
     return matchesSearch && matchesDate
   })
 
-  const handleReviewReport = (reportId: string, status: "reviewed") => {
-    updateDailyReport(reportId, {
-      status,
-      reviewedBy: "Dr. Sarah Johnson", // In real app, get from auth
-      reviewedAt: new Date().toISOString(),
-      feedback: feedback,
-    })
+  const handleReviewApplication = (applicationId: string, status: "accepted" | "rejected") => {
+    setApplications(prev => prev.map(app => 
+      app.id === applicationId 
+        ? {
+            ...app,
+            status,
+            reviewedBy: "Dr. Sarah Johnson", // In real app, get from auth
+            reviewedAt: new Date().toISOString(),
+            feedback: feedback,
+          }
+        : app
+    ))
 
     setFeedback("")
-    setSelectedReport(null)
+    setSelectedApplication(null)
 
     toast({
-      title: "Report Reviewed",
-      description: "Daily report has been reviewed and feedback provided",
+      title: "Application Reviewed",
+      description: `Application has been ${status}`,
     })
   }
 
@@ -61,8 +143,12 @@ export default function DailyReports() {
     switch (status) {
       case "submitted":
         return "default"
-      case "reviewed":
+      case "under_review":
         return "secondary"
+      case "accepted":
+        return "default"
+      case "rejected":
+        return "destructive"
       case "draft":
         return "outline"
       default:
@@ -70,26 +156,43 @@ export default function DailyReports() {
     }
   }
 
-  const todaysReports = getReportsByDate(new Date().toISOString().split("T")[0])
-  const pendingReports = dailyReports.filter((report) => report.status === "submitted")
+  const getPaymentStatusColor = (status: string) => {
+    switch (status) {
+      case "paid":
+        return "default"
+      case "pending":
+        return "secondary"
+      case "failed":
+        return "destructive"
+      default:
+        return "outline"
+    }
+  }
+
+  const todaysApplications = applications.filter(app => 
+    app.submittedAt.split("T")[0] === new Date().toISOString().split("T")[0]
+  )
+  const pendingApplications = applications.filter(app => app.status === "submitted")
+  const acceptedApplications = applications.filter(app => app.status === "accepted")
+  const paidApplications = applications.filter(app => app.paymentStatus === "paid")
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Daily Reports</h1>
-        <p className="text-muted-foreground">Review and manage staff daily reports</p>
+        <h1 className="text-3xl font-bold">Admissions Dashboard</h1>
+        <p className="text-muted-foreground">Review and manage student applications</p>
       </div>
 
       {/* Statistics */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Today's Reports</CardTitle>
+            <CardTitle className="text-sm font-medium">Today's Applications</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{todaysReports.length}</div>
-            <p className="text-xs text-muted-foreground">Reports submitted today</p>
+            <div className="text-2xl font-bold">{todaysApplications.length}</div>
+            <p className="text-xs text-muted-foreground">Applications submitted today</p>
           </CardContent>
         </Card>
         <Card>
@@ -98,52 +201,50 @@ export default function DailyReports() {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{pendingReports.length}</div>
+            <div className="text-2xl font-bold">{pendingApplications.length}</div>
             <p className="text-xs text-muted-foreground">Awaiting review</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Reports</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Accepted</CardTitle>
+            <CheckCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{dailyReports.length}</div>
-            <p className="text-xs text-muted-foreground">All time reports</p>
+            <div className="text-2xl font-bold">{acceptedApplications.length}</div>
+            <p className="text-xs text-muted-foreground">Applications accepted</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Reviewed</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Paid Applications</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {dailyReports.filter((report) => report.status === "reviewed").length}
-            </div>
-            <p className="text-xs text-muted-foreground">Completed reviews</p>
+            <div className="text-2xl font-bold">{paidApplications.length}</div>
+            <p className="text-xs text-muted-foreground">Payment completed</p>
           </CardContent>
         </Card>
       </div>
 
       <Tabs defaultValue="all" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="all">All Reports</TabsTrigger>
+          <TabsTrigger value="all">All Applications</TabsTrigger>
           <TabsTrigger value="pending">Pending Review</TabsTrigger>
-          <TabsTrigger value="today">Today's Reports</TabsTrigger>
+          <TabsTrigger value="today">Today's Applications</TabsTrigger>
         </TabsList>
 
         <TabsContent value="all" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>All Daily Reports</CardTitle>
+              <CardTitle>All Applications</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex flex-col md:flex-row gap-4 mb-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search reports..."
+                    placeholder="Search applications..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-8"
@@ -162,128 +263,134 @@ export default function DailyReports() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Staff Member</TableHead>
-                    <TableHead>Activities</TableHead>
-                    <TableHead>Issues</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Application ID</TableHead>
+                    <TableHead>Applicant Name</TableHead>
+                    <TableHead>Program</TableHead>
+                    <TableHead>Level</TableHead>
+                    <TableHead>Payment Status</TableHead>
+                    <TableHead>Application Status</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredReports.map((report) => (
-                    <TableRow key={report.id}>
-                      <TableCell>{new Date(report.date).toLocaleDateString()}</TableCell>
-                      <TableCell className="font-medium">{report.staffName}</TableCell>
+                  {filteredApplications.map((app) => (
+                    <TableRow key={app.id}>
+                      <TableCell className="font-mono text-sm">{app.applicationId}</TableCell>
+                      <TableCell className="font-medium">{app.firstName} {app.lastName}</TableCell>
+                      <TableCell>{app.program}</TableCell>
+                      <TableCell>{app.level}</TableCell>
                       <TableCell>
-                        <div className="max-w-xs truncate">
-                          {report.activities.length > 0 ? report.activities.join(", ") : "No activities"}
-                        </div>
+                        <Badge variant={getPaymentStatusColor(app.paymentStatus)}>{app.paymentStatus}</Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="max-w-xs truncate">
-                          {report.issues.length > 0 ? report.issues.join(", ") : "No issues"}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={getStatusColor(report.status)}>{report.status}</Badge>
+                        <Badge variant={getStatusColor(app.status)}>{app.status}</Badge>
                       </TableCell>
                       <TableCell>
                         <Dialog>
                           <DialogTrigger asChild>
-                            <Button variant="outline" size="sm" onClick={() => setSelectedReport(report)}>
+                            <Button variant="outline" size="sm" onClick={() => setSelectedApplication(app)}>
                               <Eye className="h-4 w-4 mr-1" />
                               View
                             </Button>
                           </DialogTrigger>
                           <DialogContent className="max-w-2xl">
                             <DialogHeader>
-                              <DialogTitle>Daily Report - {report.staffName}</DialogTitle>
+                              <DialogTitle>Application Details - {selectedApplication?.firstName} {selectedApplication?.lastName}</DialogTitle>
                               <DialogDescription>
-                                Report for {new Date(report.date).toLocaleDateString()}
+                                Application ID: {selectedApplication?.applicationId}
                               </DialogDescription>
                             </DialogHeader>
 
                             <div className="space-y-4">
-                              <div>
-                                <Label className="text-sm font-medium">Report Content</Label>
-                                <div className="mt-1 p-3 bg-muted rounded-lg">
-                                  <p className="text-sm">{report.reportContent}</p>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <Label className="text-sm font-medium">Personal Information</Label>
+                                  <div className="mt-1 space-y-2">
+                                    <div className="text-sm">
+                                      <span className="font-medium">Name:</span> {selectedApplication?.firstName} {selectedApplication?.lastName}
+                                    </div>
+                                    <div className="text-sm">
+                                      <span className="font-medium">Email:</span> {selectedApplication?.email}
+                                    </div>
+                                    <div className="text-sm">
+                                      <span className="font-medium">Phone:</span> {selectedApplication?.phone}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <Label className="text-sm font-medium">Academic Information</Label>
+                                  <div className="mt-1 space-y-2">
+                                    <div className="text-sm">
+                                      <span className="font-medium">Program:</span> {selectedApplication?.program}
+                                    </div>
+                                    <div className="text-sm">
+                                      <span className="font-medium">Level:</span> {selectedApplication?.level}
+                                    </div>
+                                    <div className="text-sm">
+                                      <span className="font-medium">Submitted:</span> {selectedApplication?.submittedAt ? new Date(selectedApplication.submittedAt).toLocaleDateString() : 'N/A'}
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
 
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                  <Label className="text-sm font-medium">Activities</Label>
-                                  <div className="mt-1 space-y-1">
-                                    {report.activities.length > 0 ? (
-                                      report.activities.map((activity, index) => (
-                                        <div key={index} className="text-sm p-2 bg-green-50 rounded">
-                                          • {activity}
-                                        </div>
-                                      ))
-                                    ) : (
-                                      <p className="text-sm text-muted-foreground">No activities reported</p>
-                                    )}
+                                  <Label className="text-sm font-medium">Application Status</Label>
+                                  <div className="mt-1">
+                                    <Badge variant={getStatusColor(selectedApplication?.status || '')}>
+                                      {selectedApplication?.status}
+                                    </Badge>
                                   </div>
                                 </div>
 
                                 <div>
-                                  <Label className="text-sm font-medium">Issues</Label>
-                                  <div className="mt-1 space-y-1">
-                                    {report.issues.length > 0 ? (
-                                      report.issues.map((issue, index) => (
-                                        <div key={index} className="text-sm p-2 bg-red-50 rounded">
-                                          • {issue}
-                                        </div>
-                                      ))
-                                    ) : (
-                                      <p className="text-sm text-muted-foreground">No issues reported</p>
-                                    )}
+                                  <Label className="text-sm font-medium">Payment Status</Label>
+                                  <div className="mt-1">
+                                    <Badge variant={getPaymentStatusColor(selectedApplication?.paymentStatus || '')}>
+                                      {selectedApplication?.paymentStatus}
+                                    </Badge>
                                   </div>
                                 </div>
                               </div>
 
-                              <div>
-                                <Label className="text-sm font-medium">Achievements</Label>
-                                <div className="mt-1 space-y-1">
-                                  {report.achievements.length > 0 ? (
-                                    report.achievements.map((achievement, index) => (
-                                      <div key={index} className="text-sm p-2 bg-blue-50 rounded">
-                                        • {achievement}
-                                      </div>
-                                    ))
-                                  ) : (
-                                    <p className="text-sm text-muted-foreground">No achievements reported</p>
-                                  )}
-                                </div>
-                              </div>
-
-                              {report.status === "submitted" && (
+                              {(selectedApplication?.status === "submitted" || selectedApplication?.status === "under_review") && (
                                 <div>
-                                  <Label htmlFor="feedback">Director Feedback</Label>
+                                  <Label htmlFor="feedback">Director Decision & Feedback</Label>
                                   <Textarea
                                     id="feedback"
                                     value={feedback}
                                     onChange={(e) => setFeedback(e.target.value)}
-                                    placeholder="Provide feedback on this report..."
+                                    placeholder="Provide feedback and decision on this application..."
                                     className="mt-1"
                                   />
-                                  <Button onClick={() => handleReviewReport(report.id, "reviewed")} className="mt-2">
-                                    <MessageSquare className="h-4 w-4 mr-1" />
-                                    Submit Review
-                                  </Button>
+                                  <div className="flex gap-2 mt-2">
+                                    <Button 
+                                      onClick={() => handleReviewApplication(selectedApplication?.id || '', "accepted")} 
+                                      className="bg-green-600 hover:bg-green-700"
+                                    >
+                                      <CheckCircle className="h-4 w-4 mr-1" />
+                                      Accept Application
+                                    </Button>
+                                    <Button 
+                                      onClick={() => handleReviewApplication(selectedApplication?.id || '', "rejected")} 
+                                      variant="destructive"
+                                    >
+                                      <MessageSquare className="h-4 w-4 mr-1" />
+                                      Reject Application
+                                    </Button>
+                                  </div>
                                 </div>
                               )}
 
-                              {report.status === "reviewed" && report.feedback && (
+                              {selectedApplication?.feedback && (
                                 <div>
                                   <Label className="text-sm font-medium">Director Feedback</Label>
                                   <div className="mt-1 p-3 bg-blue-50 rounded-lg">
-                                    <p className="text-sm">{report.feedback}</p>
-                                    <p className="text-xs text-muted-foreground mt-2">
-                                      Reviewed by {report.reviewedBy} on{" "}
-                                      {report.reviewedAt && new Date(report.reviewedAt).toLocaleDateString()}
+                                    <p className="text-sm">{selectedApplication.feedback}</p>
+                                                                          <p className="text-xs text-muted-foreground mt-2">
+                                        Reviewed by {selectedApplication?.reviewedBy} on{" "}
+                                                                              {selectedApplication?.reviewedAt && new Date(selectedApplication.reviewedAt).toLocaleDateString()}
                                     </p>
                                   </div>
                                 </div>
@@ -297,14 +404,14 @@ export default function DailyReports() {
                 </TableBody>
               </Table>
 
-              {filteredReports.length === 0 && (
+              {filteredApplications.length === 0 && (
                 <div className="text-center py-8">
                   <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium">No reports found</h3>
+                  <h3 className="text-lg font-medium">No applications found</h3>
                   <p className="text-muted-foreground">
                     {searchTerm || selectedDate
                       ? "Try adjusting your search criteria"
-                      : "No reports have been submitted yet"}
+                      : "No applications have been submitted yet"}
                   </p>
                 </div>
               )}
@@ -321,26 +428,24 @@ export default function DailyReports() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Staff Member</TableHead>
+                    <TableHead>Application ID</TableHead>
+                    <TableHead>Applicant Name</TableHead>
+                    <TableHead>Program</TableHead>
                     <TableHead>Submitted</TableHead>
-                    <TableHead>Preview</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {pendingReports.map((report) => (
-                    <TableRow key={report.id}>
-                      <TableCell>{new Date(report.date).toLocaleDateString()}</TableCell>
-                      <TableCell className="font-medium">{report.staffName}</TableCell>
-                      <TableCell>{report.submittedAt && new Date(report.submittedAt).toLocaleString()}</TableCell>
-                      <TableCell>
-                        <div className="max-w-xs truncate text-sm text-muted-foreground">{report.reportContent}</div>
-                      </TableCell>
+                  {pendingApplications.map((app) => (
+                    <TableRow key={app.id}>
+                      <TableCell className="font-mono text-sm">{app.applicationId}</TableCell>
+                      <TableCell className="font-medium">{app.firstName} {app.lastName}</TableCell>
+                      <TableCell>{app.program}</TableCell>
+                      <TableCell>{app.submittedAt && new Date(app.submittedAt).toLocaleDateString()}</TableCell>
                       <TableCell>
                         <Dialog>
                           <DialogTrigger asChild>
-                            <Button size="sm" onClick={() => setSelectedReport(report)}>
+                            <Button size="sm" onClick={() => setSelectedApplication(app)}>
                               Review
                             </Button>
                           </DialogTrigger>
@@ -351,11 +456,11 @@ export default function DailyReports() {
                 </TableBody>
               </Table>
 
-              {pendingReports.length === 0 && (
+              {pendingApplications.length === 0 && (
                 <div className="text-center py-8">
                   <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
                   <h3 className="text-lg font-medium">All caught up!</h3>
-                  <p className="text-muted-foreground">No reports are pending review at this time</p>
+                  <p className="text-muted-foreground">No applications are pending review at this time</p>
                 </div>
               )}
             </CardContent>
@@ -365,30 +470,32 @@ export default function DailyReports() {
         <TabsContent value="today" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Today's Reports</CardTitle>
+              <CardTitle>Today's Applications</CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Staff Member</TableHead>
-                    <TableHead>Submitted Time</TableHead>
+                    <TableHead>Application ID</TableHead>
+                    <TableHead>Applicant Name</TableHead>
+                    <TableHead>Program</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {todaysReports.map((report) => (
-                    <TableRow key={report.id}>
-                      <TableCell className="font-medium">{report.staffName}</TableCell>
-                      <TableCell>{report.submittedAt && new Date(report.submittedAt).toLocaleTimeString()}</TableCell>
+                  {todaysApplications.map((app) => (
+                    <TableRow key={app.id}>
+                      <TableCell className="font-mono text-sm">{app.applicationId}</TableCell>
+                      <TableCell className="font-medium">{app.firstName} {app.lastName}</TableCell>
+                      <TableCell>{app.program}</TableCell>
                       <TableCell>
-                        <Badge variant={getStatusColor(report.status)}>{report.status}</Badge>
+                        <Badge variant={getStatusColor(app.status)}>{app.status}</Badge>
                       </TableCell>
                       <TableCell>
                         <Dialog>
                           <DialogTrigger asChild>
-                            <Button variant="outline" size="sm" onClick={() => setSelectedReport(report)}>
+                            <Button variant="outline" size="sm" onClick={() => setSelectedApplication(app)}>
                               <Eye className="h-4 w-4 mr-1" />
                               View
                             </Button>
@@ -400,11 +507,11 @@ export default function DailyReports() {
                 </TableBody>
               </Table>
 
-              {todaysReports.length === 0 && (
+              {todaysApplications.length === 0 && (
                 <div className="text-center py-8">
                   <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium">No reports today</h3>
-                  <p className="text-muted-foreground">No staff reports have been submitted today</p>
+                  <h3 className="text-lg font-medium">No applications today</h3>
+                  <p className="text-muted-foreground">No applications have been submitted today</p>
                 </div>
               )}
             </CardContent>

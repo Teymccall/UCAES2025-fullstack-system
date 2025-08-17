@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { User } from "lucide-react"
 import type { FormData } from "@/app/register/page"
+import { useState, useEffect } from "react"
 
 interface ReviewSummaryProps {
   formData: FormData
@@ -16,65 +17,279 @@ interface SimplePassportDisplayProps {
 }
 
 export default function ReviewSummary({ formData }: ReviewSummaryProps) {
-  // Get profile picture URL if available
-  const getProfilePictureSrc = () => {
-    if (!formData.profilePicture) return '/placeholder-user.jpg';
-    
-    if (typeof formData.profilePicture === 'object' && 'url' in formData.profilePicture) {
-      return formData.profilePicture.url;
+  const [profilePictureSrc, setProfilePictureSrc] = useState<string>('');
+  const [isLoadingPhoto, setIsLoadingPhoto] = useState(true);
+
+  // Debug: Log the entire formData to see what we're working with
+  console.log("🔍 ReviewSummary: Full formData received:", {
+    formData,
+    profilePicture: formData.profilePicture,
+    profilePictureUrl: formData.profilePictureUrl,
+    profilePictureType: typeof formData.profilePicture,
+    hasProfilePicture: !!formData.profilePicture,
+    profilePictureKeys: formData.profilePicture && typeof formData.profilePicture === 'object' ? Object.keys(formData.profilePicture) : 'N/A'
+  });
+
+  // Debug: Check localStorage for file data
+  const fileDataStr = localStorage.getItem("registrationFileData");
+  if (fileDataStr) {
+    try {
+      const fileData = JSON.parse(fileDataStr);
+      console.log("📄 localStorage registrationFileData:", {
+        name: fileData.name,
+        type: fileData.type,
+        size: fileData.size,
+        hasData: !!fileData.data,
+        dataLength: fileData.data ? fileData.data.length : 0
+      });
+    } catch (error) {
+      console.error("❌ Error parsing registrationFileData:", error);
+    }
+  } else {
+    console.log("❌ No registrationFileData found in localStorage");
+  }
+
+  // Enhanced profile picture URL retrieval
+  const getProfilePictureSrc = async () => {
+    console.log("🔍 ReviewSummary: Getting profile picture source", {
+      hasProfilePictureUrl: !!formData.profilePictureUrl,
+      profilePictureUrl: formData.profilePictureUrl,
+      hasProfilePicture: !!formData.profilePicture,
+      profilePictureType: typeof formData.profilePicture,
+      isFile: formData.profilePicture instanceof File,
+      hasUrl: formData.profilePicture && typeof formData.profilePicture === 'object' && 'url' in formData.profilePicture,
+      url: formData.profilePicture && typeof formData.profilePicture === 'object' ? (formData.profilePicture as any).url : 'N/A',
+      hasPreviewUrl: formData.profilePicture && typeof formData.profilePicture === 'object' && 'previewUrl' in formData.profilePicture,
+      previewUrl: formData.profilePicture && typeof formData.profilePicture === 'object' ? (formData.profilePicture as any).previewUrl : 'N/A'
+    });
+
+    // First, check if we have a profilePictureUrl (from Firebase after submission)
+    if (formData.profilePictureUrl) {
+      console.log("📸 Using profilePictureUrl from Firebase:", formData.profilePictureUrl);
+      return formData.profilePictureUrl;
     }
     
+    // Check if we have a File object (for preview during form filling)
     if (formData.profilePicture instanceof File) {
-      return URL.createObjectURL(formData.profilePicture);
+      try {
+        const blobUrl = URL.createObjectURL(formData.profilePicture);
+        console.log("📸 Created blob URL from File:", blobUrl);
+        return blobUrl;
+      } catch (error) {
+        console.error("❌ Error creating blob URL from File:", error);
+        // Fall through to placeholder
+      }
     }
     
-    return '/placeholder-user.jpg';
+    // Try to reconstruct blob URL from stored file data
+    // Check if we have a profilePicture object that might have file data
+    if (formData.profilePicture && typeof formData.profilePicture === 'object') {
+      const photoObj = formData.profilePicture as any;
+      console.log("🔍 Checking profilePicture object for file reconstruction:", {
+        hasIsFileObject: 'isFileObject' in photoObj,
+        isFileObject: photoObj.isFileObject,
+        hasImage: photoObj.hasImage,
+        hasName: !!photoObj.name,
+        hasType: !!photoObj.type,
+        hasSize: !!photoObj.size
+      });
+      
+      // Try to reconstruct if it has image data or if it's marked as a file object
+      if (photoObj.hasImage || photoObj.isFileObject || (photoObj.name && photoObj.type && photoObj.size)) {
+        console.log("📄 Attempting to reconstruct blob URL from stored file data");
+        try {
+          // Get the stored file data from localStorage
+          const fileDataStr = localStorage.getItem("registrationFileData");
+          if (fileDataStr) {
+            const fileData = JSON.parse(fileDataStr);
+            console.log("📄 Found stored file data:", {
+              name: fileData.name,
+              type: fileData.type,
+              size: fileData.size,
+              hasData: !!fileData.data,
+              dataLength: fileData.data ? fileData.data.length : 0
+            });
+            
+            // Convert base64 back to blob and create URL
+            if (fileData.data) {
+              const response = await fetch(fileData.data);
+              const blob = await response.blob();
+              const blobUrl = URL.createObjectURL(blob);
+              console.log("📸 Successfully reconstructed blob URL:", blobUrl);
+              return blobUrl;
+            }
+          } else {
+            console.log("❌ No registrationFileData found in localStorage");
+          }
+        } catch (error) {
+          console.error("❌ Error reconstructing blob URL from file data:", error);
+        }
+      } else {
+        console.log("❌ ProfilePicture object doesn't have required file data");
+      }
+    }
+    
+    // Check if we have a profilePicture object with previewUrl (from localStorage)
+    // BUT don't use blob URLs from localStorage as they become invalid
+    if (formData.profilePicture && typeof formData.profilePicture === 'object' && 'previewUrl' in formData.profilePicture) {
+      const photoObj = formData.profilePicture as any;
+      if (photoObj.previewUrl && 
+          photoObj.previewUrl !== '/placeholder-user.jpg' && 
+          !photoObj.previewUrl.startsWith('blob:')) {
+        console.log("📸 Using profilePicture.previewUrl (non-blob):", photoObj.previewUrl);
+        return photoObj.previewUrl;
+      }
+    }
+    
+    // Then check if we have a profilePicture object with URL
+    if (formData.profilePicture && typeof formData.profilePicture === 'object' && 'url' in formData.profilePicture) {
+      const photoObj = formData.profilePicture as any;
+      if (photoObj.url && 
+          photoObj.url !== '/placeholder-user.jpg' && 
+          !photoObj.url.startsWith('blob:')) {
+        console.log("📸 Using profilePicture.url (non-blob):", photoObj.url);
+        return photoObj.url;
+      }
+    }
+    
+    // Fallback to placeholder
+    console.log("📸 Using placeholder image");
+    return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjgwIiByPSIzMCIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNDAgMTYwQzQwIDE0MCA2MCAxMjAgMTAwIDEyMEMxNDAgMTIwIDE2MCAxNDAgMTYwIDE2MEg0MFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+';
   };
+
+  // Load profile picture on component mount
+  useEffect(() => {
+    const loadProfilePicture = async () => {
+      setIsLoadingPhoto(true);
+      try {
+        const src = await getProfilePictureSrc();
+        setProfilePictureSrc(src);
+        console.log("✅ Profile picture loaded:", src);
+      } catch (error) {
+        console.error("❌ Error loading profile picture:", error);
+        setProfilePictureSrc('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjgwIiByPSIzMCIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNDAgMTYwQzQwIDE0MCA2MCAxMjAgMTAwIDEyMEMxNDAgMTIwIDE2MCAxNDAgMTYwIDE2MEg0MFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+');
+      } finally {
+        setIsLoadingPhoto(false);
+      }
+    };
+
+    loadProfilePicture();
+  }, [formData]);
+
+  const hasProfilePicture = !profilePictureSrc.includes('data:image/svg+xml');
   
-  const profilePictureSrc = getProfilePictureSrc();
-  const hasProfilePicture = profilePictureSrc !== '/placeholder-user.jpg';
-  
+  // Debug: Log what we're passing to SimplePassportDisplay
+  console.log("🔍 ReviewSummary: Passing to SimplePassportDisplay:", {
+    profilePictureSrc,
+    hasProfilePicture,
+    isLoadingPhoto,
+    initials: `${formData.surname?.charAt(0) || ''}${formData.otherNames?.charAt(0) || ''}` || 'ST'
+  });
+
   // Get initials for avatar fallback
   const initials = `${formData.surname?.charAt(0) || ''}${formData.otherNames?.charAt(0) || ''}` || 'ST';
 
-  // Simple passport photo display component
-  const SimplePassportDisplay = ({ url, initials }: SimplePassportDisplayProps) => (
-    <div className="w-full h-full relative">
-      {url && url !== "/placeholder-user.jpg" ? (
-        <>
-          <img 
-            src={url} 
-            alt="Passport photo" 
-            style={{ 
-              width: '100%', 
-              height: '100%', 
-              objectFit: 'cover'
-            }}
-            onError={(e) => {
-              const target = e.currentTarget;
-              target.style.display = 'none';
-              const fallback = target.parentElement?.querySelector('.fallback') as HTMLElement | null;
-              if (fallback) {
-                fallback.style.display = 'flex';
-              }
-            }}
-          />
-          <div 
-            className="fallback absolute inset-0 flex flex-col items-center justify-center bg-gray-100" 
-            style={{ display: 'none' }}
-          >
+  // Clean up blob URLs when component unmounts
+  useEffect(() => {
+    return () => {
+      // Clean up any blob URLs that might have been created
+      if (profilePictureSrc && profilePictureSrc.startsWith('blob:')) {
+        console.log("🧹 Cleaning up blob URL:", profilePictureSrc);
+        URL.revokeObjectURL(profilePictureSrc);
+      }
+    };
+  }, [profilePictureSrc]);
+
+  // Enhanced passport photo display component with better error handling
+  const SimplePassportDisplay = ({ url, initials }: SimplePassportDisplayProps) => {
+    const [imageError, setImageError] = useState(false);
+    const [imageLoaded, setImageLoaded] = useState(false);
+
+    // Reset states when URL changes
+    useEffect(() => {
+      setImageError(false);
+      setImageLoaded(false);
+    }, [url]);
+
+    console.log("🖼️ SimplePassportDisplay render:", {
+      url,
+      initials,
+      imageError,
+      imageLoaded,
+      urlType: typeof url,
+      urlLength: url?.length,
+      isBlob: url?.startsWith('blob:'),
+      isHttp: url?.startsWith('http'),
+      isHttps: url?.startsWith('https'),
+      isPlaceholder: url?.includes('data:image/svg+xml')
+    });
+
+    const handleImageLoad = () => {
+      console.log("✅ Passport photo loaded successfully in review:", url);
+      setImageLoaded(true);
+      setImageError(false);
+    };
+
+    const handleImageError = () => {
+      console.error('❌ Failed to load passport photo in review:', {
+        url,
+        urlType: typeof url,
+        isBlob: url?.startsWith('blob:'),
+        isHttp: url?.startsWith('http'),
+        isHttps: url?.startsWith('https'),
+        urlLength: url?.length,
+        isPlaceholder: url?.includes('data:image/svg+xml')
+      });
+      setImageError(true);
+      setImageLoaded(false);
+    };
+
+    // Reset states when URL changes
+    useEffect(() => {
+      setImageError(false);
+      setImageLoaded(false);
+    }, [url]);
+
+    return (
+      <div className="w-full h-full relative">
+        {url && !url.includes('data:image/svg+xml') && !imageError ? (
+          <>
+            <img 
+              src={url} 
+              alt="Passport photo" 
+              style={{ 
+                width: '100%', 
+                height: '100%', 
+                objectFit: 'cover',
+                opacity: imageLoaded ? 1 : 0.5,
+                transition: 'opacity 0.3s ease-in-out'
+              }}
+              onLoad={handleImageLoad}
+              onError={handleImageError}
+              crossOrigin={url.startsWith('blob:') || url.startsWith('http') ? "anonymous" : undefined}
+            />
+            {!imageLoaded && !imageError && (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
+              </div>
+            )}
+            <div 
+              className="fallback absolute inset-0 flex flex-col items-center justify-center bg-gray-100" 
+              style={{ display: imageError ? 'flex' : 'none' }}
+            >
+              <div className="text-4xl text-gray-500">{initials}</div>
+              <p className="text-xs text-red-500 mt-2">Photo error</p>
+            </div>
+          </>
+        ) : (
+          <div className="fallback absolute inset-0 flex flex-col items-center justify-center bg-gray-100">
             <div className="text-4xl text-gray-500">{initials}</div>
-            <p className="text-xs text-red-500 mt-2">Photo error</p>
+            <p className="text-xs text-red-500">No photo</p>
           </div>
-        </>
-      ) : (
-        <div className="fallback absolute inset-0 flex flex-col items-center justify-center bg-gray-100">
-          <div className="text-4xl text-gray-500">{initials}</div>
-          <p className="text-xs text-red-500">No photo</p>
-        </div>
-      )}
-    </div>
-  );
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
