@@ -49,11 +49,17 @@ export function CourseRegistrationForm({
   currentSemester: propSemester 
 }: CourseRegistrationFormProps) {
   const { user } = useAuth()
-  const { academicYear: systemAcademicYear, semester: systemSemester } = useSystemConfig()
+  const { 
+    academicYear: systemAcademicYear, 
+    semester: systemSemester,
+    currentAcademicYear: centralizedAcademicYear,
+    currentSemester: centralizedSemester,
+    currentProgramType
+  } = useSystemConfig()
   
-  // Use props if provided, otherwise fall back to system config
-  const academicYear = propAcademicYear || systemAcademicYear
-  const semester = propSemester || systemSemester
+  // Use props if provided, otherwise fall back to centralized system config
+  const academicYear = propAcademicYear || centralizedAcademicYear || systemAcademicYear
+  const semester = propSemester || centralizedSemester || systemSemester
   
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -425,6 +431,26 @@ export function CourseRegistrationForm({
 
   return (
     <div className="space-y-6">
+      {/* Current Academic Period Display */}
+      {academicYear && semester && (
+        <Alert>
+          <Calendar className="h-4 w-4" />
+          <AlertDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <p><strong>Current Academic Period:</strong> {academicYear} - {semester}</p>
+                {currentProgramType && (
+                  <p className="text-sm text-muted-foreground">Program Type: {currentProgramType}</p>
+                )}
+              </div>
+              <Badge variant="outline">
+                Centralized Configuration
+              </Badge>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Course Selection Header */}
       <Card>
         <CardHeader>
