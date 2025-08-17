@@ -94,3 +94,4 @@ Some files may still need similar fixes if they use Firebase Admin directly. The
 2. Call `const adminDb = getDb()` at the start of each function that uses Firebase
 
 
+
