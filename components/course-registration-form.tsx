@@ -15,9 +15,10 @@ import { Loader2, BookOpen, Calendar, Clock, AlertCircle, CheckCircle, XCircle, 
 import { useAuth } from '@/components/auth-provider';
 import { useSystemConfig } from '@/components/system-config-provider';
 import { useToast } from '@/hooks/use-toast';
-import { getAvailableCoursesForStudent, registerStudentForCourses, canStudentRegisterForSemester } from '@/lib/academic-service';
+import { getAvailableCoursesForStudent, registerStudentForCourses, canStudentRegisterForSemester, getProgramIdFromName } from '@/lib/academic-service';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
+import { useCourses } from '@/components/course-context';
 
 interface Course {
   id: string;
@@ -49,6 +50,7 @@ export function CourseRegistrationForm({
   currentSemester: propSemester 
 }: CourseRegistrationFormProps) {
   const { user } = useAuth()
+  const { courses, programs, getProgramCourses } = useCourses()
   const { 
     academicYear: systemAcademicYear, 
     semester: systemSemester,
@@ -134,9 +136,6 @@ export function CourseRegistrationForm({
       // If we don't have programId, try to get it from the student's program name
       if (!studentProgramId && user.programme) {
         console.log('No programId, attempting to resolve from program name:', user.programme);
-        
-        // Import the helper function dynamically to avoid circular dependencies
-        const { getProgramIdFromName } = await import('@/lib/academic-service');
         studentProgramId = await getProgramIdFromName(user.programme) || '';
         console.log('Resolved program ID:', studentProgramId);
       }
@@ -175,33 +174,65 @@ export function CourseRegistrationForm({
         throw new Error("Unable to determine student's program. Please contact support.");
       }
 
-      // Enhanced course loading - try structured mapping first, then fallback to catalog
-      let availableCourses = await getAvailableCoursesForStudent(
-        user.uid,
+      // **FIXED: Use same logic as director registration system**
+      console.log('[DEBUG] Using director-style course loading logic');
+      
+      // First try structured mapping (same as director system)
+      const structured = getProgramCourses(
         studentProgramId,
-        studentLevel,
-        semesterNumber,
-        academicYear
+        studentLevel.toString(),
+        semesterNumber.toString(),
+        academicYear,
+        user.studyMode || 'Regular'
       );
 
-      // If no courses found from structured mapping, try catalog-based approach
-      if (availableCourses.length === 0) {
-        console.log('No courses found from structured mapping, trying catalog-based approach...');
-        availableCourses = await getCatalogBasedCourses(studentProgramId, studentLevel, semesterNumber);
-      }
+      console.log(`[DEBUG] Fetched ${structured.length} courses from structured mapping`);
+
+      // Fallback to catalog filter if no structured mapping found (same as director system)
+      const sourceCourses = structured.length > 0 ? structured : courses.filter(course => {
+        const levelNum = studentLevel;
+        if (course.programId !== studentProgramId) return false;
+        if (course.level !== levelNum) return false;
+        const courseSemester = typeof course.semester === 'string' ? parseInt(course.semester, 10) : course.semester;
+        if (courseSemester !== semesterNumber) return false;
+        if (course.status && course.status !== 'active') return false;
+        return true;
+      });
+
+      // Format courses for UI (same as director system)
+      const formattedCourses: Course[] = sourceCourses.map(course => ({
+        ...course,
+        name: course.title || course.name || "Untitled Course",
+        type: course.type || course.courseType || 'core',
+        theory: course.theory || course.theoryHours || 3,
+        practical: course.practical || course.practicalHours || 0,
+      }));
+
+      // Remove duplicate courses based on course code (same as director system)
+      const uniqueCourses = formattedCourses.reduce((acc: Course[], current) => {
+        const existingCourse = acc.find(course => course.code === current.code);
+        if (!existingCourse) {
+          acc.push(current);
+        } else {
+          console.log(`[DEBUG] Removed duplicate course: ${current.code} - ${current.title}`);
+        }
+        return acc;
+      }, []);
+
+      console.log(`[DEBUG] Removed duplicates: ${formattedCourses.length} → ${uniqueCourses.length} courses`);
 
       // Get specializations for Level 400 students
       if (studentLevel === 400) {
         const specializations = Array.from(
-          new Set(availableCourses.map(course => course.specialization?.name).filter(Boolean))
+          new Set(uniqueCourses.map(course => course.specialization?.name).filter(Boolean))
         );
         setAvailableSpecializations(specializations);
       }
       
-      console.log(`✅ Loaded ${availableCourses.length} available courses`);
-      setCourses(availableCourses);
+      console.log(`✅ Loaded ${uniqueCourses.length} available courses using director logic`);
+      setCourses(uniqueCourses);
       
-      if (availableCourses.length === 0) {
+      if (uniqueCourses.length === 0) {
         setError("No courses available for registration at this time. Please check back later or contact your academic advisor.");
       }
     } catch (err) {
@@ -212,46 +243,26 @@ export function CourseRegistrationForm({
     }
   };
 
-  // Enhanced catalog-based course loading (similar to director's system)
-  const getCatalogBasedCourses = async (programId: string, level: number, semester: number): Promise<Course[]> => {
-    try {
-      const coursesRef = collection(db, "academic-courses");
-      const q = query(
-        coursesRef,
-        where("programId", "==", programId),
-        where("level", "==", level),
-        where("semester", "==", semester),
-        where("status", "==", "active")
-      );
-      
-      const snapshot = await getDocs(q);
-      const catalogCourses = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Course[];
 
-      console.log(`Found ${catalogCourses.length} courses from catalog`);
-      return catalogCourses;
-    } catch (error) {
-      console.error('Error loading catalog courses:', error);
-      return [];
-    }
-  };
 
   const handleCourseSelection = (courseId: string, checked: boolean) => {
     const course = courses.find(c => c.id === courseId);
     if (!course) return;
 
-    // Elective group validation (similar to director's system)
-    if (course.type === 'elective') {
-      const selectedElectiveGroup = Array.from(selectedCourses).find(selectedId => {
+    // Enhanced elective group validation (same as director's system)
+    if (course.type === 'elective' && checked) {
+      const selectedElectiveCourse = Array.from(selectedCourses).find(selectedId => {
         const selectedCourse = courses.find(c => c.id === selectedId);
-        return selectedCourse?.type === 'elective' && selectedCourse?.electiveGroup;
+        return selectedCourse?.type === 'elective';
       });
 
-      if (selectedElectiveGroup && course.electiveGroup && course.electiveGroup !== selectedElectiveGroup) {
-        // Show error toast
-        return;
+      if (selectedElectiveCourse) {
+        const selectedElectiveGroup = courses.find(c => c.id === selectedElectiveCourse)?.electiveGroup;
+        
+        if (selectedElectiveGroup && course.electiveGroup !== selectedElectiveGroup) {
+          setError(`You can only select electives from one group. You have already selected from Group ${selectedElectiveGroup}.`);
+          return;
+        }
       }
     }
 
@@ -262,6 +273,11 @@ export function CourseRegistrationForm({
       newSelection.delete(courseId);
     }
     setSelectedCourses(newSelection);
+    
+    // Clear any elective group error when deselecting
+    if (!checked && error?.includes('elective')) {
+      setError(null);
+    }
   };
 
   // Filter courses based on search and filters
@@ -538,11 +554,33 @@ export function CourseRegistrationForm({
             </TabsContent>
 
             <TabsContent value="elective" className="mt-4">
-              <CourseTable 
-                courses={electiveCourses} 
-                selectedCourses={selectedCourses}
-                onCourseSelection={handleCourseSelection}
-              />
+              {electiveCourses.length > 0 ? (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-4">Select one group of elective courses.</p>
+                  {/* Group electives by their group name (same as director system) */}
+                  {Object.entries(
+                    electiveCourses.reduce((acc, course) => {
+                      const group = course.electiveGroup || 'General';
+                      if (!acc[group]) acc[group] = [];
+                      acc[group].push(course);
+                      return acc;
+                    }, {} as Record<string, Course[]>)
+                  ).map(([groupName, courses]) => (
+                    <div key={groupName} className="mb-6">
+                      <h4 className="font-bold text-md mb-2">Group {groupName}</h4>
+                      <CourseTable 
+                        courses={courses} 
+                        selectedCourses={selectedCourses}
+                        onCourseSelection={handleCourseSelection}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  No elective courses available for this semester.
+                </div>
+              )}
             </TabsContent>
           </Tabs>
 
@@ -661,6 +699,8 @@ function CourseTable({
               <TableCell>
                 {course.specialization?.name ? (
                   <Badge variant="outline">{course.specialization.name}</Badge>
+                ) : course.electiveGroup ? (
+                  <Badge variant="secondary">Group {course.electiveGroup}</Badge>
                 ) : (
                   <span className="text-gray-400">-</span>
                 )}
