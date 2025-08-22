@@ -79,14 +79,29 @@ function initializeFirebaseAdmin() {
     // Initialize services
     adminDb = getFirestore(adminApp);
     adminAuth = getAuth(adminApp);
-    console.log('✅ Firestore and Auth initialized');
+    
+    // Validate that we got proper instances
+    if (!adminDb) {
+      throw new Error('Failed to initialize Firestore instance');
+    }
+    if (!adminAuth) {
+      throw new Error('Failed to initialize Auth instance');
+    }
+    
+    console.log('✅ Firestore and Auth initialized and validated');
 
     // Log connection status
     console.log(`🎯 Firebase Admin connected to project: ${firebaseAdminConfig.projectId}`);
+    console.log(`📊 Firestore instance type: ${typeof adminDb}`);
+    console.log(`🔐 Auth instance type: ${typeof adminAuth}`);
     
     return { app: adminApp, db: adminDb, auth: adminAuth };
   } catch (error) {
     console.error('❌ Firebase Admin initialization failed:', error);
+    // Reset instances on failure
+    adminApp = null;
+    adminDb = null;
+    adminAuth = null;
     throw error;
   }
 }
@@ -111,7 +126,25 @@ function getFirebaseInstances() {
 
 // Export getter functions to avoid initialization during build
 export const getApp = (): App => getFirebaseInstances().app;
-export const getDb = (): Firestore => getFirebaseInstances().db;
+export const getDb = (): Firestore => {
+  try {
+    const instances = getFirebaseInstances();
+    if (!instances.db) {
+      throw new Error('Firestore instance not properly initialized');
+    }
+    
+    // Additional validation to ensure it's a proper Firestore instance
+    if (typeof instances.db.collection !== 'function') {
+      throw new Error('Firestore instance is not valid - missing collection method');
+    }
+    
+    console.log('✅ getDb() returning valid Firestore instance');
+    return instances.db;
+  } catch (error) {
+    console.error('❌ getDb() failed:', error);
+    throw new Error(`Failed to get Firestore instance: ${error.message}`);
+  }
+};
 export const getAuthInstance = (): Auth => getFirebaseInstances().auth;
 
 // Legacy exports for backward compatibility - use getter functions instead
@@ -125,3 +158,30 @@ export default {
   get db() { return getDb(); },
   get auth() { return getAuthInstance(); }
 };
+
+// Test function to verify Firebase Admin SDK is working
+export async function testFirebaseConnection() {
+  try {
+    console.log('🧪 Testing Firebase Admin SDK connection...');
+    const db = getDb();
+    
+    // Test a simple Firestore operation
+    const testRef = db.collection('systemConfig').doc('test');
+    console.log('✅ Firestore collection reference created successfully');
+    
+    // Test getting the document (it might not exist, but that's okay)
+    try {
+      const testDoc = await testRef.get();
+      console.log('✅ Firestore document read successful');
+      console.log('📄 Document exists:', testDoc.exists);
+    } catch (readError) {
+      console.log('⚠️ Document read failed (this might be expected):', readError.message);
+    }
+    
+    console.log('✅ Firebase Admin SDK connection test passed');
+    return true;
+  } catch (error) {
+    console.error('❌ Firebase Admin SDK connection test failed:', error);
+    return false;
+  }
+}

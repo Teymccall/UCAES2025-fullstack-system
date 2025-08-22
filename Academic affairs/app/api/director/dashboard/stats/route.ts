@@ -1,12 +1,28 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/firebase-admin';
-import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { withAuthorization } from '@/lib/api-auth';
 import { PERMISSIONS } from '@/lib/permissions';
 
 const getDashboardStats = async (req: Request) => {
   try {
+    console.log('🔍 Starting getDashboardStats...');
+    console.log('🔍 About to call getDb()...');
+    
     const adminDb = getDb();
+    
+    console.log('🔍 getDb() returned:', adminDb);
+    console.log('🔍 adminDb type:', typeof adminDb);
+    console.log('🔍 adminDb has collection method:', typeof adminDb?.collection);
+    console.log('🔍 adminDb constructor name:', adminDb?.constructor?.name);
+    
+    if (!adminDb) {
+      throw new Error('getDb() returned null or undefined');
+    }
+    
+    if (typeof adminDb.collection !== 'function') {
+      throw new Error(`adminDb.collection is not a function. Type: ${typeof adminDb.collection}`);
+    }
+    
     // Fetch real data from Firebase
     const stats = {
       totalStudents: 0,
