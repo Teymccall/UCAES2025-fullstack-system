@@ -25,6 +25,22 @@ async function getUserFromRequest(request: NextRequest): Promise<AuthenticatedUs
   };
 }
 
+// Function to check if user has required permission
+function hasPermission(user: AuthenticatedUser, requiredPermission: keyof typeof PERMISSIONS): boolean {
+  // Director role automatically has access to everything
+  if (user.role === 'director') {
+    return true;
+  }
+  
+  // Users with full_access permission have access to everything
+  if (user.permissions.includes('full_access')) {
+    return true;
+  }
+  
+  // Check for specific permission
+  return user.permissions.includes(requiredPermission);
+}
+
 // Higher-order function to protect API routes
 export function withAuthorization(requiredPermission: keyof typeof PERMISSIONS) {
   return function (handler: (request: NextRequest, user: AuthenticatedUser) => Promise<NextResponse>) {
@@ -35,7 +51,7 @@ export function withAuthorization(requiredPermission: keyof typeof PERMISSIONS) 
         return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
       }
 
-      if (user.role !== 'director' && !user.permissions.includes(requiredPermission)) {
+      if (!hasPermission(user, requiredPermission)) {
         return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
       }
 
