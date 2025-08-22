@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApplication } from '../../contexts/ApplicationContext';
-import { BookOpen, GraduationCap, Award, Clock } from 'lucide-react';
+import { MenuBook, School, EmojiEvents, Schedule } from '@mui/icons-material';
 
 const ProgramSelectionForm: React.FC = () => {
   const { applicationData, updateProgramSelection, setCurrentStep } = useApplication();
@@ -178,7 +178,7 @@ const ProgramSelectionForm: React.FC = () => {
     <div className="max-w-4xl mx-auto">
       <div className="bg-white shadow-sm rounded-lg p-6">
         <div className="flex items-center space-x-2 mb-6">
-          <BookOpen className="h-6 w-6 text-green-600" />
+          <MenuBook className="h-6 w-6 text-green-600" />
           <h2 className="text-xl font-semibold text-gray-900">Program Selection</h2>
         </div>
 
@@ -198,7 +198,7 @@ const ProgramSelectionForm: React.FC = () => {
                 onClick={() => setFormData(prev => ({ ...prev, applicationType: 'fresh', programType: '', firstChoice: '', secondChoice: '' }))}
               >
                 <div className="flex items-center space-x-3">
-                  <GraduationCap className={`h-6 w-6 ${formData.applicationType === 'fresh' ? 'text-green-600' : 'text-gray-400'}`} />
+                  <School className={`h-6 w-6 ${formData.applicationType === 'fresh' ? 'text-green-600' : 'text-gray-400'}`} />
                   <div>
                     <h3 className="text-base font-semibold text-gray-900">Fresh Application</h3>
                     <p className="text-sm text-gray-600">First-time university application</p>
@@ -223,7 +223,7 @@ const ProgramSelectionForm: React.FC = () => {
                 onClick={() => setFormData(prev => ({ ...prev, applicationType: 'topup', programType: 'degree', firstChoice: '', secondChoice: '' }))}
               >
                 <div className="flex items-center space-x-3">
-                  <Award className={`h-6 w-6 ${formData.applicationType === 'topup' ? 'text-blue-600' : 'text-gray-400'}`} />
+                  <EmojiEvents className={`h-6 w-6 ${formData.applicationType === 'topup' ? 'text-blue-600' : 'text-gray-400'}`} />
                   <div>
                     <h3 className="text-base font-semibold text-gray-900">Top-Up Application</h3>
                     <p className="text-sm text-gray-600">Continue from Certificate/Diploma to Degree</p>
@@ -314,7 +314,7 @@ const ProgramSelectionForm: React.FC = () => {
                 onClick={() => setFormData(prev => ({ ...prev, programType: 'degree', firstChoice: '', secondChoice: '' }))}
               >
                 <div className="flex items-center space-x-3">
-                  <GraduationCap className={`h-8 w-8 ${formData.programType === 'degree' ? 'text-green-600' : 'text-gray-400'}`} />
+                  <School className={`h-8 w-8 ${formData.programType === 'degree' ? 'text-green-600' : 'text-gray-400'}`} />
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">Degree Programs</h3>
                     <p className="text-sm text-gray-600">4-year undergraduate degree programs</p>
@@ -339,7 +339,7 @@ const ProgramSelectionForm: React.FC = () => {
                 onClick={() => setFormData(prev => ({ ...prev, programType: 'diploma', firstChoice: '', secondChoice: '' }))}
               >
                 <div className="flex items-center space-x-3">
-                  <Award className={`h-8 w-8 ${formData.programType === 'diploma' ? 'text-green-600' : 'text-gray-400'}`} />
+                  <EmojiEvents className={`h-8 w-8 ${formData.programType === 'diploma' ? 'text-green-600' : 'text-gray-400'}`} />
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">Diploma Programs</h3>
                     <p className="text-sm text-gray-600">2-year diploma programs</p>
@@ -364,7 +364,7 @@ const ProgramSelectionForm: React.FC = () => {
                 onClick={() => setFormData(prev => ({ ...prev, programType: 'certificate', firstChoice: '', secondChoice: '' }))}
               >
                 <div className="flex items-center space-x-3">
-                  <Award className={`h-8 w-8 ${formData.programType === 'certificate' ? 'text-green-600' : 'text-gray-400'}`} />
+                  <EmojiEvents className={`h-8 w-8 ${formData.programType === 'certificate' ? 'text-green-600' : 'text-gray-400'}`} />
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">Certificate Courses</h3>
                     <p className="text-sm text-gray-600">1-year professional certificate programs</p>
@@ -466,7 +466,7 @@ const ProgramSelectionForm: React.FC = () => {
               )}
               {formData.studyMode && (
                 <p className="text-xs text-gray-600 mt-1">
-                  <Clock className="h-3 w-3 inline mr-1" />
+                  <Schedule className="h-3 w-3 inline mr-1" />
                   {getStudyModeDescription()}
                 </p>
               )}
@@ -520,7 +520,7 @@ const ProgramSelectionForm: React.FC = () => {
               {/* Program Information */}
               <div className="bg-gradient-to-r from-green-50 to-blue-50 p-4 rounded-lg border border-green-200">
                 <h3 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
-                  <BookOpen className="h-4 w-4 mr-2 text-green-600" />
+                  <MenuBook className="h-4 w-4 mr-2 text-green-600" />
                   Program Information
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">

@@ -119,7 +119,9 @@ export default function PaymentForm({ onPaymentComplete }: PaymentFormProps) {
     try {
       if (paymentMethod === 'wallet') {
         // Handle wallet payment
-        const hasSufficientBalance = await walletService.hasSufficientBalance(user?.studentId || '', paymentDetails.amount * 100)
+        // Convert cedis to pesewas for wallet checks
+        const amountInPesewas = Math.round(paymentDetails.amount * 100)
+        const hasSufficientBalance = await walletService.hasSufficientBalance(user?.studentId || '', amountInPesewas)
         
         if (!hasSufficientBalance) {
           toast({
@@ -127,35 +129,49 @@ export default function PaymentForm({ onPaymentComplete }: PaymentFormProps) {
             description: "Your wallet balance is not sufficient for this payment",
             variant: "destructive"
           })
+          setProcessing(false)
           return
         }
 
-        // Create wallet payment transaction
-        const description = `Payment for: ${selectedServices.map(s => s.service.name).join(', ')}`
+        // Create wallet payment transaction for fees
+        const description = `Fee payment for semester`
         const metadata = {
-          feeType: 'fees',
+          feeType: 'tuition_fee',
           academicYear: '2024/2025',
           semester: 'Current',
-          services: selectedServices.map(s => s.service.name)
+          paymentType: 'wallet'
         }
 
-        await walletService.createPaymentTransaction(
+        // IMPORTANT: processFeePayment expects amount in PESEWAS (not cedis)
+        // We convert cedis to pesewas: 1 cedi = 100 pesewas
+        const success = await walletService.processFeePayment(
           user?.studentId || '',
-          paymentDetails.amount * 100,
+          amountInPesewas,
           description,
           metadata
         )
 
-        toast({
-          title: "Payment Successful!",
-          description: `Payment of ¢${paymentDetails.amount.toLocaleString()} has been processed from your wallet`,
-        })
+        if (success) {
+          toast({
+            title: "Payment Successful!",
+            description: `Payment of ¢${paymentDetails.amount.toLocaleString()} has been processed from your wallet`,
+          })
 
-        // Clear selected services
-        localStorage.removeItem('selectedServices');
-        
-        if (onPaymentComplete) {
-          onPaymentComplete();
+          // Clear selected services
+          localStorage.removeItem('selectedServices');
+          
+          if (onPaymentComplete) {
+            onPaymentComplete();
+          }
+
+          // Redirect to fees page to show updated balance
+          window.location.href = '/fees';
+        } else {
+          toast({
+            title: "Payment Failed",
+            description: "There was an error processing your wallet payment. Please try again.",
+            variant: "destructive"
+          });
         }
       } else {
         // Simulate payment processing for other methods
@@ -208,19 +224,59 @@ export default function PaymentForm({ onPaymentComplete }: PaymentFormProps) {
   };
 
   // Handle Paystack payment completion
-  const handlePaystackPaymentComplete = (paymentData: any) => {
-    // Store payment record
-    localStorage.setItem('paymentHistory', JSON.stringify([
-      ...JSON.parse(localStorage.getItem('paymentHistory') || '[]'),
-      paymentData
-    ]));
+  const handlePaystackPaymentComplete = async (paymentData: any) => {
+    try {
+      // Add a timestamp to the metadata to ensure uniqueness
+      const metadata = {
+        feeType: 'tuition_fee',
+        academicYear: '2024/2025',
+        semester: 'Current',
+        paymentType: 'paystack',
+        paymentTimestamp: Date.now() // Add timestamp for uniqueness
+      }
 
-    // Clear selected services
-    localStorage.removeItem('selectedServices');
+      // Show initial success message
+      toast({
+        title: "Payment Successful!",
+        description: `Payment of ¢${(paymentData.amount / 100).toLocaleString()} has been processed via Paystack`,
+      })
 
-    // Call the callback to refresh the parent component
-    if (onPaymentComplete) {
-      onPaymentComplete();
+      // Use the new processPaystackFeePayment method to record the payment
+      await walletService.processPaystackFeePayment(
+        user?.studentId || '',
+        paymentData.amount,
+        paymentData.reference,
+        paymentData,
+        metadata
+      )
+
+      // Store payment record locally for UI
+      localStorage.setItem('paymentHistory', JSON.stringify([
+        ...JSON.parse(localStorage.getItem('paymentHistory') || '[]'),
+        paymentData
+      ]));
+
+      // Clear selected services
+      localStorage.removeItem('selectedServices');
+
+      // Call the callback to refresh the parent component
+      if (onPaymentComplete) {
+        onPaymentComplete();
+      }
+
+      // Add a delay before redirecting to prevent potential duplicate transactions
+      // This gives the system time to fully process the transaction
+      setTimeout(() => {
+        // Redirect to fees page to show updated payment status
+        window.location.href = '/fees';
+      }, 2000); // 2-second delay
+    } catch (error) {
+      console.error('Error recording Paystack payment:', error)
+      toast({
+        title: "Payment Recording Error",
+        description: "Your payment was successful, but there was an error recording it. Please contact support.",
+        variant: "destructive"
+      })
     }
   }
 

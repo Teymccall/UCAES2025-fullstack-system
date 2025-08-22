@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApplication } from '../../contexts/ApplicationContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { User, Briefcase, GraduationCap, AlertCircle, CheckCircle, Calendar, Award } from 'lucide-react';
+import { Person, Work, School, Warning, CheckCircle, CalendarToday, EmojiEvents } from '@mui/icons-material';
 
 interface MatureStudentData {
   // Age and eligibility
@@ -306,7 +306,7 @@ const MatureStudentForm: React.FC = () => {
           />
           {errors.age && (
             <div className="flex items-center mt-1 text-sm text-red-600">
-              <AlertCircle className="h-4 w-4 mr-1" />
+              <Warning className="h-4 w-4 mr-1" />
               {errors.age}
             </div>
           )}
@@ -350,7 +350,7 @@ const MatureStudentForm: React.FC = () => {
           />
           {errors.totalWorkYears && (
             <div className="flex items-center mt-1 text-sm text-red-600">
-              <AlertCircle className="h-4 w-4 mr-1" />
+              <Warning className="h-4 w-4 mr-1" />
               {errors.totalWorkYears}
             </div>
           )}
@@ -688,7 +688,7 @@ const MatureStudentForm: React.FC = () => {
         <div className="flex justify-between items-center mt-1">
           {errors.motivationStatement && (
             <div className="flex items-center text-sm text-red-600">
-              <AlertCircle className="h-4 w-4 mr-1" />
+              <Warning className="h-4 w-4 mr-1" />
               {errors.motivationStatement}
             </div>
           )}
@@ -715,7 +715,7 @@ const MatureStudentForm: React.FC = () => {
         />
         {errors.careerGoals && (
           <div className="flex items-center mt-1 text-sm text-red-600">
-            <AlertCircle className="h-4 w-4 mr-1" />
+            <Warning className="h-4 w-4 mr-1" />
             {errors.careerGoals}
           </div>
         )}
@@ -738,7 +738,7 @@ const MatureStudentForm: React.FC = () => {
         />
         {errors.whyThisProgram && (
           <div className="flex items-center mt-1 text-sm text-red-600">
-            <AlertCircle className="h-4 w-4 mr-1" />
+            <Warning className="h-4 w-4 mr-1" />
             {errors.whyThisProgram}
           </div>
         )}

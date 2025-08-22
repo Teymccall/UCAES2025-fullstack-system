@@ -15,13 +15,20 @@ import {
   AlertCircle,
   ShoppingCart,
   ArrowLeft,
-  Settings
+  Settings,
+  Wallet,
+  GraduationCap,
+  Receipt
 } from "lucide-react"
+import Link from "next/link"
 import ServiceRequest from "@/components/student/fees/service-request"
 import ServiceRequestDashboard from "@/components/student/fees/service-request-dashboard"
-import InlinePaymentForm from "@/components/student/fees/inline-payment-form"
-import CurrentSemesterFees from "@/components/student/fees/current-semester-fees"
-import PortalHeader from "@/components/shared/portal-header"
+
+import { CurrentSemesterFees } from "@/components/student/fees/current-semester-fees"
+import WalletBalanceCard from "@/components/student/fees/wallet-balance-card"
+import { StudentInvoices } from "@/components/student-invoices"
+import { ScholarshipSummary } from "@/components/scholarship-summary"
+
 import { useAuth } from "@/lib/auth-context"
 
 interface FeeItem {
@@ -41,7 +48,7 @@ export default function FeesPage() {
   const { user } = useAuth()
   const [fees, setFees] = useState<FeeItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState("overview")
+  const [activeTab, setActiveTab] = useState("fees")
   const [selectedServices, setSelectedServices] = useState<any[]>([])
 
   useEffect(() => {
@@ -49,6 +56,17 @@ export default function FeesPage() {
       fetchFees()
     }
   }, [user?.studentId])
+
+  const handlePaymentAmountChange = (feeId: string, amount: string) => {
+    const newFees = fees.map(fee => {
+      if (fee.id === feeId) {
+        return { ...fee, paymentAmount: parseFloat(amount) || 0 }
+      }
+      return fee
+    })
+    setFees(newFees)
+  }
+
 
   const handleServicesSelected = (services: any[]) => {
     setSelectedServices(services)
@@ -83,9 +101,9 @@ export default function FeesPage() {
         bill: item.bill,
         paid: item.paid,
         balance: item.balance,
-        paymentAmount: 0,
+        paymentAmount: 0, // Initialize paymentAmount
         status: item.status,
-        dueDate: item.dueDate,
+  dueDate: (item as any).dueDate,
         description: `${item.type} fee for academic purposes`
       })) || []
       
@@ -126,24 +144,10 @@ export default function FeesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <PortalHeader />
-      
       <div className="max-w-7xl mx-auto p-4 sm:p-6">
-        {/* Page Header */}
+        {/* Wallet Balance */}
         <div className="mb-6">
-          <div className="flex items-center gap-2 mb-2">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => window.history.back()}
-              className="text-gray-600 hover:text-gray-900"
-            >
-              <ArrowLeft className="w-4 h-4 mr-1" />
-              Back
-            </Button>
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900">Fees & Services</h1>
-          <p className="text-gray-600 mt-2">Manage your academic fees and request additional services</p>
+          <WalletBalanceCard />
         </div>
 
         {/* Quick Stats */}
@@ -188,62 +192,48 @@ export default function FeesPage() {
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="fees">Current Fees</TabsTrigger>
+            <TabsTrigger value="scholarships" className="flex items-center gap-2">
+              <GraduationCap className="h-4 w-4" />
+              Scholarships
+            </TabsTrigger>
+            <TabsTrigger value="invoices" className="flex items-center gap-2">
+              <Receipt className="h-4 w-4" />
+              Invoices
+            </TabsTrigger>
             <TabsTrigger value="services">Request Services</TabsTrigger>
             <TabsTrigger value="requests">My Requests</TabsTrigger>
-            <TabsTrigger value="payment">Make Payment</TabsTrigger>
           </TabsList>
 
-          {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-6">
-            <CurrentSemesterFees fees={fees} />
-            
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="w-5 h-5" />
-                  Quick Actions
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Button 
-                  onClick={() => setActiveTab("services")}
-                  className="h-20 text-left p-4 justify-start"
-                  variant="outline"
-                >
-                  <div className="flex items-center gap-3">
-                    <ShoppingCart className="w-8 h-8 text-blue-600" />
-                    <div>
-                      <div className="font-semibold">Request Services</div>
-                      <div className="text-sm text-gray-600">Request additional academic services</div>
-                    </div>
-                  </div>
-                </Button>
-                
-                <Button 
-                  onClick={() => setActiveTab("payment")}
-                  className="h-20 text-left p-4 justify-start"
-                  variant="outline"
-                >
-                  <div className="flex items-center gap-3">
-                    <CreditCard className="w-8 h-8 text-green-600" />
-                    <div>
-                      <div className="font-semibold">Make Payment</div>
-                      <div className="text-sm text-gray-600">Pay fees using your wallet or card</div>
-                    </div>
-                  </div>
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
+
 
           {/* Current Fees Tab */}
-          <TabsContent value="fees">
-            <CurrentSemesterFees fees={fees} />
+          <TabsContent value="fees" className="space-y-6">
+            {user?.programmeType && user?.level ? (
+              <CurrentSemesterFees 
+                programmeType={user.programmeType}
+                level={user.level}
+              />
+            ) : (
+              <Card>
+                <CardContent className="p-6">
+                  <p>Loading student information...</p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
-          {/* Request Services Tab */}
+          {/* Scholarships Tab */}
+          <TabsContent value="scholarships" className="space-y-6">
+            <ScholarshipSummary />
+          </TabsContent>
+
+          {/* Invoices Tab */}
+          <TabsContent value="invoices" className="space-y-6">
+            <StudentInvoices />
+          </TabsContent>
+
+          {/* Service Request Tab */}
           <TabsContent value="services">
             <ServiceRequest 
               onServicesSelected={handleServicesSelected}
@@ -256,10 +246,6 @@ export default function FeesPage() {
             <ServiceRequestDashboard />
           </TabsContent>
 
-          {/* Make Payment Tab */}
-          <TabsContent value="payment">
-            <InlinePaymentForm />
-          </TabsContent>
         </Tabs>
       </div>
     </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApplication } from '../../contexts/ApplicationContext';
-import { CreditCard, Smartphone, DollarSign, CheckCircle, Loader2 } from 'lucide-react';
+import { CreditCard, PhoneAndroid, AttachMoney, CheckCircle, Loop } from '@mui/icons-material';
 
 const PaymentForm: React.FC = () => {
   const { applicationData, updatePaymentStatus, setCurrentStep, submitApplication, initializePaystackPayment, refreshApplicationData } = useApplication();
@@ -144,7 +144,7 @@ const PaymentForm: React.FC = () => {
     <div className="max-w-2xl mx-auto">
       <div className="bg-white shadow-sm rounded-lg p-6">
         <div className="flex items-center space-x-2 mb-6">
-          <DollarSign className="h-6 w-6 text-green-600" />
+          <AttachMoney className="h-6 w-6 text-green-600" />
           <h2 className="text-xl font-semibold text-gray-900">Application Payment</h2>
         </div>
 
@@ -244,7 +244,7 @@ const PaymentForm: React.FC = () => {
               onClick={() => setPaymentMethod('mobile')}
             >
               <div className="flex items-center space-x-3">
-                <Smartphone className="h-8 w-8 text-green-600" />
+                <PhoneAndroid className="h-8 w-8 text-green-600" />
                 <div>
                   <h4 className="font-medium text-gray-900">Mobile Money</h4>
                   <p className="text-sm text-gray-600">MTN, Vodafone, AirtelTigo</p>
@@ -299,7 +299,7 @@ const PaymentForm: React.FC = () => {
                 >
                   {isProcessing ? (
                     <>
-                      <Loader2 className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" />
+                      <Loop className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" />
                       Processing...
                     </>
                   ) : (

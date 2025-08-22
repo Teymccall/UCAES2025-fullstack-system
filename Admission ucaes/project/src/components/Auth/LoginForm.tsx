@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { Eye, EyeOff, Loader2, Mail, Lock, LogIn } from 'lucide-react';
+import { FiEye, FiEyeOff, FiLoader, FiMail, FiLock, FiLogIn } from 'react-icons/fi';
 import ucesLogo from '../../images/uceslogo.png';
 
 const LoginForm: React.FC = () => {
@@ -48,7 +48,7 @@ const LoginForm: React.FC = () => {
                 Email address
               </label>
               <div className="inputForm">
-                <Mail className="h-5 w-5 text-gray-400" />
+                <FiMail className="h-5 w-5 text-gray-400" />
                 <input
                   id="email"
                   name="email"
@@ -68,7 +68,7 @@ const LoginForm: React.FC = () => {
                 Password
               </label>
               <div className="inputForm">
-                <Lock className="h-5 w-5 text-gray-400" />
+                <FiLock className="h-5 w-5 text-gray-400" />
                 <input
                   id="password"
                   name="password"
@@ -86,9 +86,9 @@ const LoginForm: React.FC = () => {
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400" />
+                    <FiEyeOff className="h-5 w-5 text-gray-400" />
                   ) : (
-                    <Eye className="h-5 w-5 text-gray-400" />
+                    <FiEye className="h-5 w-5 text-gray-400" />
                   )}
                 </button>
               </div>
@@ -105,14 +105,14 @@ const LoginForm: React.FC = () => {
               disabled={isLoading}
               className="button-submit"
             >
-              {isLoading ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <>
-                  <LogIn className="h-5 w-5 mr-2" />
-                  Sign in
-                </>
-              )}
+                             {isLoading ? (
+                 <FiLoader className="h-5 w-5 animate-spin" />
+               ) : (
+                 <>
+                   <FiLogIn className="h-5 w-5 mr-2" />
+                   Sign in
+                 </>
+               )}
             </button>
           </div>
 

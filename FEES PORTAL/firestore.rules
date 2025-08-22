@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow authenticated users to read their own data
+    match /student-wallets/{walletId} {
+      allow read, write: if request.auth != null && 
+        request.auth.uid == resource.data.studentId;
+    }
+    
+    // Prevent duplicate references in wallet transactions
+    match /wallet-transactions/{transactionId} {
+      allow read: if request.auth != null;
+      
+      allow create: if request.auth != null && 
+        // Ensure the reference field is unique
+        !exists(/databases/$(database)/documents/wallet-transactions, 
+          where reference == request.resource.data.reference);
+      
+      allow update: if request.auth != null && 
+        // Allow updates but prevent reference changes that would create duplicates
+        (resource.data.reference == request.resource.data.reference ||
+         !exists(/databases/$(database)/documents/wallet-transactions, 
+           where reference == request.resource.data.reference));
+    }
+    
+    // Allow authenticated users to read their own payments
+    match /student-payments/{paymentId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Allow authenticated users to read their own academic data
+    match /students/{studentId} {
+      allow read: if request.auth != null && 
+        request.auth.uid == studentId;
+    }
+    
+    // Allow authenticated users to read fee structures
+    match /fee-structures/{feeId} {
+      allow read: if request.auth != null;
+    }
+    
+    // Allow authenticated users to read academic periods
+    match /academic-periods/{periodId} {
+      allow read: if request.auth != null;
+    }
+  }
+}

@@ -166,66 +166,7 @@ function TransactionsContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Header */}
-      <header className="bg-blue-700 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-3 sm:py-4 space-y-3 sm:space-y-0 min-h-[64px] sm:h-16">
-            <div className="flex items-center w-full sm:w-auto">
-              <Image
-                src="/logo.png"
-                alt="UCAES Logo"
-                width={32}
-                height={32}
-                className="mr-2 sm:mr-3 sm:w-[40px] sm:h-[40px]"
-              />
-              <div className="flex-1">
-                <h1 className="text-lg sm:text-xl font-bold">UCAES Fees Portal</h1>
-                <p className="text-blue-200 text-xs sm:text-sm">Transaction History</p>
-              </div>
-              
-              {/* Mobile Back Button */}
-              <Button
-                variant="ghost" 
-                onClick={() => router.push('/')}
-                className="text-white hover:bg-blue-600 sm:hidden p-2"
-                size="sm"
-              >
-                <ArrowLeft className="w-4 h-4" />
-              </Button>
-            </div>
-            
-            <div className="flex items-center justify-between w-full sm:w-auto space-x-2 sm:space-x-4">
-              {/* Desktop Back Button */}
-              <Button
-                variant="ghost" 
-                onClick={() => router.push('/')}
-                className="text-white hover:bg-blue-600 hidden sm:flex"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Dashboard
-              </Button>
-              
-              <div className="flex items-center space-x-2 sm:space-x-3">
-                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                  <User className="w-3 h-3 sm:w-4 sm:h-4" />
-                </div>
-                <div className="text-xs sm:text-sm">
-                  <p className="font-medium max-w-[120px] sm:max-w-none truncate">{user?.name}</p>
-                  <p className="text-blue-200">{user?.studentId}</p>
-                </div>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={logout}
-                  className="text-white hover:bg-blue-600 p-1 sm:p-2"
-                >
-                  <LogOut className="w-3 h-3 sm:w-4 sm:h-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* Header removed – shared PortalHeader renders at layout level */}
 
               {/* Main Content */}
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, ChevronDown, Check, MapPin } from 'lucide-react';
+import { Search, ExpandMore, Check, LocationOn } from '@mui/icons-material';
 import { searchSchools, getSchoolsByRegion } from '../../data/ghanaianSchools';
 
 interface SchoolAutocompleteProps {
@@ -164,7 +164,7 @@ const SchoolAutocomplete: React.FC<SchoolAutocompleteProps> = ({
             className="text-gray-400 hover:text-gray-600 focus:outline-none"
             tabIndex={-1}
           >
-            <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            <ExpandMore className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
           </button>
         </div>
       </div>
@@ -178,7 +178,7 @@ const SchoolAutocomplete: React.FC<SchoolAutocompleteProps> = ({
           {/* Regional schools header */}
           {showRegionalSchools && region && (
             <div className="px-3 py-2 text-xs font-medium text-gray-500 bg-gray-50 border-b flex items-center">
-              <MapPin className="h-3 w-3 mr-1" />
+              <LocationOn className="h-3 w-3 mr-1" />
               Schools in {region.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())} Region
             </div>
           )}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Search, Edit2, Trash2, Eye, UserPlus } from 'lucide-react';
+import { Add, Search, Edit, Delete, Visibility, PersonAdd } from '@mui/icons-material';
 
 const AdminStaff: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -127,7 +127,7 @@ const AdminStaff: React.FC = () => {
             onClick={() => setShowAddModal(true)}
             className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center"
           >
-            <Plus className="h-4 w-4 mr-2" />
+                            <Add className="h-4 w-4 mr-2" />
             Add Staff Member
           </button>
         </div>
@@ -139,7 +139,7 @@ const AdminStaff: React.FC = () => {
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-2">Search Staff</label>
             <div className="relative">
-              <Search className="h-5 w-5 text-gray-400 absolute left-3 top-3" />
+                              <Search className="h-5 w-5 text-gray-400 absolute left-3 top-3" />
               <input
                 type="text"
                 placeholder="Search by name, email, or department"
@@ -223,13 +223,13 @@ const AdminStaff: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
                       <button className="text-green-600 hover:text-green-900">
-                        <Eye className="h-4 w-4" />
+                        <Visibility className="h-4 w-4" />
                       </button>
                       <button className="text-blue-600 hover:text-blue-900">
-                        <Edit2 className="h-4 w-4" />
+                        <Edit className="h-4 w-4" />
                       </button>
                       <button className="text-red-600 hover:text-red-900">
-                        <Trash2 className="h-4 w-4" />
+                        <Delete className="h-4 w-4" />
                       </button>
                     </div>
                   </td>

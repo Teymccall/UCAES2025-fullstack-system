@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApplication } from '../../contexts/ApplicationContext';
-import { Phone, AlertCircle, CheckCircle } from 'lucide-react';
+import { Phone, Warning, CheckCircle } from '@mui/icons-material';
 
 const ContactInfoForm: React.FC = () => {
   const { applicationData, updateContactInfo, setCurrentStep } = useApplication();
@@ -138,7 +138,7 @@ const ContactInfoForm: React.FC = () => {
               />
               {errors.phone && (
                 <div className="flex items-center mt-1 text-sm text-red-600">
-                  <AlertCircle className="h-4 w-4 mr-1" />
+                  <Warning className="h-4 w-4 mr-1" />
                   {errors.phone}
                 </div>
               )}
@@ -164,7 +164,7 @@ const ContactInfoForm: React.FC = () => {
               />
               {errors.email && (
                 <div className="flex items-center mt-1 text-sm text-red-600">
-                  <AlertCircle className="h-4 w-4 mr-1" />
+                  <Warning className="h-4 w-4 mr-1" />
                   {errors.email}
                 </div>
               )}
@@ -191,7 +191,7 @@ const ContactInfoForm: React.FC = () => {
             />
             {errors.address && (
               <div className="flex items-center mt-1 text-sm text-red-600">
-                <AlertCircle className="h-4 w-4 mr-1" />
+                <Warning className="h-4 w-4 mr-1" />
                 {errors.address}
               </div>
             )}
@@ -221,7 +221,7 @@ const ContactInfoForm: React.FC = () => {
                 />
                 {errors.emergencyContact && (
                   <div className="flex items-center mt-1 text-sm text-red-600">
-                    <AlertCircle className="h-4 w-4 mr-1" />
+                    <Warning className="h-4 w-4 mr-1" />
                     {errors.emergencyContact}
                   </div>
                 )}
@@ -247,7 +247,7 @@ const ContactInfoForm: React.FC = () => {
                 />
                 {errors.emergencyPhone && (
                   <div className="flex items-center mt-1 text-sm text-red-600">
-                    <AlertCircle className="h-4 w-4 mr-1" />
+                    <Warning className="h-4 w-4 mr-1" />
                     {errors.emergencyPhone}
                   </div>
                 )}

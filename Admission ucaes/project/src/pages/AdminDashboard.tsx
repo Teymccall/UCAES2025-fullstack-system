@@ -1,14 +1,14 @@
 import React from 'react';
 import { 
-  Users, 
-  FileText, 
-  DollarSign, 
+  People, 
+  Description, 
+  AttachMoney, 
   TrendingUp, 
-  Clock, 
+  Schedule, 
   Settings,
-  AlertTriangle,
+  Warning,
   CheckCircle
-} from 'lucide-react';
+} from '@mui/icons-material';
 
 const AdminDashboard: React.FC = () => {
   const systemStats = {
@@ -25,25 +25,25 @@ const AdminDashboard: React.FC = () => {
       type: 'user_registration',
       description: '45 new users registered',
       timestamp: '2 minutes ago',
-      icon: Users
+      icon: People
     },
     {
       type: 'application_submitted',
       description: '12 applications submitted',
       timestamp: '15 minutes ago',
-      icon: FileText
+      icon: Description
     },
     {
       type: 'payment_received',
       description: 'GHS 1,800 in payments received',
       timestamp: '1 hour ago',
-      icon: DollarSign
+      icon: AttachMoney
     },
     {
       type: 'staff_login',
       description: '3 staff members logged in',
       timestamp: '2 hours ago',
-      icon: Users
+      icon: People
     }
   ];
 
@@ -70,9 +70,9 @@ const AdminDashboard: React.FC = () => {
 
   const getAlertIcon = (type: string) => {
     switch (type) {
-      case 'warning': return <AlertTriangle className="h-4 w-4 text-yellow-600" />;
+      case 'warning': return <Warning className="h-4 w-4 text-yellow-600" />;
       case 'success': return <CheckCircle className="h-4 w-4 text-green-600" />;
-      default: return <Clock className="h-4 w-4 text-blue-600" />;
+      default: return <Schedule className="h-4 w-4 text-blue-600" />;
     }
   };
 
@@ -96,7 +96,7 @@ const AdminDashboard: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <Users className="h-8 w-8 text-blue-600" />
+              <People className="h-8 w-8 text-blue-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Total Users</p>
@@ -108,7 +108,7 @@ const AdminDashboard: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <Users className="h-8 w-8 text-green-600" />
+              <People className="h-8 w-8 text-green-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Active Staff</p>
@@ -120,7 +120,7 @@ const AdminDashboard: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <FileText className="h-8 w-8 text-purple-600" />
+              <Description className="h-8 w-8 text-purple-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Applications</p>
@@ -132,7 +132,7 @@ const AdminDashboard: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <DollarSign className="h-8 w-8 text-green-600" />
+              <AttachMoney className="h-8 w-8 text-green-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Revenue</p>
@@ -156,7 +156,7 @@ const AdminDashboard: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <AlertTriangle className="h-8 w-8 text-red-600" />
+              <Warning className="h-8 w-8 text-red-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Issues</p>

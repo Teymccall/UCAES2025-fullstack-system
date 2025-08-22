@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { 
-  saveApplicationData, 
   getApplicationDataByUserId, 
   updateApplicationStatus,
   type ApplicationData as FirebaseApplicationData,
@@ -11,6 +10,12 @@ import {
   type ProgramSelection,
   type DocumentUploads
 } from '../utils/firebaseApplicationService';
+import { 
+  saveDraftApplicationData, 
+  getDraftApplicationData, 
+  saveDraftStep 
+} from '../utils/draftApplicationService';
+import { submitApplication as submitApplicationToFirebase } from '../utils/submissionService';
 import { paystackService } from '../utils/paystackService';
 
 interface PersonalInfo {
@@ -261,59 +266,67 @@ export const ApplicationProvider: React.FC<{ children: React.ReactNode }> = ({ c
         setIsLoading(true);
         
         try {
-          // Load application data from Firebase
+          // ✅ FIXED: Load draft application data (not visible to staff)
+          const draftData = await getDraftApplicationData(user.id);
+          
+          // Also check for submitted application data
           const firebaseData = await getApplicationDataByUserId(user.id);
           
-          if (firebaseData) {
-            // Convert Firebase data to local format with safe defaults
+          // 🔄 FIX: Prioritize submitted application data for status display
+          // If application is submitted, use submitted data to show latest status (accepted/rejected)
+          // Only use draft data if no submitted application exists
+          const dataToUse = firebaseData || draftData;
+          
+          if (dataToUse) {
+            // Convert data to local format with safe defaults
             const localData: ApplicationData = {
-              id: firebaseData.id,
-              applicationId: firebaseData.applicationId || user.applicationId,
+              id: dataToUse.id || '',
+              applicationId: dataToUse.applicationId || user.applicationId,
               personalInfo: {
-                firstName: firebaseData.personalInfo?.firstName || '',
-                lastName: firebaseData.personalInfo?.lastName || '',
-                dateOfBirth: firebaseData.personalInfo?.dateOfBirth || '',
-                gender: firebaseData.personalInfo?.gender || '',
-                nationality: firebaseData.personalInfo?.nationality || '',
-                region: firebaseData.personalInfo?.region || '',
-                passportPhoto: firebaseData.personalInfo?.passportPhoto
+                firstName: dataToUse.personalInfo?.firstName || '',
+                lastName: dataToUse.personalInfo?.lastName || '',
+                dateOfBirth: dataToUse.personalInfo?.dateOfBirth || '',
+                gender: dataToUse.personalInfo?.gender || '',
+                nationality: dataToUse.personalInfo?.nationality || '',
+                region: dataToUse.personalInfo?.region || '',
+                passportPhoto: dataToUse.personalInfo?.passportPhoto
               },
               contactInfo: {
-                phone: firebaseData.contactInfo?.phone || '',
-                email: firebaseData.contactInfo?.email || '',
-                address: firebaseData.contactInfo?.address || '',
-                emergencyContact: firebaseData.contactInfo?.emergencyContact || '',
-                emergencyPhone: firebaseData.contactInfo?.emergencyPhone || ''
+                phone: dataToUse.contactInfo?.phone || '',
+                email: dataToUse.contactInfo?.email || '',
+                address: dataToUse.contactInfo?.address || '',
+                emergencyContact: dataToUse.contactInfo?.emergencyContact || '',
+                emergencyPhone: dataToUse.contactInfo?.emergencyPhone || ''
               },
               academicBackground: {
-                schoolName: firebaseData.academicBackground?.schoolName || '',
-                shsProgram: firebaseData.academicBackground?.shsProgram || '',
-                waecIndexNumber: firebaseData.academicBackground?.waecIndexNumber || '',
-                qualificationType: firebaseData.academicBackground?.qualificationType || '',
-                yearCompleted: firebaseData.academicBackground?.yearCompleted || '',
-                subjects: firebaseData.academicBackground?.subjects || [],
-                certificates: firebaseData.academicBackground?.certificates || []
+                schoolName: dataToUse.academicBackground?.schoolName || '',
+                shsProgram: dataToUse.academicBackground?.shsProgram || '',
+                waecIndexNumber: dataToUse.academicBackground?.waecIndexNumber || '',
+                qualificationType: dataToUse.academicBackground?.qualificationType || '',
+                yearCompleted: dataToUse.academicBackground?.yearCompleted || '',
+                subjects: dataToUse.academicBackground?.subjects || [],
+                certificates: dataToUse.academicBackground?.certificates || []
               },
               programSelection: {
-                programType: firebaseData.programSelection?.programType || '',
-                program: firebaseData.programSelection?.program || '',
-                level: firebaseData.programSelection?.level || '',
-                studyLevel: firebaseData.programSelection?.studyLevel || '',
-                studyMode: firebaseData.programSelection?.studyMode || '',
-                firstChoice: firebaseData.programSelection?.firstChoice || '',
-                secondChoice: firebaseData.programSelection?.secondChoice || ''
+                programType: dataToUse.programSelection?.programType || '',
+                program: dataToUse.programSelection?.program || '',
+                level: dataToUse.programSelection?.level || '',
+                studyLevel: dataToUse.programSelection?.studyLevel || '',
+                studyMode: dataToUse.programSelection?.studyMode || '',
+                firstChoice: dataToUse.programSelection?.firstChoice || '',
+                secondChoice: dataToUse.programSelection?.secondChoice || ''
               },
-              documents: firebaseData.documents || {},
-              paymentStatus: firebaseData.paymentStatus || 'pending',
-              paymentDetails: firebaseData.paymentDetails,
-              applicationStatus: firebaseData.applicationStatus || 'draft',
-              submittedAt: firebaseData.submittedAt,
-              updatedAt: firebaseData.updatedAt,
-              createdAt: firebaseData.createdAt
+              documents: dataToUse.documents || {},
+              paymentStatus: dataToUse.paymentStatus || 'pending',
+              paymentDetails: dataToUse.paymentDetails,
+              applicationStatus: dataToUse.applicationStatus || 'draft',
+              submittedAt: dataToUse.submittedAt,
+              updatedAt: dataToUse.updatedAt,
+              createdAt: dataToUse.createdAt
             };
             
             setApplicationData(localData);
-            setCurrentStep(firebaseData.currentStep || 1);
+            setCurrentStep(dataToUse.currentStep || 1);
             console.log('ApplicationContext: Loaded application data from Firebase');
           } else {
             // No existing data, initialize with user info
@@ -370,11 +383,11 @@ export const ApplicationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setApplicationData(prev => ({ ...prev, personalInfo: data }));
     
     try {
-      console.log('🔥 Saving personal info to Firebase...');
-      await saveApplicationData(user.id, { personalInfo: data, currentStep });
-      console.log('✅ Personal info saved to Firebase successfully');
+      console.log('💾 Saving personal info as draft...');
+      await saveDraftApplicationData(user.id, { personalInfo: data, currentStep });
+      console.log('✅ Personal info saved as draft successfully');
     } catch (error) {
-      console.error('❌ Error saving personal info to Firebase:', error);
+      console.error('❌ Error saving personal info as draft:', error);
     }
   };
 
@@ -384,7 +397,7 @@ export const ApplicationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setApplicationData(prev => ({ ...prev, contactInfo: data }));
     
     try {
-      await saveApplicationData(user.id, { contactInfo: data, currentStep });
+      await saveDraftApplicationData(user.id, { contactInfo: data, currentStep });
     } catch (error) {
       console.error('Error saving contact info to Firebase:', error);
     }
@@ -396,7 +409,7 @@ export const ApplicationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setApplicationData(prev => ({ ...prev, academicBackground: data }));
     
     try {
-      await saveApplicationData(user.id, { academicBackground: data, currentStep });
+      await saveDraftApplicationData(user.id, { academicBackground: data, currentStep });
     } catch (error) {
       console.error('Error saving academic background to Firebase:', error);
     }
@@ -408,7 +421,7 @@ export const ApplicationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setApplicationData(prev => ({ ...prev, programSelection: data }));
     
     try {
-      await saveApplicationData(user.id, { programSelection: data, currentStep });
+      await saveDraftApplicationData(user.id, { programSelection: data, currentStep });
     } catch (error) {
       console.error('Error saving program selection to Firebase:', error);
     }
@@ -420,7 +433,7 @@ export const ApplicationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setApplicationData(prev => ({ ...prev, documents: data }));
     
     try {
-      await saveApplicationData(user.id, { documents: data, currentStep });
+      await saveDraftApplicationData(user.id, { documents: data, currentStep });
     } catch (error) {
       console.error('Error saving documents to Firebase:', error);
     }
@@ -432,7 +445,7 @@ export const ApplicationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setApplicationData(prev => ({ ...prev, matureStudentInfo: data }));
     
     try {
-      await saveApplicationData(user.id, { matureStudentInfo: data, currentStep });
+      await saveDraftApplicationData(user.id, { matureStudentInfo: data, currentStep });
     } catch (error) {
       console.error('Error saving mature student info to Firebase:', error);
     }
@@ -444,7 +457,7 @@ export const ApplicationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setApplicationData(prev => ({ ...prev, matureStudentDocuments: data }));
     
     try {
-      await saveApplicationData(user.id, { matureStudentDocuments: data, currentStep });
+      await saveDraftApplicationData(user.id, { matureStudentDocuments: data, currentStep });
     } catch (error) {
       console.error('Error saving mature student documents to Firebase:', error);
     }
@@ -456,7 +469,7 @@ export const ApplicationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setApplicationData(prev => ({ ...prev, isMatureStudent: isMature }));
     
     try {
-      await saveApplicationData(user.id, { isMatureStudent: isMature, currentStep });
+      await saveDraftApplicationData(user.id, { isMatureStudent: isMature, currentStep });
     } catch (error) {
       console.error('Error saving mature student status to Firebase:', error);
     }
@@ -468,7 +481,7 @@ export const ApplicationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setApplicationData(prev => ({ ...prev, paymentStatus: status }));
     
     try {
-      await saveApplicationData(user.id, { paymentStatus: status, currentStep });
+      await saveDraftApplicationData(user.id, { paymentStatus: status, currentStep });
     } catch (error) {
       console.error('Error saving payment status to Firebase:', error);
     }
@@ -587,7 +600,7 @@ export const ApplicationProvider: React.FC<{ children: React.ReactNode }> = ({ c
         // Save to Firebase
         if (user?.id) {
           console.log('🔥 Saving payment details to Firebase...');
-          await saveApplicationData(user.id, { 
+          await saveDraftApplicationData(user.id, { 
             paymentStatus: 'paid',
             paymentDetails,
             currentStep: 6
@@ -602,7 +615,7 @@ export const ApplicationProvider: React.FC<{ children: React.ReactNode }> = ({ c
         
         if (user?.id) {
           console.log('🔥 Updating Firebase with failed status...');
-          await saveApplicationData(user.id, { paymentStatus: 'failed', currentStep });
+          await saveDraftApplicationData(user.id, { paymentStatus: 'failed', currentStep });
         }
         
         throw new Error('Payment verification failed - payment was not successful');
@@ -613,7 +626,7 @@ export const ApplicationProvider: React.FC<{ children: React.ReactNode }> = ({ c
       
       if (user?.id) {
         console.log('🔥 Updating Firebase with failed status...');
-        await saveApplicationData(user.id, { paymentStatus: 'failed', currentStep });
+        await saveDraftApplicationData(user.id, { paymentStatus: 'failed', currentStep });
       }
       
       throw error;
@@ -692,7 +705,7 @@ export const ApplicationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (!user?.id) return;
     
     try {
-      await saveApplicationData(user.id, { 
+      await saveDraftApplicationData(user.id, { 
         paymentDetails,
         paymentStatus: 'paid',
         currentStep 
@@ -715,14 +728,12 @@ export const ApplicationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }));
     
     try {
-      await saveApplicationData(user.id, { 
-        applicationStatus: 'submitted',
-        submittedAt: currentTime,
-        currentStep 
-      });
-      console.log('✅ Application submitted successfully to Firebase');
+      // ✅ FIXED: Use proper submission service that creates visible application record
+      await submitApplicationToFirebase(user.id);
+      console.log('✅ Application submitted successfully and is now visible to staff');
     } catch (error) {
       console.error('Error submitting application to Firebase:', error);
+      throw error; // Re-throw to handle in UI
     }
   };
 
@@ -731,7 +742,7 @@ export const ApplicationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     
     if (user?.id) {
       try {
-        await saveApplicationData(user.id, { currentStep: step });
+        await saveDraftStep(user.id, step);
       } catch (error) {
         console.error('Error saving current step to Firebase:', error);
       }
@@ -752,56 +763,60 @@ export const ApplicationProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setIsLoading(true);
       try {
         console.log('🔄 Refreshing application data for user:', user.id);
+        const draftData = await getDraftApplicationData(user.id);
         const firebaseData = await getApplicationDataByUserId(user.id);
         
-        if (firebaseData) {
+        // 🔄 FIX: Prioritize submitted application data for status display
+        const dataToUse = firebaseData || draftData;
+        
+        if (dataToUse) {
           const localData: ApplicationData = {
-            id: firebaseData.id,
-            applicationId: firebaseData.applicationId,
+            id: dataToUse.id,
+            applicationId: dataToUse.applicationId,
             personalInfo: {
-              firstName: firebaseData.personalInfo?.firstName || '',
-              lastName: firebaseData.personalInfo?.lastName || '',
-              dateOfBirth: firebaseData.personalInfo?.dateOfBirth || '',
-              gender: firebaseData.personalInfo?.gender || '',
-              nationality: firebaseData.personalInfo?.nationality || '',
-              region: firebaseData.personalInfo?.region || '',
-              passportPhoto: firebaseData.personalInfo?.passportPhoto
+              firstName: dataToUse.personalInfo?.firstName || '',
+              lastName: dataToUse.personalInfo?.lastName || '',
+              dateOfBirth: dataToUse.personalInfo?.dateOfBirth || '',
+              gender: dataToUse.personalInfo?.gender || '',
+              nationality: dataToUse.personalInfo?.nationality || '',
+              region: dataToUse.personalInfo?.region || '',
+              passportPhoto: dataToUse.personalInfo?.passportPhoto
             },
             contactInfo: {
-              phone: firebaseData.contactInfo?.phone || '',
-              email: firebaseData.contactInfo?.email || '',
-              address: firebaseData.contactInfo?.address || '',
-              emergencyContact: firebaseData.contactInfo?.emergencyContact || '',
-              emergencyPhone: firebaseData.contactInfo?.emergencyPhone || ''
+              phone: dataToUse.contactInfo?.phone || '',
+              email: dataToUse.contactInfo?.email || '',
+              address: dataToUse.contactInfo?.address || '',
+              emergencyContact: dataToUse.contactInfo?.emergencyContact || '',
+              emergencyPhone: dataToUse.contactInfo?.emergencyPhone || ''
             },
             academicBackground: {
-              schoolName: firebaseData.academicBackground?.schoolName || '',
-              shsProgram: firebaseData.academicBackground?.shsProgram || '',
-              waecIndexNumber: firebaseData.academicBackground?.waecIndexNumber || '',
-              qualificationType: firebaseData.academicBackground?.qualificationType || '',
-              yearCompleted: firebaseData.academicBackground?.yearCompleted || '',
-              subjects: firebaseData.academicBackground?.subjects || [],
-              certificates: firebaseData.academicBackground?.certificates || []
+              schoolName: dataToUse.academicBackground?.schoolName || '',
+              shsProgram: dataToUse.academicBackground?.shsProgram || '',
+              waecIndexNumber: dataToUse.academicBackground?.waecIndexNumber || '',
+              qualificationType: dataToUse.academicBackground?.qualificationType || '',
+              yearCompleted: dataToUse.academicBackground?.yearCompleted || '',
+              subjects: dataToUse.academicBackground?.subjects || [],
+              certificates: dataToUse.academicBackground?.certificates || []
             },
             programSelection: {
-              programType: firebaseData.programSelection?.programType || '',
-              program: firebaseData.programSelection?.program || '',
-              level: firebaseData.programSelection?.level || '',
-              studyLevel: firebaseData.programSelection?.studyLevel || '',
-              studyMode: firebaseData.programSelection?.studyMode || '',
-              firstChoice: firebaseData.programSelection?.firstChoice || '',
-              secondChoice: firebaseData.programSelection?.secondChoice || ''
+              programType: dataToUse.programSelection?.programType || '',
+              program: dataToUse.programSelection?.program || '',
+              level: dataToUse.programSelection?.level || '',
+              studyLevel: dataToUse.programSelection?.studyLevel || '',
+              studyMode: dataToUse.programSelection?.studyMode || '',
+              firstChoice: dataToUse.programSelection?.firstChoice || '',
+              secondChoice: dataToUse.programSelection?.secondChoice || ''
             },
-            documents: firebaseData.documents || {},
-            paymentStatus: firebaseData.paymentStatus || 'pending',
-            applicationStatus: firebaseData.applicationStatus || 'draft',
-            submittedAt: firebaseData.submittedAt,
-            updatedAt: firebaseData.updatedAt,
-            createdAt: firebaseData.createdAt
+            documents: dataToUse.documents || {},
+            paymentStatus: dataToUse.paymentStatus || 'pending',
+            applicationStatus: dataToUse.applicationStatus || 'draft',
+            submittedAt: dataToUse.submittedAt,
+            updatedAt: dataToUse.updatedAt,
+            createdAt: dataToUse.createdAt
           };
           
           setApplicationData(localData);
-          setCurrentStep(firebaseData.currentStep || 1);
+          setCurrentStep(dataToUse.currentStep || 1);
           console.log('✅ Application data refreshed successfully');
         }
       } catch (error) {

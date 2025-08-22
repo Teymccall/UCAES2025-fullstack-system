@@ -5,7 +5,6 @@ import { Card, CardContent } from "@/components/ui/card"
 import { useAuth } from "@/lib/auth-context"
 import { ProtectedRoute } from "@/components/auth/protected-route"
 import WalletDashboard from "@/components/student/wallet/wallet-dashboard"
-import PortalHeader from "@/components/shared/portal-header"
 import { PageLoader } from "@/components/ui/loader"
 
 function WalletContent() {
@@ -40,13 +39,6 @@ function WalletContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <PortalHeader 
-        title="Student Wallet"
-        subtitle="Manage your wallet balance and transactions"
-        user={user}
-        onLogout={logout}
-      />
-      
       <div className="container mx-auto px-4 py-8">
         <WalletDashboard
           studentId={user.studentId}

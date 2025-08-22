@@ -320,7 +320,7 @@ const mapPaymentMethod = (method: string): PaymentRecord['method'] => {
 };
 
 // Real Firebase payment functions
-const getStudentPayments = async (studentId: string): Promise<PaymentRecord[]> => {
+export const getStudentPayments = async (studentId: string): Promise<PaymentRecord[]> => {
   try {
     console.log('💰 Getting payment history for student:', studentId);
     
@@ -757,7 +757,7 @@ export async function getStudentFees(studentId: string): Promise<FeesData> {
       originalSchedule: scheduleType
     });
 
-    // 💰 USE NEW COMPREHENSIVE FEE CALCULATION SYSTEM
+    // 💰 USE NEW COMPREHENSIVE FEE CALCULATION SYSTEM WITH ALL INTEGRATIONS
     try {
       // Import services dynamically to avoid circular dependency
       const { calculateStudentFees, getCurrentPeriod, getNextPaymentDue } = await import('./fee-calculator');
@@ -765,18 +765,38 @@ export async function getStudentFees(studentId: string): Promise<FeesData> {
       
       // Get current academic period from Academic Affairs
       const academicPeriod = await getCurrentAcademicPeriod();
-      const currentAcademicYear = academicPeriod?.academicYear || '2024-2025';
+      const currentAcademicYear = academicPeriod?.academicYear;
       
       console.log('🏫 Using academic year from Academic Affairs:', currentAcademicYear);
+      console.log('🎓 Student ID for fee calculation:', studentIdUpper);
       
       // Calculate fees using the current academic year from Academic Affairs
+      // This now includes scholarship integration and Finance Officer fee structures
       const feeCalculation = await calculateStudentFees(studentIdUpper, programmeType, level, currentAcademicYear);
-      console.log('🧮 New fee calculation:', {
+      console.log('🧮 Enhanced fee calculation with integrations:', {
         total: feeCalculation.totalAnnualFee,
         withServices: feeCalculation.totalWithServices,
         structure: feeCalculation.paymentStructure,
-        installments: feeCalculation.installments.length
+        installments: feeCalculation.installments.length,
+        scholarshipReduction: feeCalculation.scholarshipReduction || 0,
+        feeSource: feeCalculation.feeSource || 'unknown',
+        appliedScholarships: feeCalculation.appliedScholarships?.length || 0
       });
+      
+      // Log scholarship benefits for student visibility
+      if (feeCalculation.scholarshipReduction && feeCalculation.scholarshipReduction > 0) {
+        console.log(`🎓 SCHOLARSHIP BENEFIT: Student saves ¢${feeCalculation.scholarshipReduction} from scholarships!`);
+        console.log(`   📊 Scholarships applied: ${feeCalculation.appliedScholarships?.length || 0}`);
+      }
+      
+      // Log fee source for transparency
+      if (feeCalculation.feeSource === 'finance_officer') {
+        console.log('🏦 Using Finance Officer fee structure - fees controlled by HANAMEL');
+      } else if (feeCalculation.feeSource === 'system_database') {
+        console.log('🏫 Using system database fee structure');
+      } else {
+        console.log('📋 Using hardcoded fallback fee structure');
+      }
       
       // Get current period and next payment
       const currentPeriod = getCurrentPeriod(programmeType);
@@ -802,7 +822,7 @@ export async function getStudentFees(studentId: string): Promise<FeesData> {
           description: payment.description
         });
         
-        if (payment.status === 'verified' || payment.status === 'approved') {
+        if (payment.status === 'verified' || payment.status === 'approved' || payment.status === 'completed' || payment.status === 'success') {
           totalPaid += payment.amount;
           
           // Map payment to period if specified
@@ -946,7 +966,7 @@ export async function getStudentFees(studentId: string): Promise<FeesData> {
     
     // Calculate actual paid amounts by fee category
     const paidAmounts = studentPayments.reduce((acc, payment) => {
-      if (payment.status === 'verified' || payment.status === 'approved') {
+      if (payment.status === 'verified' || payment.status === 'approved' || payment.status === 'completed' || payment.status === 'success') {
         const category = payment.category;
         acc[category] = (acc[category] || 0) + payment.amount;
       }

@@ -1,5 +1,6 @@
 // Service to fetch current academic year and semester from Academic Affairs Firebase
-import { db } from './firebase'
+import { db, getStudentPayments } from './firebase'
+import type { PaymentRecord } from './types'
 import { collection, query, where, getDocs, limit, doc, getDoc } from 'firebase/firestore'
 
 export interface AcademicPeriod {
@@ -52,50 +53,69 @@ export async function getCurrentAcademicPeriod(): Promise<AcademicPeriod | null>
     
     console.log('✅ Found active academic year:', activeYear.year)
     
-    // 2. Get active semesters for this academic year
+    // 2. Get all semesters for this academic year to allow for flexible selection
     const semestersRef = collection(db, 'academic-semesters')
-    const activeSemestersQuery = query(
+    const semestersQuery = query(
       semestersRef,
-      where('academicYear', '==', activeYear.year),
-      where('status', '==', 'active')
+      where('academicYear', '==', activeYearDoc.id)
     )
-    const semesterSnapshot = await getDocs(activeSemestersQuery)
+    console.log('Querying semesters with academicYear =', activeYearDoc.id)
+    const semesterSnapshot = await getDocs(semestersQuery)
     
     const result: AcademicPeriod = {
       academicYear: activeYear.year,
       academicYearId: activeYearDoc.id
     }
+
+        const allSemesters = semesterSnapshot.docs.map(doc => ({ ...doc.data() as { name: string; number: string; status: 'active' | 'completed' | 'upcoming', programType: 'Regular' | 'Weekend' }, id: doc.id }))
     
-    // Process active semesters
-    semesterSnapshot.docs.forEach(semesterDoc => {
-      const semester = semesterDoc.data()
-      const semesterInfo = {
-        id: semesterDoc.id,
-        name: semester.name,
-        number: semester.number,
-        status: semester.status
-      }
-      
-      if (semester.programType === 'Regular') {
-        result.regularSemester = semesterInfo
-        if (!result.currentSemester) {
-          result.currentSemester = {
-            ...semesterInfo,
-            programType: 'Regular'
-          }
+    const findBestSemester = (programType: 'Regular' | 'Weekend') => {
+        const candidates = allSemesters.filter(s => s.programType === programType)
+        if (candidates.length === 0) return undefined
+
+        let best = candidates.find(s => s.status === 'active')
+        if (best) return best
+
+        best = candidates.find(s => s.status === 'upcoming')
+        if (best) return best
+
+        // Sort by semester number ('1', '2', '3') and pick lowest for fallback
+        candidates.sort((a, b) => (a.number || '9').localeCompare(b.number || '9'))
+        return candidates[0]
+    }
+
+    const regularData = findBestSemester('Regular')
+    if (regularData) {
+        result.regularSemester = {
+            id: regularData.id,
+            name: regularData.name,
+            number: regularData.number,
+            status: regularData.status,
         }
-      } else if (semester.programType === 'Weekend') {
-        result.weekendSemester = semesterInfo
-        if (!result.currentSemester) {
-          result.currentSemester = {
-            ...semesterInfo,
-            programType: 'Weekend'
-          }
+    }
+
+    const weekendData = findBestSemester('Weekend')
+    if (weekendData) {
+        result.weekendSemester = {
+            id: weekendData.id,
+            name: weekendData.name,
+            number: weekendData.number,
+            status: weekendData.status,
         }
-      }
-    })
+    }
+
+    // Set currentSemester based on active status, otherwise fallback
+    if (result.regularSemester?.status === 'active') {
+        result.currentSemester = { ...result.regularSemester, programType: 'Regular' }
+    } else if (result.weekendSemester?.status === 'active') {
+        result.currentSemester = { ...result.weekendSemester, programType: 'Weekend' }
+    } else if (result.regularSemester) {
+        result.currentSemester = { ...result.regularSemester, programType: 'Regular' }
+    } else if (result.weekendSemester) {
+        result.currentSemester = { ...result.weekendSemester, programType: 'Weekend' }
+    }
     
-    console.log('🎯 Academic period details:', {
+    console.log('🎯 Academic period details (flexible search):', {
       year: result.academicYear,
       regularSemester: result.regularSemester?.name,
       weekendSemester: result.weekendSemester?.name,
@@ -230,76 +250,125 @@ export async function getCurrentSemesterFees(
 } | null> {
   try {
     const academicPeriod = await getCurrentAcademicPeriod()
-    if (!academicPeriod) {
-      return null
-    }
     
-    // Get the appropriate semester based on programme type
-    const targetSemester = programmeType === 'regular' 
+    // Even if we don't have an active academic period, we should still calculate fees
+    // based on the student's programme type and level
+    
+    // Get the appropriate semester based on programme type if available
+    const targetSemester = academicPeriod && (programmeType === 'regular' 
       ? academicPeriod.regularSemester 
-      : academicPeriod.weekendSemester
+      : academicPeriod.weekendSemester)
     
-    if (!targetSemester) {
-      console.warn(`⚠️ No active ${programmeType} semester found`)
-      return null
+    if (!targetSemester && academicPeriod) {
+      console.warn(`⚠️ No active ${programmeType} semester found, but will still calculate fees`)
     }
     
     // Import fee calculator
     const { calculateStudentFees } = await import('./fee-calculator')
-    const feeCalculation = await calculateStudentFees(studentId, programmeType, level, academicPeriod.academicYear)
+    // Use the academic year if available, otherwise use a fallback
+    const academicYear = academicPeriod?.academicYear || 'current'
+    const feeCalculation = await calculateStudentFees(studentId, programmeType, level, academicYear)
     
     // Find the installment for current semester/trimester
     const currentPeriodKey = programmeType === 'regular' 
-      ? `semester${targetSemester.number}`
-      : `trimester${targetSemester.number}`
+      ? `semester${targetSemester?.number || '1'}`
+      : `trimester${targetSemester?.number || '1'}`
     
-    const currentInstallment = feeCalculation.installments.find(
+    let currentInstallment = feeCalculation.installments.find(
       installment => installment.period === currentPeriodKey
     )
     
     if (!currentInstallment) {
-      console.warn(`⚠️ No installment found for ${currentPeriodKey}`)
-      return null
+      console.warn(`⚠️ No installment found for ${currentPeriodKey}, using first installment as fallback`)
+      // Use the first installment as fallback to ensure we always calculate fees
+      const fallbackInstallment = feeCalculation.installments[0];
+      if (!fallbackInstallment) {
+        console.error('❌ No installments found at all for fee calculation');
+        return null;
+      }
+      
+      // Create a calculated installment for the current period
+      const calculatedAmount = feeCalculation.totalAnnualFee / feeCalculation.installments.length;
+      
+      // Create a fallback installment
+      const fallback = {
+        period: currentPeriodKey,
+        name: `Calculated ${currentPeriodKey}`,
+        amount: calculatedAmount,
+        percentage: 100 / feeCalculation.installments.length,
+        dueDate: new Date().toISOString().split('T')[0], // Today as fallback
+        status: 'pending' as 'pending' | 'paid' | 'overdue',
+        description: `Calculated ${currentPeriodKey} fees`
+      };
+      
+      // Override with fallback
+      currentInstallment = fallback;
     }
     
     // Get student payments to calculate what's been paid for this semester
-    const { getStudentPayments } = await import('./firebase')
     const studentPayments = await getStudentPayments(studentId)
+    
+    // Also get wallet transactions for fee payments
+    const walletTransactionsQuery = query(
+      collection(db, 'wallet-transactions'),
+      where('studentId', '==', studentId),
+      where('type', 'in', ['fee_deduction', 'fee_payment']),
+      where('status', '==', 'completed')
+    );
+    const walletTransactionsSnapshot = await getDocs(walletTransactionsQuery);
     
     // Calculate paid amount for this specific semester
     let paidAmount = 0
-    studentPayments.forEach(payment => {
-      if (payment.status === 'verified' || payment.status === 'approved') {
+    
+    // Add payments from student-payments collection
+    studentPayments.forEach((payment: PaymentRecord) => {
+      // Include all verified/approved/completed/success payments
+            if (payment.status === 'verified') {
         // Check if payment applies to current semester
         if (payment.paymentPeriod === currentPeriodKey) {
-          paidAmount += payment.amount
+          paidAmount += payment.amount;
         } else if (payment.paymentFor?.includes(currentPeriodKey)) {
-          // Fallback check using paymentFor array
-          paidAmount += payment.amount
+          paidAmount += payment.amount;
+        } else if (!payment.paymentPeriod && !payment.paymentFor) {
+          // Default to current semester for legacy payments
+          paidAmount += payment.amount;
         }
       }
-    })
+    });
+
+    // Add payments from wallet transactions
+    walletTransactionsSnapshot.forEach(doc => {
+      const transaction = doc.data();
+      if (transaction.metadata?.paymentPeriod === currentPeriodKey) {
+        paidAmount += transaction.amount / 100; // Convert from pesewas to cedis
+      } else if (transaction.metadata?.paymentPeriod === undefined) {
+        // Include legacy wallet transactions
+        paidAmount += transaction.amount / 100;
+      }
+    });
     
     const balance = Math.max(0, currentInstallment.amount - paidAmount)
-    const status = balance <= 0 ? 'Paid' : 
+    const status = paidAmount >= currentInstallment.amount ? 'Paid' : 
                    new Date() > new Date(currentInstallment.dueDate) ? 'Overdue' : 'Not Paid'
     
-    console.log(`💰 Current ${programmeType} ${targetSemester.name} fees:`, {
+    console.log(`💰 Current ${programmeType} ${targetSemester?.name || 'Default'} fees:`, {
       amount: currentInstallment.amount,
       paid: paidAmount,
       balance: balance,
       status: status,
-      dueDate: currentInstallment.dueDate
+      dueDate: currentInstallment.dueDate,
+      academicYear: academicYear,
+      studentId: studentId
     })
     
     return {
       currentSemesterFees: currentInstallment.amount,
       paidAmount: paidAmount,
       balance: balance,
-      semesterName: targetSemester.name,
-      semesterNumber: targetSemester.number,
+      semesterName: targetSemester?.name || 'Current Semester',
+      semesterNumber: targetSemester?.number || '1',
       dueDate: currentInstallment.dueDate,
-      isCurrentPeriod: targetSemester.status === 'active',
+      isCurrentPeriod: targetSemester?.status === 'active' || false,
       status: status
     }
     
@@ -321,8 +390,8 @@ export async function shouldDisplayCurrentFees(programmeType: 'regular' | 'weeke
       ? academicPeriod.regularSemester 
       : academicPeriod.weekendSemester
     
-    // Display fees if there's an active semester for this programme type
-    return targetSemester?.status === 'active'
+    // Display fees if there's any semester found for this programme type
+    return !!targetSemester
     
   } catch (error) {
     console.error('❌ Error checking fee display status:', error)

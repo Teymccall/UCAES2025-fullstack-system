@@ -78,16 +78,20 @@ export default function ServicePaymentCallback() {
           )
 
           if (paymentSuccess) {
-            setPaymentStatus('success')
-            setPaymentData(verification.data)
-            
-            // Clear pending payment data
-            sessionStorage.removeItem('pendingServicePayment')
-            
+            // Show success message immediately
             toast({
               title: "Payment Successful!",
               description: `¢${(verification.data.amount / 100).toLocaleString()} payment completed successfully`,
             })
+            
+            // Add a short delay before updating UI state to prevent race conditions
+            setTimeout(() => {
+              setPaymentStatus('success')
+              setPaymentData(verification.data)
+              
+              // Clear pending payment data
+              sessionStorage.removeItem('pendingServicePayment')
+            }, 1000)
           } else {
             throw new Error('Failed to process payment')
           }

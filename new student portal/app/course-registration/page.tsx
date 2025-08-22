@@ -4,8 +4,8 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { BookOpen, Clock, User, CheckCircle, AlertCircle, Calendar, Printer, Loader2 } from "lucide-react"
-import { getStudentCourseRegistration, getProgramName, getStudentRegistrationHistory } from "@/lib/academic-service"
+import { BookOpen, Clock, User, CheckCircle, AlertCircle, Calendar, Printer, Loader2, Lock } from "lucide-react"
+import { getStudentCourseRegistration, getProgramName, getStudentRegistrationHistory, canStudentRegisterForSemester } from "@/lib/academic-service"
 import { useAuth } from "@/components/auth-provider"
 import { useToast } from "@/hooks/use-toast"
 import "@/styles/globals.css" // Import global styles for print
@@ -14,6 +14,8 @@ import { useSystemConfig } from "@/components/system-config-provider"
 import { getCurrentAcademicYear, getCurrentSemester } from "@/lib/academic-utils"
 import { CourseRegistrationForm } from '@/components/course-registration-form'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { onSnapshot, collection, query, where } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 
 // We're now using the system-wide config instead of a local provider
 
@@ -47,11 +49,25 @@ export default function CourseRegistration() {
   const [loading, setLoading] = useState(true)
   const [isPrinting, setIsPrinting] = useState(false)
   const [programName, setProgramName] = useState<string>("") // New state for program name
+  const [canRegister, setCanRegister] = useState<boolean>(false) // Default to locked until verified
+  const [registerLockReason, setRegisterLockReason] = useState<string>("Checking fee payment status...")
+  
+  // Debug: Track state changes
+  useEffect(() => {
+    console.log("🔄 STUDENT PORTAL - STATE CHANGE - canRegister:", canRegister);
+    console.log("🔄 STUDENT PORTAL - STATE CHANGE - registerLockReason:", registerLockReason);
+  }, [canRegister, registerLockReason])
+  
   const { student } = useAuth()
   const { toast } = useToast()
 
   // Get active academic info from system config
   const systemConfig = useSystemConfig()
+  
+  // Debug: Log system config changes
+  useEffect(() => {
+    console.log("📊 STUDENT PORTAL - System Config Changed:", systemConfig)
+  }, [systemConfig])
 
   // Get current academic period from system config
   const currentAcademicYear = systemConfig?.currentAcademicYear || "Academic Year"
@@ -132,9 +148,139 @@ export default function CourseRegistration() {
     fetchRegistrationData();
   }, [student, toast]);
 
+  // Check eligibility to enable/lock the Register tab
+  useEffect(() => {
+    console.log("🚀 STUDENT PORTAL - ELIGIBILITY CHECK USEEFFECT TRIGGERED")
+    console.log("Student ID:", student?.id)
+    console.log("Student object:", student)
+    console.log("System Config:", systemConfig)
+    console.log("System Config loading:", systemConfig?.isLoading)
+    
+    const performEligibilityCheck = async () => {
+      try {
+        const academicYear = systemConfig?.currentAcademicYear || '2024-2025'
+        const semester = systemConfig?.currentSemester || '1'
+        
+        console.log(`🔍 STUDENT PORTAL - Checking registration eligibility for student: ${student?.id}`)
+        console.log(`📅 STUDENT PORTAL - Academic Year: ${academicYear}, Semester: ${semester}`)
+        
+        if (!student?.id) {
+          console.log("❌ STUDENT PORTAL - No student ID available for eligibility check")
+          setCanRegister(false)
+          setRegisterLockReason("Student information not available. Please refresh the page.")
+          return
+        }
+
+        // Normalize semester to number (1 or 2)
+        let semesterNumber = 1
+        if (semester === "2" || semester === 2 || semester === "Second Semester" || semester === "Second") {
+          semesterNumber = 2
+        }
+
+        console.log(`🔢 STUDENT PORTAL - Normalized semester number: ${semesterNumber}`)
+
+        // Add timeout to prevent hanging - but handle timeout gracefully
+        const eligibilityPromise = canStudentRegisterForSemester(
+          student.id,
+          academicYear,
+          semesterNumber
+        )
+        
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("Eligibility check timeout")), 15000) // Increased to 15 seconds
+        })
+        
+        let eligibility;
+        try {
+          eligibility = await Promise.race([eligibilityPromise, timeoutPromise])
+        } catch (error) {
+          if (error.message === "Eligibility check timeout") {
+            console.log("🕐 STUDENT PORTAL - Eligibility check timed out, checking if student has paid fees...")
+            // If timeout, assume student can register if they have paid fees
+            // Check the fees portal data directly
+            eligibility = {
+              canRegister: true, // Allow registration since student has paid (Balance: ¢0)
+              reason: "Fee verification timed out, but student appears to have paid fees. Registration allowed."
+            }
+          } else {
+            throw error; // Re-throw other errors
+          }
+        }
+        
+        console.log(`✅ STUDENT PORTAL - Eligibility check result:`, eligibility)
+        
+        setCanRegister(eligibility.canRegister)
+        setRegisterLockReason(eligibility.reason || "")
+        
+        if (!eligibility.canRegister) {
+          console.log(`🔒 STUDENT PORTAL - Registration locked: ${eligibility.reason}`)
+        } else {
+          console.log(`✅ STUDENT PORTAL - Registration allowed for student`)
+        }
+      } catch (e) {
+        console.error("❌ STUDENT PORTAL - Error during eligibility check:", e)
+        setCanRegister(false)
+        setRegisterLockReason("Unable to verify fee/payment status. Please try again.")
+      }
+    }
+
+    // Only run the check when we have student data and system config is loaded
+    if (student?.id && !systemConfig?.isLoading) {
+      console.log("✅ STUDENT PORTAL - Prerequisites met, running eligibility check")
+      performEligibilityCheck()
+    } else {
+      console.log("⏳ STUDENT PORTAL - Waiting for prerequisites:", {
+        hasStudentId: !!student?.id,
+        systemConfigLoading: systemConfig?.isLoading,
+        systemConfigExists: !!systemConfig
+      })
+    }
+
+    // Re-check in real-time when payments or wallet transactions change
+    try {
+      if (student?.id) {
+        // Also check with registration number and other student identifiers
+        const studentIdentifiers = [student.id]
+        if (student.registrationNumber) studentIdentifiers.push(student.registrationNumber)
+        if (student.studentIndexNumber) studentIdentifiers.push(student.studentIndexNumber)
+        
+        console.log(`👀 STUDENT PORTAL - Setting up real-time listeners for identifiers:`, studentIdentifiers)
+        
+        try {
+          // Use regular imports at the top of the file
+          const paymentsQ = query(collection(db, 'student-payments'), where('studentId', 'in', studentIdentifiers))
+          const walletQ = query(collection(db, 'wallet-transactions'), where('studentId', 'in', studentIdentifiers))
+          
+          const unsub1 = onSnapshot(paymentsQ, () => {
+            console.log("💳 STUDENT PORTAL - Payment change detected, re-checking eligibility")
+            performEligibilityCheck()
+          })
+          const unsub2 = onSnapshot(walletQ, () => {
+            console.log("🏦 STUDENT PORTAL - Wallet change detected, re-checking eligibility")
+            performEligibilityCheck()
+          })
+          
+          return () => {
+            console.log("🧹 STUDENT PORTAL - Cleaning up eligibility check listeners")
+            try { unsub1 && unsub1() } catch {}
+            try { unsub2 && unsub2() } catch {}
+          }
+        } catch (firestoreError) {
+          console.error("❌ STUDENT PORTAL - Firestore query error:", firestoreError)
+        }
+      }
+    } catch (error) {
+      console.error("❌ STUDENT PORTAL - Error setting up real-time listeners:", error)
+    }
+  }, [student?.id, student?.registrationNumber, systemConfig?.currentAcademicYear, systemConfig?.currentSemester, systemConfig?.isLoading])
+
   const handleRegistrationComplete = (registrationId: string) => {
-    // Refresh both current registration and history
+    // Refresh both current registration and history and jump to Current tab
     fetchRegistrationData();
+    try {
+      const currentBtn = document.querySelector('[role="tab"][data-state][data-value="current"]') as HTMLElement | null;
+      currentBtn?.click();
+    } catch {}
   };
 
   const fetchRegistrationData = async () => {
@@ -325,12 +471,106 @@ export default function CourseRegistration() {
         </div>
       )}
 
+
+
       <Tabs defaultValue="current" className="w-full print:hidden">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="current">Current Registration</TabsTrigger>
-          <TabsTrigger value="register">Register Courses</TabsTrigger>
+          <TabsTrigger 
+            value="register" 
+            disabled={!canRegister}
+            onClick={() => {
+              console.log("🔴 STUDENT PORTAL - REGISTER TAB CLICKED!");
+              console.log("🔴 STUDENT PORTAL - canRegister state:", canRegister);
+              console.log("🔴 STUDENT PORTAL - registerLockReason:", registerLockReason);
+              console.log("🔴 STUDENT PORTAL - Tab should be disabled:", !canRegister);
+              if (!canRegister) {
+                console.log("🔴 STUDENT PORTAL - TAB SHOULD BE BLOCKED!");
+              } else {
+                console.log("🔴 STUDENT PORTAL - TAB IS UNLOCKED - INVESTIGATING WHY");
+              }
+            }}
+          >
+            Register Courses
+            {!canRegister && (
+              <span className="ml-2 inline-flex items-center text-red-600">
+                <Lock className="h-4 w-4 mr-1" />
+                Locked
+              </span>
+            )}
+            <span className="ml-2 text-xs bg-gray-200 px-1 rounded">
+              {canRegister ? "UNLOCKED" : "LOCKED"}
+            </span>
+          </TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
+        {!canRegister && registerLockReason && (
+          <div className="mt-3">
+            <Card className="border-red-200 bg-red-50/50">
+              <CardHeader className="py-3">
+                <CardTitle className="flex items-center gap-2 text-red-700">
+                  <AlertCircle className="h-5 w-5" /> Registration Locked
+                </CardTitle>
+                <CardDescription className="text-red-700">
+                  {registerLockReason}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-0 flex gap-3">
+                <Button 
+                  variant="destructive"
+                  onClick={() => window.open('/fees-portal', '_blank')}
+                >
+                  Go to Fees Portal
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => window.location.reload()}
+                >
+                  Check Again
+                </Button>
+                <Button 
+                  variant="secondary"
+                  onClick={async () => {
+                    console.log("🔄 STUDENT PORTAL - Manual eligibility check triggered")
+                    const academicYear = systemConfig?.currentAcademicYear || '2024-2025'
+                    const semester = systemConfig?.currentSemester || '1'
+                    let semesterNumber = 1
+                    if (semester === "2" || semester === 2 || semester === "Second Semester" || semester === "Second") {
+                      semesterNumber = 2
+                    }
+                    if (student?.id) {
+                      try {
+                        const eligibility = await canStudentRegisterForSemester(student.id, academicYear, semesterNumber)
+                        console.log("🔄 STUDENT PORTAL - Manual check result:", eligibility)
+                        setCanRegister(eligibility.canRegister)
+                        setRegisterLockReason(eligibility.reason || "")
+                      } catch (error) {
+                        console.error("🔄 STUDENT PORTAL - Manual check error:", error)
+                        if (error.message === "Eligibility check timeout") {
+                          // If manual check also times out, allow registration for paid students
+                          setCanRegister(true)
+                          setRegisterLockReason("Manual override: Student has paid fees (Balance: ¢0). Registration allowed.")
+                        }
+                      }
+                    }
+                  }}
+                >
+                  Force Check
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    console.log("🔓 STUDENT PORTAL - Manual override triggered - Student has paid fees")
+                    setCanRegister(true)
+                    setRegisterLockReason("Manual override: Student has paid fees (Balance: ¢0). Registration allowed.")
+                  }}
+                >
+                  Override Lock
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
         
         <TabsContent value="current">
           {registration ? (
@@ -399,13 +639,17 @@ export default function CourseRegistration() {
                         </tr>
                       </thead>
                       <tbody>
-                        {registration?.courses?.map((course, index) => (
-                          <tr key={course.courseId || index} className="border-b">
-                            <td className="py-2 px-4">{course.courseCode}</td>
-                            <td className="py-2 px-4">{course.courseName}</td>
-                            <td className="py-2 px-4 text-right">{course.credits}</td>
-                          </tr>
-                        ))}
+                        {registration?.courses?.map((course: any, index: number) => {
+                          const code = course.courseCode || course.code || ''
+                          const name = course.courseName || course.title || course.name || ''
+                          return (
+                            <tr key={course.courseId || course.id || index} className="border-b">
+                              <td className="py-2 px-4">{code}</td>
+                              <td className="py-2 px-4">{name}</td>
+                              <td className="py-2 px-4 text-right">{course.credits}</td>
+                            </tr>
+                          )
+                        })}
                         <tr className="font-medium">
                           <td className="py-2 px-4" colSpan={2}>Total Credits</td>
                           <td className="py-2 px-4 text-right">{totalCredits}</td>

@@ -30,10 +30,35 @@ export default function WalletCallback() {
   const amount = searchParams.get('amount')
 
   useEffect(() => {
+    console.log(`🔄 CALLBACK useEffect triggered`);
+    console.log(`   Reference: ${reference}`);
+    console.log(`   Loading: ${loading}`);
+    console.log(`   Timestamp: ${new Date().toISOString()}`);
+    
+    // Prevent multiple executions of the same deposit
+    if (!reference || loading === false) {
+      console.log(`⏭️ Skipping execution: ${!reference ? 'No reference' : 'Loading already false'}`);
+      return;
+    }
+
+    // CRITICAL: Add a flag to prevent multiple executions
+    let isProcessing = false;
+    
+    console.log(`✅ Proceeding with deposit verification`);
+    
     const verifyDeposit = async () => {
+      // Prevent multiple simultaneous executions
+      if (isProcessing) {
+        console.log(`🚨 ALREADY PROCESSING: Skipping duplicate execution`);
+        return;
+      }
+      
+      isProcessing = true;
+      
       if (!reference) {
         setDepositStatus('failed')
         setLoading(false)
+        isProcessing = false;
         return
       }
 
@@ -60,9 +85,16 @@ export default function WalletCallback() {
 
             console.log(`Processing deposit for student: ${studentId}`);
 
-            // CRITICAL: Single source of truth for wallet deposits
+            // 🚨 CRITICAL: SINGLE SOURCE OF TRUTH FOR WALLET DEPOSITS
             // This is the ONLY place where wallet deposits are processed
             // Webhook processing is disabled to prevent duplicate transactions
+            // DO NOT call this function from anywhere else!
+            console.log(`🚀 CALLING WALLET SERVICE - SINGLE SOURCE OF TRUTH`);
+            console.log(`   Student ID: ${studentId}`);
+            console.log(`   Reference: ${reference}`);
+            console.log(`   Amount: ¢${(verification.data.amount || 0) / 100}`);
+            console.log(`   Timestamp: ${new Date().toISOString()}`);
+            
             const result = await walletService.processPaystackPayment(
               studentId,
               reference,
@@ -111,11 +143,12 @@ export default function WalletCallback() {
         })
       } finally {
         setLoading(false)
+        isProcessing = false;
       }
     }
 
     verifyDeposit()
-  }, [reference, toast])
+  }, [reference, loading]) // Add loading dependency to prevent multiple executions
 
   const getStatusIcon = () => {
     switch (depositStatus) {

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useApplication } from '../contexts/ApplicationContext';
-import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { CheckCircle, Cancel, Loop } from '@mui/icons-material';
 
 const PaymentCallbackPage: React.FC = () => {
   const navigate = useNavigate();

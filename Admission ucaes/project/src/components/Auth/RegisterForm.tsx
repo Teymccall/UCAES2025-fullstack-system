@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { Eye, EyeOff, Loader2, User, Mail, Lock, UserCheck } from 'lucide-react';
+import { FiEye, FiEyeOff, FiLoader, FiUser, FiMail, FiLock, FiUserCheck } from 'react-icons/fi';
 import ucesLogo from '../../images/uceslogo.png';
 
 const RegisterForm: React.FC = () => {
@@ -70,7 +70,7 @@ const RegisterForm: React.FC = () => {
                 Full Name
               </label>
               <div className="inputForm">
-                <User className="h-5 w-5 text-gray-400" />
+                <FiUser className="h-5 w-5 text-gray-400" />
                 <input
                   id="name"
                   name="name"
@@ -90,7 +90,7 @@ const RegisterForm: React.FC = () => {
                 Email address
               </label>
               <div className="inputForm">
-                <Mail className="h-5 w-5 text-gray-400" />
+                <FiMail className="h-5 w-5 text-gray-400" />
                 <input
                   id="email"
                   name="email"
@@ -110,7 +110,7 @@ const RegisterForm: React.FC = () => {
                 Password
               </label>
               <div className="inputForm">
-                <Lock className="h-5 w-5 text-gray-400" />
+                <FiLock className="h-5 w-5 text-gray-400" />
                 <input
                   id="password"
                   name="password"
@@ -128,9 +128,9 @@ const RegisterForm: React.FC = () => {
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400" />
+                    <FiEyeOff className="h-5 w-5 text-gray-400" />
                   ) : (
-                    <Eye className="h-5 w-5 text-gray-400" />
+                    <FiEye className="h-5 w-5 text-gray-400" />
                   )}
                 </button>
               </div>
@@ -141,7 +141,7 @@ const RegisterForm: React.FC = () => {
                 Confirm Password
               </label>
               <div className="inputForm">
-                <UserCheck className="h-5 w-5 text-gray-400" />
+                <FiUserCheck className="h-5 w-5 text-gray-400" />
                 <input
                   id="confirmPassword"
                   name="confirmPassword"
@@ -159,9 +159,9 @@ const RegisterForm: React.FC = () => {
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
                   {showConfirmPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400" />
+                    <FiEyeOff className="h-5 w-5 text-gray-400" />
                   ) : (
-                    <Eye className="h-5 w-5 text-gray-400" />
+                    <FiEye className="h-5 w-5 text-gray-400" />
                   )}
                 </button>
               </div>
@@ -179,10 +179,10 @@ const RegisterForm: React.FC = () => {
               className="button-submit"
             >
               {isLoading ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
+                <FiLoader className="h-5 w-5 animate-spin" />
               ) : (
                 <>
-                  <UserCheck className="h-5 w-5 mr-2" />
+                  <FiUserCheck className="h-5 w-5 mr-2" />
                   Create Account
                 </>
               )}

@@ -99,9 +99,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = () => {
+    console.log('Logging out user...')
     setUser(null)
+    
+    // Clear all auth-related localStorage data
     localStorage.removeItem("ucaes_user")
+    localStorage.removeItem("selectedServices") // Clear any payment data
+    localStorage.removeItem("paymentReference") // Clear payment references
+    
+    // Force a page reload after navigation to clear any cached state
     router.push("/login")
+    
+    // Small delay to ensure navigation happens before reload
+    setTimeout(() => {
+      window.location.reload()
+    }, 100)
   }
 
   return <AuthContext.Provider value={{ user, login, logout, loading }}>{children}</AuthContext.Provider>

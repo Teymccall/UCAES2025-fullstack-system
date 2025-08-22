@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApplication } from '../../contexts/ApplicationContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { User, AlertCircle, CheckCircle, Upload, X, Camera } from 'lucide-react';
+import { Person, Warning, CheckCircle, Upload, Close, CameraAlt } from '@mui/icons-material';
 import { CloudinaryService } from '../../utils/cloudinaryService';
 
 const PersonalInfoForm: React.FC = () => {
@@ -254,7 +254,7 @@ const PersonalInfoForm: React.FC = () => {
       <div className="bg-white shadow-sm rounded-lg p-4 md:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4">
           <div className="flex items-center space-x-2 mb-2 sm:mb-0">
-            <User className="h-5 w-5 text-green-600" />
+            <Person className="h-5 w-5 text-green-600" />
             <h2 className="text-lg md:text-xl font-semibold text-gray-900">Personal Information</h2>
           </div>
           <div className="flex items-center space-x-2 text-xs md:text-sm">
@@ -312,7 +312,7 @@ const PersonalInfoForm: React.FC = () => {
               />
               {errors.firstName && (
                 <div className="flex items-center mt-1 text-sm text-red-600">
-                  <AlertCircle className="h-4 w-4 mr-1" />
+                  <Warning className="h-4 w-4 mr-1" />
                   {errors.firstName}
                 </div>
               )}
@@ -338,7 +338,7 @@ const PersonalInfoForm: React.FC = () => {
               />
               {errors.lastName && (
                 <div className="flex items-center mt-1 text-sm text-red-600">
-                  <AlertCircle className="h-4 w-4 mr-1" />
+                  <Warning className="h-4 w-4 mr-1" />
                   {errors.lastName}
                 </div>
               )}
@@ -364,7 +364,7 @@ const PersonalInfoForm: React.FC = () => {
               />
               {errors.dateOfBirth && (
                 <div className="flex items-center mt-1 text-sm text-red-600">
-                  <AlertCircle className="h-4 w-4 mr-1" />
+                  <Warning className="h-4 w-4 mr-1" />
                   {errors.dateOfBirth}
                 </div>
               )}
@@ -393,7 +393,7 @@ const PersonalInfoForm: React.FC = () => {
               </select>
               {errors.gender && (
                 <div className="flex items-center mt-1 text-sm text-red-600">
-                  <AlertCircle className="h-4 w-4 mr-1" />
+                  <Warning className="h-4 w-4 mr-1" />
                   {errors.gender}
                 </div>
               )}
@@ -465,7 +465,7 @@ const PersonalInfoForm: React.FC = () => {
                     onClick={removePhoto}
                     className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
                   >
-                    <X className="h-4 w-4" />
+                    <Close className="h-4 w-4" />
                   </button>
                 </div>
               )}
@@ -485,7 +485,7 @@ const PersonalInfoForm: React.FC = () => {
                     htmlFor="passportPhoto"
                     className="cursor-pointer flex flex-col items-center space-y-2"
                   >
-                    <Camera className="h-12 w-12 text-gray-400" />
+                    <CameraAlt className="h-12 w-12 text-gray-400" />
                     <div>
                       <p className="text-sm font-medium text-gray-700">
                         Click to upload passport photo
@@ -522,7 +522,7 @@ const PersonalInfoForm: React.FC = () => {
               {/* Error Message */}
               {errors.passportPhoto && (
                 <div className="flex items-center text-sm text-red-600">
-                  <AlertCircle className="h-4 w-4 mr-1" />
+                  <Warning className="h-4 w-4 mr-1" />
                   {errors.passportPhoto}
                 </div>
               )}

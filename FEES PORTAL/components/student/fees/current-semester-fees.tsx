@@ -5,56 +5,133 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Calendar, DollarSign, Clock, AlertTriangle, CheckCircle } from 'lucide-react'
-import { getCurrentSemesterFees, shouldDisplayCurrentFees } from '@/lib/academic-period-service'
+import { useToast } from '@/components/ui/use-toast'
+import { DollarSign, Calendar, Loader2, AlertTriangle } from 'lucide-react'
+import { getCurrentSemesterFees } from '@/lib/academic-period-service'
+import { walletService } from '@/lib/wallet-service'
 import { useAuth } from '@/lib/auth-context'
 
 interface CurrentSemesterFeesProps {
-  programmeType: 'regular' | 'weekend'
+  programmeType: string
   level: number
-  onPayNow?: () => void
 }
 
-export default function CurrentSemesterFees({ 
-  programmeType, 
-  level, 
-  onPayNow 
-}: CurrentSemesterFeesProps) {
-  const { user } = useAuth()
+export function CurrentSemesterFees({ programmeType, level }: CurrentSemesterFeesProps) {
   const [semesterFees, setSemesterFees] = useState<any>(null)
-  const [shouldDisplay, setShouldDisplay] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [processing, setProcessing] = useState(false)
+  const [walletBalance, setWalletBalance] = useState<number>(0)
+  const { user } = useAuth()
+  const { toast } = useToast()
+
+  const fetchCurrentSemesterFees = async () => {
+    if (!user?.studentId) return
+
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const fees = await getCurrentSemesterFees(
+        user.studentId,
+        programmeType,
+        level
+      )
+      
+      setSemesterFees(fees)
+    } catch (error) {
+      console.error('Error fetching semester fees:', error)
+      setError('Failed to load current semester fees. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchWalletBalance = async () => {
+    if (!user?.studentId) return
+    
+    try {
+      const balance = await walletService.getWalletBalance(user.studentId)
+      setWalletBalance(balance)
+    } catch (error) {
+      console.error('Error fetching wallet balance:', error)
+    }
+  }
+
+  const handleDirectPayment = async () => {
+    if (!semesterFees || semesterFees.balance <= 0 || !user?.studentId) return
+
+    try {
+      setProcessing(true)
+
+      // Check if wallet has sufficient balance
+      if (walletBalance < semesterFees.balance) {
+        toast({
+          title: "Insufficient Wallet Balance",
+          description: `Your wallet balance (¢${walletBalance.toLocaleString()}) is less than the amount due (¢${semesterFees.balance.toLocaleString()})`,
+          variant: "destructive"
+        })
+        setProcessing(false)
+        return
+      }
+
+      const amount = semesterFees.balance
+      const metadata = {
+        semester: semesterFees.semesterName,
+        paymentType: 'wallet',
+        paymentTimestamp: Date.now(),
+        transactionId: `fee-${user.studentId}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+      }
+      
+      const description = `Fee payment for ${semesterFees.semesterName}`
+      
+      const success = await walletService.processFeePayment(
+        user.studentId,
+        amount,
+        description,
+        metadata
+      )
+      
+      if (success) {
+        toast({
+          title: "Payment Successful!",
+          description: `Payment of ¢${semesterFees.balance.toLocaleString()} has been processed from your wallet`,
+        })
+        
+        setTimeout(() => {
+          fetchCurrentSemesterFees()
+          setTimeout(() => {
+            fetchWalletBalance()
+          }, 500)
+        }, 1000)
+      } else {
+        toast({
+          title: "Payment Failed",
+          description: "There was an error processing your payment. Please try again.",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error('Error processing direct payment:', error)
+      toast({
+        title: "Payment Error",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive"
+      })
+    } finally {
+      setProcessing(false)
+    }
+  }
 
   useEffect(() => {
-    async function fetchCurrentSemesterFees() {
-      if (!user?.studentId) return
-
-      try {
-        setLoading(true)
-        setError(null)
-
-        // Check if we should display current fees
-        const displayFees = await shouldDisplayCurrentFees(programmeType)
-        setShouldDisplay(displayFees)
-
-        if (displayFees) {
-          // Get current semester fees
-          const fees = await getCurrentSemesterFees(user.studentId, programmeType, level)
-          setSemesterFees(fees)
-          
-          console.log('📊 Current semester fees loaded:', fees)
-        }
-      } catch (err) {
-        console.error('❌ Error fetching current semester fees:', err)
-        setError('Failed to load current semester fees')
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchCurrentSemesterFees()
   }, [user?.studentId, programmeType, level])
+  
+  useEffect(() => {
+    if (user?.studentId) {
+      fetchWalletBalance()
+    }
+  }, [user?.studentId])
 
   if (loading) {
     return (
@@ -80,7 +157,7 @@ export default function CurrentSemesterFees({
     )
   }
 
-  if (!shouldDisplay || !semesterFees) {
+  if (!semesterFees) {
     return (
       <Card className="border-l-4 border-l-gray-300">
         <CardContent className="p-4 sm:p-6">
@@ -100,7 +177,7 @@ export default function CurrentSemesterFees({
 
   const isOverdue = semesterFees.dueDate && new Date() > new Date(semesterFees.dueDate)
   const isDueSoon = semesterFees.dueDate && 
-    new Date(semesterFees.dueDate).getTime() - new Date().getTime() < (7 * 24 * 60 * 60 * 1000) // 7 days
+    new Date(semesterFees.dueDate).getTime() - new Date().getTime() < (7 * 24 * 60 * 60 * 1000)
 
   return (
     <Card className={`border-l-4 ${
@@ -124,117 +201,64 @@ export default function CurrentSemesterFees({
       </CardHeader>
       
       <CardContent className="space-y-4">
-        {/* Fee Amount */}
-        <div className="text-center py-4 bg-white rounded-lg border">
+        <div className="text-center py-2">
           <p className="text-sm text-gray-600 mb-1">
             {semesterFees.balance > 0 ? 'Amount Due' : 'Semester Fees'}
           </p>
-          <p className="text-3xl font-bold text-gray-900">
+          <p className="text-2xl font-bold text-gray-900">
             ¢{(semesterFees.balance > 0 ? semesterFees.balance : semesterFees.currentSemesterFees).toLocaleString()}
           </p>
-          {semesterFees.paidAmount > 0 && (
-            <div className="mt-2 text-sm">
-              <p className="text-green-600">Paid: ¢{semesterFees.paidAmount.toLocaleString()}</p>
-              {semesterFees.balance > 0 && (
-                <p className="text-gray-600">of ¢{semesterFees.currentSemesterFees.toLocaleString()} total</p>
-              )}
-            </div>
-          )}
+        </div>
+        
+        <div className="flex justify-between items-center text-sm">
+          <span className="text-gray-600">Paid:</span>
+          <span className="font-medium text-green-600">¢{semesterFees.paidAmount.toLocaleString()}</span>
+        </div>
+        <div className="flex justify-between items-center text-sm">
+          <span className="text-gray-600">Balance:</span>
+          <span className="font-medium text-red-600">¢{semesterFees.balance.toLocaleString()}</span>
         </div>
 
-        {/* Due Date Information */}
-        <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
-          <div className="flex items-center gap-2">
-            <Clock className={`h-4 w-4 ${
-              isOverdue ? 'text-red-500' : isDueSoon ? 'text-yellow-500' : 'text-green-500'
-            }`} />
-            <div>
-              <p className="text-sm font-medium">Due Date</p>
-              <p className="text-xs text-gray-600">
-                {new Date(semesterFees.dueDate).toLocaleDateString('en-GB', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
-              </p>
-            </div>
-          </div>
-          
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-gray-600">Due:</span>
+          <span className="font-medium">
+            {new Date(semesterFees.dueDate).toLocaleDateString('en-GB')}
+          </span>
+        </div>
+
+        <div className="text-center">
           {semesterFees.status === 'Paid' ? (
-            <Badge variant="default" className="text-xs bg-green-100 text-green-800">
-              <CheckCircle className="h-3 w-3 mr-1" />
-              PAID
-            </Badge>
+            <Badge className="bg-green-100 text-green-800">PAID</Badge>
           ) : isOverdue ? (
-            <Badge variant="destructive" className="text-xs">
-              <AlertTriangle className="h-3 w-3 mr-1" />
-              OVERDUE
-            </Badge>
+            <Badge variant="destructive">OVERDUE</Badge>
           ) : isDueSoon ? (
-            <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-700">
-              <Clock className="h-3 w-3 mr-1" />
-              DUE SOON
-            </Badge>
+            <Badge variant="outline" className="border-yellow-500 text-yellow-700">DUE SOON</Badge>
           ) : (
-            <Badge variant="default" className="text-xs bg-blue-100 text-blue-800">
-              <CheckCircle className="h-3 w-3 mr-1" />
-              ON TIME
-            </Badge>
+            <Badge variant="default">PENDING</Badge>
           )}
         </div>
 
-        {/* Payment Status Alert */}
-        {semesterFees.status === 'Paid' ? (
-          <Alert className="border-green-200 bg-green-50">
-            <CheckCircle className="h-4 w-4 text-green-600" />
-            <AlertDescription className="text-green-800">
-              <strong>Payment Complete!</strong> You have successfully paid this semester's fees. 
-              Thank you for your timely payment.
-            </AlertDescription>
-          </Alert>
-        ) : isOverdue ? (
-          <Alert className="border-red-200 bg-red-50">
-            <AlertTriangle className="h-4 w-4 text-red-600" />
-            <AlertDescription className="text-red-800">
-              <strong>Payment Overdue!</strong> This fee was due on {' '}
-              {new Date(semesterFees.dueDate).toLocaleDateString('en-GB')}. 
-              Please make payment immediately to avoid penalties.
-            </AlertDescription>
-          </Alert>
-        ) : isDueSoon ? (
-          <Alert className="border-yellow-200 bg-yellow-50">
-            <Clock className="h-4 w-4 text-yellow-600" />
-            <AlertDescription className="text-yellow-800">
-              <strong>Payment Due Soon!</strong> This fee is due in less than 7 days. 
-              Pay now to avoid late penalties.
-            </AlertDescription>
-          </Alert>
-        ) : null}
-
-        {/* Action Button */}
         {semesterFees.status !== 'Paid' && (
-          <Button 
-            onClick={onPayNow}
-            className={`w-full ${
-              isOverdue ? 'bg-red-600 hover:bg-red-700' : 
-              isDueSoon ? 'bg-yellow-600 hover:bg-yellow-700' :
-              'bg-green-600 hover:bg-green-700'
-            }`}
-            size="lg"
-          >
-            <DollarSign className="h-4 w-4 mr-2" />
-            Pay {semesterFees.semesterName} {semesterFees.balance > 0 ? 'Balance' : 'Fees'} Now
-          </Button>
+          <div className="space-y-2">
+            <Button 
+              className="w-full bg-blue-600 hover:bg-blue-700"
+              onClick={handleDirectPayment}
+              disabled={processing}
+              size="sm"
+            >
+              {processing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...
+                </>
+              ) : (
+                <>
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  Pay Now
+                </>
+              )}
+            </Button>
+          </div>
         )}
-
-        {/* Additional Info */}
-        <div className="text-center pt-2">
-          <p className="text-xs text-gray-500">
-            This amount is automatically determined by the current academic semester 
-            set by Academic Affairs for {programmeType} students.
-          </p>
-        </div>
       </CardContent>
     </Card>
   )

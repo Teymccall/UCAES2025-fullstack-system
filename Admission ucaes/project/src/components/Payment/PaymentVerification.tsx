@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useApplication } from '../../contexts/ApplicationContext';
 import { paystackService } from '../../utils/paystackService';
-import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { CheckCircle, Warning, Loop } from '@mui/icons-material';
 
 interface PaymentVerificationProps {
   reference: string;
@@ -72,7 +72,7 @@ const PaymentVerification: React.FC<PaymentVerificationProps> = ({
   if (status === 'verifying') {
     return (
       <div className="flex flex-col items-center justify-center p-8">
-        <Loader2 className="h-12 w-12 text-blue-600 animate-spin mb-4" />
+        <Loop className="h-12 w-12 text-blue-600 animate-spin mb-4" />
         <h3 className="text-lg font-medium text-gray-900 mb-2">
           Verifying Payment...
         </h3>
@@ -102,7 +102,7 @@ const PaymentVerification: React.FC<PaymentVerificationProps> = ({
 
   return (
     <div className="flex flex-col items-center justify-center p-8">
-      <AlertCircle className="h-12 w-12 text-red-600 mb-4" />
+      <Warning className="h-12 w-12 text-red-600 mb-4" />
       <h3 className="text-lg font-medium text-gray-900 mb-2">
         Payment Verification Failed
       </h3>

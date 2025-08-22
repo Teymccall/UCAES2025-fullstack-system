@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApplication } from '../../contexts/ApplicationContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { GraduationCap, Plus, Trash2, Upload, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { School, Add, Delete, Upload, Loop, CheckCircle, Warning } from '@mui/icons-material';
 import CloudinaryService from '../../utils/cloudinaryService';
 
 const AcademicBackgroundForm: React.FC = () => {
@@ -244,7 +244,7 @@ const AcademicBackgroundForm: React.FC = () => {
     <div className="max-w-2xl mx-auto">
       <div className="bg-white shadow-sm rounded-lg p-6">
         <div className="flex items-center space-x-2 mb-6">
-          <GraduationCap className="h-6 w-6 text-green-600" />
+          <School className="h-6 w-6 text-green-600" />
           <h2 className="text-xl font-semibold text-gray-900">Academic Background</h2>
         </div>
 
@@ -471,7 +471,7 @@ const AcademicBackgroundForm: React.FC = () => {
                 {validateSubjects() ? (
                   <CheckCircle className="h-5 w-5 mr-2" />
                 ) : (
-                  <AlertCircle className="h-5 w-5 mr-2" />
+                  <Warning className="h-5 w-5 mr-2" />
                 )}
                 <span className="text-sm font-medium">
                   {validateSubjects() 
@@ -495,9 +495,9 @@ const AcademicBackgroundForm: React.FC = () => {
             }`}>
               <div className="space-y-1 text-center">
                 {uploadStatus === 'uploading' ? (
-                  <Loader2 className="mx-auto h-12 w-12 text-blue-600 animate-spin" />
+                  <Loop className="mx-auto h-12 w-12 text-blue-600 animate-spin" />
                 ) : uploadStatus === 'error' ? (
-                  <AlertCircle className="mx-auto h-12 w-12 text-red-600" />
+                  <Warning className="mx-auto h-12 w-12 text-red-600" />
                 ) : uploadStatus === 'success' ? (
                   <CheckCircle className="mx-auto h-12 w-12 text-green-600" />
                 ) : (

@@ -74,6 +74,8 @@ export function CourseRegistrationForm({
   const [canRegister, setCanRegister] = useState<boolean>(true)
   const [registrationRestriction, setRegistrationRestriction] = useState<string>("")
   const [existingRegistration, setExistingRegistration] = useState<any>(null)
+  const [feeBalance, setFeeBalance] = useState<number>(0)
+  const [showFeePaymentAlert, setShowFeePaymentAlert] = useState<boolean>(false)
 
   // Enhanced filtering states
   const [searchTerm, setSearchTerm] = useState("")
@@ -85,6 +87,15 @@ export function CourseRegistrationForm({
     if (user && academicYear && semester) {
       checkRegistrationEligibility();
       loadAvailableCourses();
+    } else {
+      console.warn('[CourseRegistrationForm] Skipping load: prerequisites missing', {
+        hasUser: Boolean(user),
+        academicYear,
+        semester,
+      });
+      // Avoid indefinite spinner when prerequisites are not ready
+      setLoading(false);
+      if (!user) setError('User not authenticated');
     }
   }, [user, academicYear, semester]);
 
@@ -101,6 +112,20 @@ export function CourseRegistrationForm({
       setCanRegister(eligibility.canRegister);
       setRegistrationRestriction(eligibility.reason || "");
       setExistingRegistration(eligibility.existingRegistration);
+      
+      // Check if the restriction is due to unpaid fees
+      if (eligibility.reason && eligibility.reason.includes("Fees must be paid")) {
+        setShowFeePaymentAlert(true);
+        
+        // Extract fee balance from the reason message if possible
+        const balanceMatch = eligibility.reason.match(/¢([\d,]+)/);
+        if (balanceMatch) {
+          setFeeBalance(parseInt(balanceMatch[1].replace(/,/g, '')));
+        }
+      } else {
+        setShowFeePaymentAlert(false);
+        setFeeBalance(0);
+      }
       
       if (!eligibility.canRegister) {
         setError(eligibility.reason || "Registration not allowed");
@@ -464,8 +489,62 @@ export function CourseRegistrationForm({
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Fee Payment Alert */}
+          {showFeePaymentAlert && (
+            <Card className="mb-6 border-red-200 bg-red-50/50">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-red-700">
+                  <AlertCircle className="h-5 w-5" />
+                  Fees Payment Required
+                </CardTitle>
+                <CardDescription className="text-red-600">
+                  You must pay your semester fees before you can register for courses.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pb-4">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                    <div>
+                      <p className="font-medium text-gray-900">Outstanding Balance</p>
+                      <p className="text-sm text-gray-600">Current semester fees</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xl font-bold text-red-600">¢{feeBalance.toLocaleString()}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-3">
+                    <Button 
+                      variant="default" 
+                      className="bg-red-600 hover:bg-red-700 text-white"
+                      onClick={() => window.open('/fees-portal', '_blank')}
+                    >
+                      Pay Fees Now
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => window.location.reload()}
+                    >
+                      Check Again
+                    </Button>
+                  </div>
+                  
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <p><strong>How to pay:</strong></p>
+                    <ul className="list-disc list-inside ml-4 space-y-1">
+                      <li>Click "Pay Fees Now" to open the Fees Portal</li>
+                      <li>Complete your payment using available methods</li>
+                      <li>Return to this page and click "Check Again"</li>
+                      <li>Course registration will be automatically enabled</li>
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Registration Status Warning */}
-          {!canRegister && (
+          {!canRegister && !showFeePaymentAlert && (
             <Alert variant="destructive" className="mb-6">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ApplicationProvider } from './contexts/ApplicationContext';
 import { SystemConfigProvider } from './contexts/SystemConfigContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import './utils/debugUtils'; // Load debug utilities
 import LandingPage from './pages/LandingPage';
 import LoginForm from './components/Auth/LoginForm';
@@ -66,6 +67,10 @@ const AppContent: React.FC = () => {
 
   // If user is authenticated and on an auth page, redirect to dashboard
   if (user && isAuthPage) {
+    // Small delay to ensure all contexts are ready
+    setTimeout(() => {
+      console.log('🔄 Redirecting authenticated user to dashboard...');
+    }, 100);
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -182,13 +187,15 @@ const AppContent: React.FC = () => {
 
 function App() {
   return (
-    <Router>
-      <AuthProvider>
-        <SystemConfigProvider>
-          <AppContent />
-        </SystemConfigProvider>
-      </AuthProvider>
-    </Router>
+    <ErrorBoundary>
+      <Router>
+        <AuthProvider>
+          <SystemConfigProvider>
+            <AppContent />
+          </SystemConfigProvider>
+        </AuthProvider>
+      </Router>
+    </ErrorBoundary>
   );
 }
 

@@ -33,7 +33,7 @@ export function CourseRegistrationForm({
   currentAcademicYear: propAcademicYear, 
   currentSemester: propSemester 
 }: CourseRegistrationFormProps) {
-  const { user } = useAuth()
+  const { student } = useAuth()
   const { academicYear: systemAcademicYear, semester: systemSemester } = useSystemConfig()
   
   // Use props if provided, otherwise fall back to system config
@@ -50,35 +50,43 @@ export function CourseRegistrationForm({
   const [recentRegistration, setRecentRegistration] = useState<any>(null)
 
   useEffect(() => {
-    if (user && academicYear && semester) {
+    if (student && academicYear && semester) {
       loadAvailableCourses();
+    } else {
+      console.warn('[StudentPortal>CourseRegistrationForm] Skipping load: prerequisites missing', {
+        hasUser: Boolean(student),
+        academicYear,
+        semester,
+      });
+      setLoading(false);
+      if (!student) setError('User not authenticated');
     }
-  }, [user, academicYear, semester]);
+  }, [student, academicYear, semester]);
 
   const loadAvailableCourses = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      if (!user?.uid) {
+      if (!student?.id) {
         throw new Error("User not authenticated");
       }
 
-      console.log('🔍 Loading available courses for student:', user.uid);
-      console.log('Student data:', user);
+      console.log('🔍 Loading available courses for student:', student.id);
+      console.log('Student data:', student);
       console.log('System config - Year:', academicYear, 'Semester:', semester);
 
       // Get student's academic data to determine program and level
-      let studentProgramId = user.programId || '';
-      let studentLevel = user.currentLevel || 100;
+      let studentProgramId = (student as any).programId || '';
+      let studentLevel = student.currentLevel || 100;
 
       // If we don't have programId, try to get it from the student's program name
-      if (!studentProgramId && user.programme) {
-        console.log('No programId, attempting to resolve from program name:', user.programme);
+      if (!studentProgramId && student.programme) {
+        console.log('No programId, attempting to resolve from program name:', student.programme);
         
         // Import the helper function dynamically to avoid circular dependencies
         const { getProgramIdFromName } = await import('@/lib/academic-service');
-        studentProgramId = await getProgramIdFromName(user.programme) || '';
+        studentProgramId = await getProgramIdFromName(student.programme) || '';
         console.log('Resolved program ID:', studentProgramId);
       }
 
@@ -117,7 +125,7 @@ export function CourseRegistrationForm({
       }
 
       const availableCourses = await getAvailableCoursesForStudent(
-        user.uid,
+        student.id,
         studentProgramId,
         studentLevel,
         semesterNumber,
@@ -163,7 +171,7 @@ export function CourseRegistrationForm({
       const selectedCourseObjects = courses.filter(course => selectedCourses.has(course.id));
       
       const result = await registerStudentForCourses(
-        user!.uid,
+        student!.id,
         selectedCourseObjects,
         academicYear,
         semester,

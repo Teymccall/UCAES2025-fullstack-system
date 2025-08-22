@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApplication } from '../../contexts/ApplicationContext';
-import { User, GraduationCap, Briefcase, Clock, AlertCircle, CheckCircle } from 'lucide-react';
+import { Person, School, Work, Schedule, Warning, CheckCircle } from '@mui/icons-material';
 
 const MatureStudentSelection: React.FC = () => {
   const { applicationData, setMatureStudent, setCurrentStep } = useApplication();
@@ -100,7 +100,7 @@ const MatureStudentSelection: React.FC = () => {
               <div className={`p-3 rounded-full ${
                 selectedType === 'traditional' ? 'bg-green-100' : 'bg-gray-100'
               }`}>
-                <GraduationCap className={`h-8 w-8 ${
+                <School className={`h-8 w-8 ${
                   selectedType === 'traditional' ? 'text-green-600' : 'text-gray-600'
                 }`} />
               </div>
@@ -155,7 +155,7 @@ const MatureStudentSelection: React.FC = () => {
               <div className={`p-3 rounded-full ${
                 selectedType === 'mature' ? 'bg-blue-100' : 'bg-gray-100'
               }`}>
-                <Briefcase className={`h-8 w-8 ${
+                <Work className={`h-8 w-8 ${
                   selectedType === 'mature' ? 'text-blue-600' : 'text-gray-600'
                 }`} />
               </div>
@@ -202,7 +202,7 @@ const MatureStudentSelection: React.FC = () => {
         {showAgeWarning && (
           <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <div className="flex items-start space-x-3">
-              <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
+              <Warning className="h-5 w-5 text-yellow-600 mt-0.5" />
               <div>
                 <h4 className="font-medium text-yellow-900">Consider Mature Student Application</h4>
                 <p className="text-sm text-yellow-800 mt-1">

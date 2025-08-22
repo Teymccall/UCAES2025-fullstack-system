@@ -11,10 +11,14 @@ export interface PaymentData {
   email: string
   reference: string
   callbackUrl: string
+  channels?: string[]
   metadata: {
     studentId: string
     studentName: string
     paymentType: string
+    paymentMethod?: string
+    mobileNetwork?: string
+    phoneNumber?: string
     services: string[]
     academicYear?: string
     semester?: string

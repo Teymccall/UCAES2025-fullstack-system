@@ -10,7 +10,7 @@ import ProgramSelectionForm from './ProgramSelectionForm';
 import DocumentUploadForm from './DocumentUploadForm';
 import PaymentForm from './PaymentForm';
 import ApplicationSummary from './ApplicationSummary';
-import { CheckCircle, Circle } from 'lucide-react';
+import { FiCheckCircle, FiCircle } from 'react-icons/fi';
 
 const ApplicationWizard: React.FC = () => {
   const { currentStep, applicationData } = useApplication();
@@ -92,7 +92,7 @@ const ApplicationWizard: React.FC = () => {
                     }`}
                   >
                     {currentStep > step.id ? (
-                      <CheckCircle className="h-4 w-4 lg:h-5 lg:w-5" />
+                      <FiCheckCircle className="h-4 w-4 lg:h-5 lg:w-5" />
                     ) : (
                       <span className="text-xs lg:text-sm font-medium">{step.id}</span>
                     )}

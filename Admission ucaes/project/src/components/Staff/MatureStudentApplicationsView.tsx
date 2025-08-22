@@ -8,26 +8,7 @@ import {
   type ApplicationData,
   type MatureStudentInfo 
 } from '../../utils/firebaseApplicationService';
-import { 
-  Users, 
-  Briefcase, 
-  GraduationCap, 
-  Award, 
-  Heart, 
-  Search, 
-  Filter, 
-  Download, 
-  Eye, 
-  CheckCircle, 
-  XCircle, 
-  Clock,
-  AlertCircle,
-  FileText,
-  Calendar,
-  MapPin,
-  Phone,
-  Mail
-} from 'lucide-react';
+import { People, Work, School, EmojiEvents, Favorite, Search, FilterList, Download, Visibility, CheckCircle, Cancel, Schedule, Warning, Description, CalendarToday, LocationOn, Phone, Mail } from '@mui/icons-material';
 
 const MatureStudentApplicationsView: React.FC = () => {
   const [applications, setApplications] = useState<ApplicationData[]>([]);
@@ -121,11 +102,11 @@ const MatureStudentApplicationsView: React.FC = () => {
 
   const getEligibilityIcon = (type: string) => {
     switch (type) {
-      case 'age': return <Users className="h-4 w-4" />;
-      case 'work_experience': return <Briefcase className="h-4 w-4" />;
-      case 'professional_qualification': return <Award className="h-4 w-4" />;
-      case 'life_experience': return <Heart className="h-4 w-4" />;
-      default: return <GraduationCap className="h-4 w-4" />;
+      case 'age': return <People className="h-4 w-4" />;
+      case 'work_experience': return <Work className="h-4 w-4" />;
+      case 'professional_qualification': return <EmojiEvents className="h-4 w-4" />;
+      case 'life_experience': return <Favorite className="h-4 w-4" />;
+      default: return <School className="h-4 w-4" />;
     }
   };
 
@@ -147,7 +128,7 @@ const MatureStudentApplicationsView: React.FC = () => {
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600"
             >
-              <XCircle className="h-6 w-6" />
+              <Cancel className="h-6 w-6" />
             </button>
           </div>
         </div>
@@ -156,7 +137,7 @@ const MatureStudentApplicationsView: React.FC = () => {
           {/* Personal Information */}
           <div className="bg-gray-50 rounded-lg p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <Users className="h-5 w-5 mr-2" />
+              <People className="h-5 w-5 mr-2" />
               Personal Information
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -195,7 +176,7 @@ const MatureStudentApplicationsView: React.FC = () => {
                 <span>{application.contactInfo.phone}</span>
               </div>
               <div className="flex items-center">
-                <MapPin className="h-4 w-4 mr-2 text-gray-500" />
+                <LocationOn className="h-4 w-4 mr-2 text-gray-500" />
                 <span>{application.contactInfo.address}</span>
               </div>
             </div>
@@ -305,7 +286,7 @@ const MatureStudentApplicationsView: React.FC = () => {
           {/* Program Selection */}
           <div className="bg-purple-50 rounded-lg p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <GraduationCap className="h-5 w-5 mr-2" />
+              <School className="h-5 w-5 mr-2" />
               Program Selection
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -323,7 +304,7 @@ const MatureStudentApplicationsView: React.FC = () => {
           {/* Documents */}
           <div className="bg-yellow-50 rounded-lg p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <FileText className="h-5 w-5 mr-2" />
+              <Description className="h-5 w-5 mr-2" />
               Documents Submitted
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -337,7 +318,7 @@ const MatureStudentApplicationsView: React.FC = () => {
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:text-blue-800"
                   >
-                    <Eye className="h-4 w-4" />
+                    <Visibility className="h-4 w-4" />
                   </a>
                 </div>
               )}
@@ -356,7 +337,7 @@ const MatureStudentApplicationsView: React.FC = () => {
                         className="text-blue-600 hover:text-blue-800"
                         title={doc.name}
                       >
-                        <Eye className="h-4 w-4" />
+                        <Visibility className="h-4 w-4" />
                       </a>
                     ))}
                   </div>
@@ -376,7 +357,7 @@ const MatureStudentApplicationsView: React.FC = () => {
                         className="text-blue-600 hover:text-blue-800"
                         title={doc.name}
                       >
-                        <Eye className="h-4 w-4" />
+                        <Visibility className="h-4 w-4" />
                       </a>
                     ))}
                   </div>
@@ -396,7 +377,7 @@ const MatureStudentApplicationsView: React.FC = () => {
                         className="text-blue-600 hover:text-blue-800"
                         title={doc.name}
                       >
-                        <Eye className="h-4 w-4" />
+                        <Visibility className="h-4 w-4" />
                       </a>
                     ))}
                   </div>
@@ -462,7 +443,7 @@ const MatureStudentApplicationsView: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
-              <Users className="h-8 w-8 text-blue-600" />
+              <People className="h-8 w-8 text-blue-600" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Mature Students</p>
                 <p className="text-2xl font-bold text-gray-900">{statistics.mature}</p>
@@ -472,7 +453,7 @@ const MatureStudentApplicationsView: React.FC = () => {
 
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
-              <Briefcase className="h-8 w-8 text-green-600" />
+              <Work className="h-8 w-8 text-green-600" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Work Experience</p>
                 <p className="text-2xl font-bold text-gray-900">
@@ -484,7 +465,7 @@ const MatureStudentApplicationsView: React.FC = () => {
 
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
-              <Award className="h-8 w-8 text-purple-600" />
+              <EmojiEvents className="h-8 w-8 text-purple-600" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Professional Quals</p>
                 <p className="text-2xl font-bold text-gray-900">
@@ -496,7 +477,7 @@ const MatureStudentApplicationsView: React.FC = () => {
 
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
-              <Heart className="h-8 w-8 text-red-600" />
+              <Favorite className="h-8 w-8 text-red-600" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Need Support</p>
                 <p className="text-2xl font-bold text-gray-900">{statistics.needingSupport}</p>
@@ -655,7 +636,7 @@ const MatureStudentApplicationsView: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     {application.matureStudentInfo?.needsSupport ? (
                       <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                        <AlertCircle className="h-3 w-3 mr-1" />
+                        <Warning className="h-3 w-3 mr-1" />
                         Yes
                       </span>
                     ) : (
@@ -667,7 +648,7 @@ const MatureStudentApplicationsView: React.FC = () => {
                       onClick={() => setSelectedApplication(application)}
                       className="text-green-600 hover:text-green-900 mr-3"
                     >
-                      <Eye className="h-4 w-4" />
+                      <Visibility className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => handleStatusUpdate(application.id!, 'accepted')}
@@ -679,7 +660,7 @@ const MatureStudentApplicationsView: React.FC = () => {
                       onClick={() => handleStatusUpdate(application.id!, 'rejected')}
                       className="text-red-600 hover:text-red-900"
                     >
-                      <XCircle className="h-4 w-4" />
+                      <Cancel className="h-4 w-4" />
                     </button>
                   </td>
                 </tr>

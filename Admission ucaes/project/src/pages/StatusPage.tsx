@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CheckCircle, Clock, AlertCircle, Download, Eye, FileText, RefreshCw } from 'lucide-react';
+import { CheckCircle, Schedule, Warning, Download, Visibility, Description, Refresh } from '@mui/icons-material';
 import { useApplication } from '../contexts/ApplicationContext';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -20,12 +20,42 @@ const StatusPage: React.FC = () => {
     }
   };
 
+  // Helper function to safely format Firestore timestamps
+  const formatFirestoreDate = (timestamp: any): string => {
+    if (!timestamp) return 'Not available';
+    
+    try {
+      // Handle Firestore Timestamp objects
+      if (timestamp && typeof timestamp === 'object' && timestamp.toDate) {
+        return timestamp.toDate().toLocaleDateString();
+      }
+      // Handle Firestore Timestamp with seconds and nanoseconds
+      if (timestamp && typeof timestamp === 'object' && timestamp.seconds) {
+        return new Date(timestamp.seconds * 1000).toLocaleDateString();
+      }
+      // Handle string dates
+      if (typeof timestamp === 'string') {
+        const date = new Date(timestamp);
+        return isNaN(date.getTime()) ? 'Invalid Date' : date.toLocaleDateString();
+      }
+      // Handle JavaScript Date objects
+      if (timestamp instanceof Date) {
+        return isNaN(timestamp.getTime()) ? 'Invalid Date' : timestamp.toLocaleDateString();
+      }
+      
+      return 'Invalid Date';
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Invalid Date';
+    }
+  };
+
   // Get real application status data
   const applicationStatus = {
     id: user?.applicationId || applicationData?.applicationId || 'Not Generated',
     status: applicationData?.applicationStatus || 'draft',
-    submittedDate: applicationData?.submittedAt ? new Date(applicationData.submittedAt).toLocaleDateString() : 'Not submitted',
-    lastUpdated: applicationData?.updatedAt ? new Date(applicationData.updatedAt).toLocaleDateString() : 'Not updated',
+    submittedDate: formatFirestoreDate(applicationData?.submittedAt) || 'Not submitted',
+    lastUpdated: formatFirestoreDate(applicationData?.updatedAt) || 'Not updated',
     program: applicationData?.programSelection?.firstChoice || applicationData?.programSelection?.program || 'Not selected',
     level: applicationData?.programSelection?.level || 'Not selected',
     programType: applicationData?.programSelection?.programType || 'Not selected',
@@ -134,12 +164,12 @@ const StatusPage: React.FC = () => {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'draft': return <FileText className="h-5 w-5" />;
-      case 'submitted': return <FileText className="h-5 w-5" />;
-      case 'under_review': return <Clock className="h-5 w-5" />;
+      case 'draft': return <Description className="h-5 w-5" />;
+      case 'submitted': return <Description className="h-5 w-5" />;
+      case 'under_review': return <Schedule className="h-5 w-5" />;
       case 'accepted': return <CheckCircle className="h-5 w-5" />;
-      case 'rejected': return <AlertCircle className="h-5 w-5" />;
-      default: return <FileText className="h-5 w-5" />;
+      case 'rejected': return <Warning className="h-5 w-5" />;
+      default: return <Description className="h-5 w-5" />;
     }
   };
 
@@ -148,7 +178,7 @@ const StatusPage: React.FC = () => {
     return (
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-center p-8">
-          <RefreshCw className="h-8 w-8 animate-spin text-green-600" />
+          <Refresh className="h-8 w-8 animate-spin text-green-600" />
           <span className="ml-2 text-lg">Loading application status...</span>
         </div>
       </div>
@@ -167,7 +197,7 @@ const StatusPage: React.FC = () => {
           disabled={refreshing}
           className="inline-flex items-center px-4 py-2 border border-green-300 rounded-md shadow-sm bg-white text-sm font-medium text-green-700 hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
         >
-          <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+          <Refresh className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
           {refreshing ? 'Refreshing...' : 'Refresh Status'}
         </button>
       </div>
@@ -225,7 +255,7 @@ const StatusPage: React.FC = () => {
                 {item.completed ? (
                   <CheckCircle className="h-5 w-5 text-white" />
                 ) : item.current ? (
-                  <Clock className="h-5 w-5 text-white" />
+                  <Schedule className="h-5 w-5 text-white" />
                 ) : (
                   <div className="w-3 h-3 bg-white rounded-full"></div>
                 )}
@@ -290,7 +320,7 @@ const StatusPage: React.FC = () => {
                         onClick={() => window.open(doc.url, '_blank')}
                         className="text-green-600 hover:text-green-700 text-sm flex items-center"
                       >
-                        <Eye className="h-4 w-4 mr-1" />
+                        <Visibility className="h-4 w-4 mr-1" />
                         View
                       </button>
                     ) : (

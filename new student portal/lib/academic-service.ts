@@ -427,61 +427,94 @@ export async function getAvailableCoursesForStudent(
     console.log(`✅ Program found: ${programData.name}`);
     console.log(`Available levels:`, Object.keys(coursesPerLevel));
     
-    // Get courses for this level and semester
-    // FIXED: Use numeric keys (1, 2) instead of text keys to match Firebase structure
+    // Get courses for this level and semester with multiple key formats supported
     const levelKey = level.toString();
-    const semesterKey = semester.toString(); // Use "1" or "2" instead of "First Semester" / "Second Semester"
-    
-    console.log(`Looking for courses in: Level ${levelKey}, Semester ${semesterKey}`);
-    
-    if (coursesPerLevel[levelKey]) {
-      console.log(`Available semesters for level ${levelKey}:`, Object.keys(coursesPerLevel[levelKey]));
-    }
-    
-    if (!coursesPerLevel[levelKey] || !coursesPerLevel[levelKey][semesterKey]) {
-      console.log(`❌ No course structure found for Level ${levelKey}, Semester ${semesterKey}`);
+    const possibleSemesterKeys: string[] = [
+      semester.toString(),
+      semester === 1 ? 'First Semester' : semester === 2 ? 'Second Semester' : semester.toString(),
+      semester === 3 ? 'Third Trimester' : ''
+    ].filter(Boolean) as string[];
+
+    if (!coursesPerLevel[levelKey]) {
+      console.log(`❌ No course structure found for Level ${levelKey}`);
       return [];
     }
-    
-    const semesterData = coursesPerLevel[levelKey][semesterKey];
-    console.log(`✅ Semester data found:`, semesterData);
-    
-    // Get course codes from the semester data
-    const courseCodes = semesterData.all?.Regular || [];
-    console.log(`Found ${courseCodes.length} course codes:`, courseCodes);
-    
+
+    const availableSemesterKey = possibleSemesterKeys.find(key => coursesPerLevel[levelKey][key]);
+    if (!availableSemesterKey) {
+      console.log(`❌ No semester mapping found for keys ${JSON.stringify(possibleSemesterKeys)} at level ${levelKey}`);
+      return [];
+    }
+
+    const semesterData = coursesPerLevel[levelKey][availableSemesterKey];
+    console.log(`✅ Semester data found for key "${availableSemesterKey}":`, semesterData);
+
+    // Collect course codes from the mapping. Prefer explicit academicYear, then 'all', otherwise merge all years.
+    const collectedCodes = new Set<string>();
+    const collectFromModeMap = (modeMap: any) => {
+      if (!modeMap) return;
+      if (Array.isArray(modeMap)) {
+        modeMap.forEach((c: string) => collectedCodes.add(c));
+        return;
+      }
+      Object.values(modeMap).forEach((arr: any) => {
+        if (Array.isArray(arr)) {
+          arr.forEach((c: string) => collectedCodes.add(c));
+        }
+      });
+    };
+
+    if (semesterData.all) {
+      collectFromModeMap(semesterData.all);
+    }
+    if (academicYear && semesterData[academicYear]) {
+      collectFromModeMap(semesterData[academicYear]);
+    }
+    if (collectedCodes.size === 0) {
+      Object.keys(semesterData || {}).forEach((yearKey) => {
+        if (yearKey === 'all') return;
+        collectFromModeMap(semesterData[yearKey]);
+      });
+    }
+
+    const courseCodes = Array.from(collectedCodes);
+    console.log(`Found ${courseCodes.length} course codes after normalization:`, courseCodes);
+
     if (courseCodes.length === 0) {
-      console.log(`❌ No course codes found for Level ${levelKey}, Semester ${semesterKey}`);
+      console.log(`❌ No course codes resolved for Level ${levelKey}, Semester ${availableSemesterKey}`);
       return [];
     }
-    
-    // Get actual course details
-    const coursesQuery = query(
-      collection(db, "academic-courses"),
-      where("code", "in", courseCodes.slice(0, 10)) // Firestore 'in' query limit
-    );
-    
-    const coursesSnapshot = await getDocs(coursesQuery);
-    const availableCourses = coursesSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-    
-    console.log(`Retrieved ${availableCourses.length} courses from database`);
-    
-    // Check if student is already registered for any of these courses
-    const existingRegistration = await getStudentCourseRegistration(studentId, academicYear, semester);
-    const registeredCourseIds = existingRegistration?.courses?.map(c => c.id || c.courseId) || [];
-    
-    // Filter out already registered courses
-    const filteredCourses = availableCourses.filter(course => 
-      !registeredCourseIds.includes(course.id) && 
-      course.status === 'active'
-    );
-    
-    console.log(`Final filtered courses: ${filteredCourses.length} available for registration`);
-    
-    return filteredCourses;
+
+    // Fetch courses in batches of 10 for Firestore 'in' query limitation
+    const allCourses: any[] = [];
+    for (let i = 0; i < courseCodes.length; i += 10) {
+      const batch = courseCodes.slice(i, i + 10);
+      const q = query(
+        collection(db, "academic-courses"),
+        where("code", "in", batch)
+      );
+      const snapshot = await getDocs(q);
+      snapshot.docs.forEach(docSnap => allCourses.push({ id: docSnap.id, ...docSnap.data() }));
+    }
+
+    // Deduplicate by code
+    const seen = new Set<string>();
+    const availableCourses = allCourses.filter((c: any) => {
+      const code = c.code as string | undefined;
+      if (!code) return true;
+      if (seen.has(code)) return false;
+      seen.add(code);
+      return true;
+    });
+
+    console.log(`Retrieved ${availableCourses.length} courses from database after batching`);
+
+    // Remove courses already registered by the student this semester
+    const existingReg = await getStudentCourseRegistration(studentId, academicYear, semester.toString());
+    const registeredCourseIds = existingReg?.courses?.map((c: any) => c.id || c.courseId) || [];
+    const notAlreadyRegistered = availableCourses.filter((course: any) => !registeredCourseIds.includes(course.id));
+    console.log(`After removing already-registered courses: ${notAlreadyRegistered.length}`);
+    return notAlreadyRegistered;
   } catch (error) {
     console.error("Error getting available courses:", error);
     return [];
@@ -492,67 +525,356 @@ export async function registerStudentForCourses(
   studentId: string,
   courses: any[],
   academicYear: string,
-  semester: number,
+  semester: number | string,
   registrationType: 'student' | 'director' = 'student'
 ): Promise<{ success: boolean; registrationId?: string; error?: string }> {
   try {
     console.log(`Registering student ${studentId} for ${courses.length} courses`);
-    
-    // Get student information
-    const studentInfo = await getAcademicRecord(studentId);
-    if (!studentInfo) {
-      return { success: false, error: "Student not found" };
+
+    // Normalize semester to number
+    let semesterNumber: number = typeof semester === 'number' ? semester : 1;
+    if (typeof semester === 'string') {
+      const s = semester.trim();
+      if (s === '1' || /first/i.test(s)) semesterNumber = 1;
+      else if (s === '2' || /second/i.test(s)) semesterNumber = 2;
     }
-    
+
+    // Load student data from Firestore
+    let studentDocSnap = await getDoc(doc(db, 'student-registrations', studentId));
+    if (!studentDocSnap.exists()) {
+      studentDocSnap = await getDoc(doc(db, 'students', studentId));
+    }
+    if (!studentDocSnap.exists()) {
+      return { success: false, error: 'Student not found' };
+    }
+    const studentData = studentDocSnap.data() as any;
+
+    // Build minimal Student object for academic record helper
+    const studentObj: Student = {
+      id: studentId,
+      surname: studentData.surname || '',
+      otherNames: studentData.otherNames || '',
+      email: studentData.email || '',
+      dateOfBirth: studentData.dateOfBirth || '',
+      registrationNumber: studentData.registrationNumber,
+      studentIndexNumber: studentData.studentIndexNumber,
+      programme: studentData.programme,
+      currentLevel: studentData.currentLevel,
+      status: studentData.status,
+      profilePictureUrl: studentData.profilePictureUrl,
+    };
+
+    const studentInfo = await getAcademicRecord(studentObj);
+
+    // Resolve programId
+    let programId: string = studentData.programId || '';
+    if (!programId && studentData.programme) {
+      const { getProgramIdFromName } = await import('@/lib/academic-service');
+      programId = (await getProgramIdFromName(studentData.programme)) || '';
+    }
+
+    const levelNumber = parseInt((studentData.currentLevel || '').replace(/\D/g, '')) || studentInfo.currentLevelNumber || 100;
+
     // Validate course availability
     const availableCourses = await getAvailableCoursesForStudent(
       studentId,
-      studentInfo.programId,
-      studentInfo.currentLevel,
-      semester,
+      programId,
+      levelNumber,
+      semesterNumber,
       academicYear
     );
-    
-    const availableCourseIds = availableCourses.map(c => c.id);
+
+    const availableCourseIds = availableCourses.map((c: any) => c.id);
     const invalidCourses = courses.filter(course => !availableCourseIds.includes(course.id));
-    
     if (invalidCourses.length > 0) {
-      return { success: false, error: "Some courses are not available for registration" };
+      return { success: false, error: 'Some courses are not available for registration' };
     }
-    
+
     // Create registration document
     const registrationData = {
       studentId,
-      studentName: studentInfo.studentName,
+      studentName: `${studentData.surname || ''} ${studentData.otherNames || ''}`.trim(),
       registrationNumber: studentInfo.registrationNumber,
-      email: studentInfo.email,
-      programId: studentInfo.programId,
-      programName: studentInfo.programName,
-      level: studentInfo.currentLevel,
-      semester,
+      email: studentData.email,
+      programId,
+      program: programId,
+      programName: studentData.programme || studentInfo.programme,
+      level: studentInfo.currentLevel || `Level ${levelNumber}`,
+      semester: semesterNumber,
       academicYear,
-      courses: courses.map(course => ({
+      courses: courses.map((course: any) => ({
         id: course.id,
         code: course.code,
         title: course.title,
-        credits: course.credits
+        credits: course.credits,
+        courseId: course.id,
+        courseCode: course.code,
+        courseName: course.title,
       })),
-      totalCredits: courses.reduce((sum, course) => sum + (course.credits || 0), 0),
+      totalCredits: courses.reduce((sum: number, course: any) => sum + (course.credits || 0), 0),
       registrationDate: new Date(),
       registrationType,
-      status: 'active',
+      status: 'approved',
       createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
     };
-    
-    const registrationRef = await addDoc(collection(db, "course-registrations"), registrationData);
-    
+
+    const registrationRef = await addDoc(collection(db, 'course-registrations'), registrationData);
     console.log(`Successfully registered student for ${courses.length} courses`);
     return { success: true, registrationId: registrationRef.id };
+  } catch (error) {
+    console.error('Error registering student for courses:', error);
+    return { success: false, error: (error as any).message };
+  }
+}
+
+export async function canStudentRegisterForSemester(
+  studentId: string,
+  academicYear: string,
+  semester: number
+): Promise<{ canRegister: boolean; reason?: string; existingRegistration?: any }> {
+  try {
+    console.log(`🚀🚀🚀 STUDENT PORTAL - ELIGIBILITY CHECK FUNCTION CALLED! 🚀🚀🚀`);
+    console.log(`🚀 Student: ${studentId}`);
+    console.log(`🚀 Academic Year: ${academicYear}`);
+    console.log(`🚀 Semester: ${semester}`);
+    console.log(`🚀 This function should determine if registration is allowed`);
+    
+    // Check for existing registration for this semester
+    const existingRegistration = await getStudentCourseRegistration(studentId, academicYear, semester.toString());
+    
+    if (existingRegistration) {
+      console.log(`Student already has registration for ${academicYear} - Semester ${semester}`);
+      return {
+        canRegister: false,
+        reason: `You have already registered for courses in ${academicYear} - Semester ${semester}. You cannot register again until the next semester.`,
+        existingRegistration
+      };
+    }
+    
+    // Check if student has any pending registrations that need approval
+    const pendingRegistrations = await getStudentRegistrationHistory(studentId);
+    const hasPendingRegistration = pendingRegistrations.some((reg: any) => 
+      reg.status === 'pending' && 
+      reg.academicYear === academicYear && 
+      reg.semester === semester
+    );
+    
+    if (hasPendingRegistration) {
+      return {
+        canRegister: false,
+        reason: `You have a pending registration for ${academicYear} - Semester ${semester}. Please wait for approval before making changes.`
+      };
+    }
+
+    // Check if fees are paid for the current semester
+    try {
+      console.log(`💰 Checking fee payment status for student ${studentId}`);
+      console.log(`📅 Academic year: ${academicYear}, Semester: ${semester}`);
+      
+      // Get student info to determine programme type and level
+      // Try multiple collections in order of likelihood
+      let studentData: any | null = null;
+      let foundInCollection = '';
+      const tryCollections = [
+        "student-registrations",
+        "students",
+        "users"
+      ];
+      
+      console.log(`🔍 Looking for student ${studentId} in collections:`, tryCollections);
+      
+      for (const coll of tryCollections) {
+        try {
+          const snap = await getDoc(doc(db, coll, studentId));
+          if (snap.exists()) {
+            studentData = { id: studentId, ...snap.data() };
+            foundInCollection = coll;
+            console.log(`✅ Found student in ${coll}:`, {
+              name: `${studentData.surname || ''} ${studentData.otherNames || ''}`.trim(),
+              registrationNumber: studentData.registrationNumber,
+              programme: studentData.programme,
+              currentLevel: studentData.currentLevel,
+              programmeType: studentData.programmeType,
+              scheduleType: studentData.scheduleType
+            });
+            break;
+          }
+        } catch (error) {
+          console.log(`❌ Error checking ${coll}:`, error);
+        }
+      }
+
+      if (!studentData) {
+        console.log(`❌ Student ${studentId} not found in any collection`);
+        return {
+          canRegister: false,
+          reason: "Student information not found. Please contact support."
+        };
+      }
+
+      // Determine programme type (weekend vs regular)
+      const programmeType = (
+        studentData.programmeType === 'weekend' || 
+        studentData.scheduleType?.toLowerCase().includes('weekend') ||
+        studentData.programme?.toLowerCase().includes('weekend')
+      ) ? 'weekend' : 'regular';
+
+      // Extract level from currentLevel field (handles "Level 100", "100", etc.)
+      const levelStr = studentData.currentLevel || studentData.level || '100';
+      const level = parseInt(levelStr.replace(/\D/g, '')) || 100;
+      
+      console.log(`🎓 Student details:`, {
+        programmeType,
+        level,
+        foundIn: foundInCollection,
+        registrationNumber: studentData.registrationNumber,
+        studentIndexNumber: studentData.studentIndexNumber
+      });
+      
+      // Build alternative identifiers for payment lookups (registrationNumber, studentIndexNumber)
+      const altIds: string[] = [];
+      if (studentData.registrationNumber) altIds.push(studentData.registrationNumber);
+      if (studentData.studentIndexNumber) altIds.push(studentData.studentIndexNumber);
+
+      // Import the fee service dynamically to avoid circular dependencies
+      console.log(`⏱️ Starting fee service import...`);
+      const { getCurrentSemesterFees } = await import('../../FEES PORTAL/lib/academic-period-service');
+      console.log(`⏱️ Fee service imported successfully`);
+      
+      // Add timeout for the fee check itself
+      const feeCheckPromise = getCurrentSemesterFees(studentId, programmeType, level, altIds);
+      const feeTimeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Fee check timeout")), 8000) // 8 second timeout for fee check
+      });
+      
+      let semesterFees;
+      try {
+        console.log(`⏱️ Starting fee check with timeout...`);
+        semesterFees = await Promise.race([feeCheckPromise, feeTimeoutPromise]);
+        console.log(`⏱️ Fee check completed successfully`);
+      } catch (feeCheckError) {
+        if (feeCheckError.message === "Fee check timeout") {
+          console.log(`⏱️ Fee check timed out - providing override option`);
+          // If fee check times out, be conservative and assume fees are due
+          return {
+            canRegister: false,
+            reason: "Fee verification is taking too long. If you have paid your fees, please use the 'Override Lock' button below.",
+            feeDetails: {
+              balance: 1,
+              totalFees: 1,
+              paidAmount: 0,
+              programType: programmeType,
+              level: level,
+              semesterName: "Current Semester"
+            }
+          };
+        } else {
+          throw feeCheckError; // Re-throw other errors
+        }
+      }
+      
+      console.log(`💵 FEE CHECK DETAILED RESULT for student ${studentId}:`);
+      console.log(`💵 Semester Fees Object:`, semesterFees);
+      console.log(`💵 Balance Amount:`, semesterFees?.balance);
+      console.log(`💵 Has Fee Data:`, !!semesterFees);
+      console.log(`💵 Student Identifiers:`, {
+        studentId,
+        registrationNumber: studentData.registrationNumber,
+        studentIndexNumber: studentData.studentIndexNumber,
+        altIds
+      });
+      
+      // Let's also check if the fee service is working
+      if (!semesterFees) {
+        console.log(`🚨 CRITICAL: No semester fees returned - fee calculation failed!`);
+        console.log(`🚨 This means either:`);
+        console.log(`🚨 1. Fee calculation service is not working`);
+        console.log(`🚨 2. Student has no fee structure defined`);
+        console.log(`🚨 3. Academic year/semester mismatch`);
+      } else if (semesterFees.balance === undefined || semesterFees.balance === null) {
+        console.log(`🚨 CRITICAL: Balance is undefined/null!`);
+      } else if (semesterFees.balance === 0) {
+        console.log(`✅ FEES PAID: Balance is 0, student can register`);
+      } else if (semesterFees.balance > 0) {
+        console.log(`🔒 FEES UNPAID: Balance is ¢${semesterFees.balance}, registration should be blocked`);
+      }
+      
+      if (!semesterFees) {
+        // If no fee data is found, assume fees are required but not calculated yet
+        return {
+          canRegister: false,
+          reason: "Fee information not found. Please visit the Fees Portal to ensure your fees are calculated and paid.",
+          feeDetails: {
+            balance: 0,
+            totalFees: 0,
+            paidAmount: 0,
+            programType: programmeType,
+            level: level,
+            semesterName: "Current Semester"
+          }
+        };
+      }
+      
+      if (semesterFees.balance > 0) {
+        const unpaidAmount = semesterFees.balance.toLocaleString();
+        return {
+          canRegister: false,
+          reason: `Fees must be paid before course registration. You have an outstanding balance of ¢${unpaidAmount} for ${semesterFees.semesterName}. Please visit the Fees Portal to make payment.`,
+          feeDetails: {
+            balance: semesterFees.balance,
+            totalFees: semesterFees.totalFees,
+            paidAmount: semesterFees.paidAmount,
+            programType: programmeType,
+            level: level,
+            semesterName: semesterFees.semesterName
+          }
+        };
+      }
+      
+      // If balance is 0, fees are paid
+      console.log(`✅ Fees paid for ${academicYear} - Semester ${semester}. Balance: ¢${semesterFees.balance}`);
+      
+    } catch (feeError) {
+      console.error('❌ Error checking fee payment status:', feeError);
+      
+      // For students with unpaid fees, be strict about blocking registration
+      // But provide a clear path to resolution
+      return {
+        canRegister: false,
+        reason: "Fee payment verification failed. Please visit the Fees Portal to ensure your fees are paid, then try again. If you have already paid, please contact support.",
+        feeDetails: {
+          balance: 1000, // Assume there's a balance to be safe
+          totalFees: 1000,
+          paidAmount: 0,
+          programType: 'regular',
+          level: 100,
+          semesterName: "Current Semester"
+        }
+      };
+    }
+    
+    // Check if the registration period is open (you can add this logic based on your academic calendar)
+    const currentDate = new Date();
+    const academicYearStart = new Date(academicYear.split('/')[0], 8, 1); // September 1st
+    const academicYearEnd = new Date(academicYear.split('/')[1], 5, 31); // May 31st
+    
+    if (currentDate < academicYearStart || currentDate > academicYearEnd) {
+      return {
+        canRegister: false,
+        reason: `Registration is only open during the academic year ${academicYear}.`
+      };
+    }
+    
+    console.log(`Student can register for ${academicYear} - Semester ${semester}`);
+    return { canRegister: true };
     
   } catch (error) {
-    console.error("Error registering student for courses:", error);
-    return { success: false, error: error.message };
+    console.error("Error checking registration eligibility:", error);
+    return {
+      canRegister: false,
+      reason: "Unable to verify registration eligibility. Please contact support."
+    };
   }
 }
 

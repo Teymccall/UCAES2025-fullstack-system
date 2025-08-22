@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { LogOut, User, Menu, X } from 'lucide-react';
+import { FiLogOut, FiUser, FiMenu, FiX } from 'react-icons/fi';
 import ucesLogo from '../../images/uceslogo.png';
 
 interface HeaderProps {
@@ -21,7 +21,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                 onClick={onToggleSidebar}
                 className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
               >
-                <Menu className="h-5 w-5" />
+                <FiMenu className="h-5 w-5" />
               </button>
             )}
             <Link to="/" className="flex items-center space-x-2">
@@ -36,7 +36,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
           {user && (
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <User className="h-5 w-5 text-gray-600" />
+                <FiUser className="h-5 w-5 text-gray-600" />
                 <span className="text-sm text-gray-700">{user.name}</span>
                 <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
                   {user.role}
@@ -46,7 +46,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                 onClick={logout}
                 className="flex items-center space-x-1 text-red-600 hover:text-red-700"
               >
-                <LogOut className="h-4 w-4" />
+                <FiLogOut className="h-4 w-4" />
                 <span className="text-sm">Logout</span>
               </button>
             </div>

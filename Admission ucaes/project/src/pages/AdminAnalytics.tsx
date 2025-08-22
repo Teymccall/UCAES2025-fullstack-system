@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
-import { TrendingUp, Users, FileText, DollarSign, Calendar, Download } from 'lucide-react';
+import { 
+  TrendingUp, 
+  People, 
+  Description, 
+  AttachMoney, 
+  CalendarToday, 
+  Download,
+  Assessment,
+  Speed
+} from '@mui/icons-material';
 
 const AdminAnalytics: React.FC = () => {
   const [dateRange, setDateRange] = useState('last_30_days');
@@ -103,7 +112,7 @@ const AdminAnalytics: React.FC = () => {
               onClick={() => exportData('analytics')}
               className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center"
             >
-              <Download className="h-4 w-4 mr-2" />
+                              <Download className="h-4 w-4 mr-2" />
               Export
             </button>
           </div>
@@ -115,7 +124,7 @@ const AdminAnalytics: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <FileText className="h-8 w-8 text-blue-600" />
+                             <Description className="h-8 w-8 text-blue-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Applications</p>
@@ -128,7 +137,7 @@ const AdminAnalytics: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <DollarSign className="h-8 w-8 text-green-600" />
+                             <AttachMoney className="h-8 w-8 text-green-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Revenue</p>
@@ -154,7 +163,7 @@ const AdminAnalytics: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <Calendar className="h-8 w-8 text-orange-600" />
+              <CalendarToday className="h-8 w-8 text-orange-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Avg Processing</p>
@@ -167,7 +176,7 @@ const AdminAnalytics: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <Users className="h-8 w-8 text-blue-600" />
+              <People className="h-8 w-8 text-blue-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Satisfaction</p>
@@ -180,7 +189,7 @@ const AdminAnalytics: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <TrendingUp className="h-8 w-8 text-green-600" />
+              <Speed className="h-8 w-8 text-green-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Uptime</p>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BarChart3, Download, Calendar, Users, TrendingUp, FileText } from 'lucide-react';
+import { BarChart, Download, CalendarToday, People, TrendingUp, Description } from '@mui/icons-material';
 
 const StaffReports: React.FC = () => {
   const [selectedReport, setSelectedReport] = useState('overview');
@@ -94,7 +94,7 @@ const StaffReports: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <FileText className="h-8 w-8 text-blue-600" />
+              <Description className="h-8 w-8 text-blue-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Total Applications</p>
@@ -118,7 +118,7 @@ const StaffReports: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <Users className="h-8 w-8 text-green-600" />
+              <People className="h-8 w-8 text-green-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Approved</p>
@@ -130,7 +130,7 @@ const StaffReports: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <BarChart3 className="h-8 w-8 text-red-600" />
+              <BarChart className="h-8 w-8 text-red-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Rejected</p>
@@ -154,7 +154,7 @@ const StaffReports: React.FC = () => {
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <Calendar className="h-8 w-8 text-orange-600" />
+              <CalendarToday className="h-8 w-8 text-orange-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Avg Processing</p>
@@ -229,7 +229,7 @@ const StaffReports: React.FC = () => {
             onClick={() => generateReport('applications_summary')}
             className="p-4 border border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors"
           >
-            <FileText className="h-8 w-8 text-green-600 mx-auto mb-2" />
+            <Description className="h-8 w-8 text-green-600 mx-auto mb-2" />
             <div className="text-sm font-medium text-gray-900">Applications Summary</div>
             <div className="text-xs text-gray-600">Complete overview of all applications</div>
           </button>
@@ -238,7 +238,7 @@ const StaffReports: React.FC = () => {
             onClick={() => generateReport('admitted_students')}
             className="p-4 border border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors"
           >
-            <Users className="h-8 w-8 text-green-600 mx-auto mb-2" />
+            <People className="h-8 w-8 text-green-600 mx-auto mb-2" />
             <div className="text-sm font-medium text-gray-900">Admitted Students</div>
             <div className="text-xs text-gray-600">List of approved applicants</div>
           </button>
@@ -247,7 +247,7 @@ const StaffReports: React.FC = () => {
             onClick={() => generateReport('payment_report')}
             className="p-4 border border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors"
           >
-            <BarChart3 className="h-8 w-8 text-green-600 mx-auto mb-2" />
+            <BarChart className="h-8 w-8 text-green-600 mx-auto mb-2" />
             <div className="text-sm font-medium text-gray-900">Payment Report</div>
             <div className="text-xs text-gray-600">Financial summary and transactions</div>
           </button>

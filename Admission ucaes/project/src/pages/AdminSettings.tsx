@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Save, RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Save, Refresh, Warning, CheckCircle } from '@mui/icons-material';
 import { useSystemConfig } from '../contexts/SystemConfigContext';
 
 const AdminSettings: React.FC = () => {
@@ -86,11 +86,11 @@ const AdminSettings: React.FC = () => {
               disabled={isSaving}
               className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center disabled:opacity-50"
             >
-              {isSaving ? (
-                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4 mr-2" />
-              )}
+                             {isSaving ? (
+                 <Refresh className="h-4 w-4 mr-2 animate-spin" />
+               ) : (
+                 <Save className="h-4 w-4 mr-2" />
+               )}
               {isSaving ? 'Saving...' : 'Save Changes'}
             </button>
           )}
@@ -293,9 +293,9 @@ const AdminSettings: React.FC = () => {
               <h3 className="text-lg font-medium text-gray-900">Email Configuration</h3>
               
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <div className="flex">
-                  <AlertTriangle className="h-5 w-5 text-yellow-600" />
-                  <div className="ml-3">
+                                 <div className="flex">
+                   <Warning className="h-5 w-5 text-yellow-600 mr-2" />
+                   <div className="ml-1">
                     <h3 className="text-sm font-medium text-yellow-800">
                       Email Configuration
                     </h3>

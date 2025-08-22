@@ -11,7 +11,6 @@ import { useAuth } from "@/lib/auth-context"
 import { ProtectedRoute } from "@/components/auth/protected-route"
 import { PaymentDashboard } from "@/components/student/fees/payment-dashboard"
 import PaymentForm from "@/components/student/fees/payment-form"
-import PortalHeader from "@/components/shared/portal-header"
 import { PageLoader, CardLoader } from "@/components/ui/loader"
 
 function PaymentsContent() {
@@ -73,9 +72,6 @@ function PaymentsContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header Navigation */}
-      <PortalHeader currentPage="payments" />
-
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-2 sm:px-6 py-3 sm:py-8">
         {/* Page Header */}

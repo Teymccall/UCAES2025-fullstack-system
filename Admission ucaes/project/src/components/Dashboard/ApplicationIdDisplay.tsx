@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { Copy, CheckCircle } from 'lucide-react';
+import { FiCopy, FiCheckCircle } from 'react-icons/fi';
 import ucesLogo from '../../images/uceslogo.png';
 
 const ApplicationIdDisplay: React.FC = () => {
@@ -65,9 +65,9 @@ const ApplicationIdDisplay: React.FC = () => {
             title="Copy Application ID"
           >
             {copied ? (
-              <CheckCircle className="h-5 w-5 text-green-600" />
+              <FiCheckCircle className="h-5 w-5 text-green-600" />
             ) : (
-              <Copy className="h-5 w-5" />
+              <FiCopy className="h-5 w-5" />
             )}
           </button>
         </div>

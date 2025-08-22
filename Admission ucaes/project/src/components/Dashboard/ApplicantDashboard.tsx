@@ -5,18 +5,17 @@ import { useApplication } from '../../contexts/ApplicationContext';
 import ApplicationIdDisplay from './ApplicationIdDisplay';
 import { downloadApplication, downloadApplicationAsPDF } from '../../utils/applicationDownload';
 import { 
-  FileText, 
-  DollarSign, 
-  CheckCircle, 
-  Clock, 
-  AlertCircle,
-  Download,
-  User,
-  BookOpen,
-  RefreshCw,
-  Trash2,
-  FileDown
-} from 'lucide-react';
+  FiFileText, 
+  FiDollarSign, 
+  FiCheckCircle, 
+  FiClock, 
+  FiAlertCircle,
+  FiDownload,
+  FiUser,
+  FiBookOpen,
+  FiRefreshCw,
+  FiTrash2
+} from 'react-icons/fi';
 
 const ApplicantDashboard: React.FC = () => {
   const { user, clearLocalData } = useAuth();
@@ -47,11 +46,11 @@ const ApplicantDashboard: React.FC = () => {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'submitted': return <FileText className="h-5 w-5" />;
-      case 'under_review': return <Clock className="h-5 w-5" />;
-      case 'accepted': return <CheckCircle className="h-5 w-5" />;
-      case 'rejected': return <AlertCircle className="h-5 w-5" />;
-      default: return <FileText className="h-5 w-5" />;
+      case 'submitted': return <FiFileText className="h-5 w-5" />;
+      case 'under_review': return <FiClock className="h-5 w-5" />;
+      case 'accepted': return <FiCheckCircle className="h-5 w-5" />;
+      case 'rejected': return <FiAlertCircle className="h-5 w-5" />;
+      default: return <FiFileText className="h-5 w-5" />;
     }
   };
 
@@ -84,7 +83,7 @@ const ApplicantDashboard: React.FC = () => {
               className="flex items-center space-x-2 px-4 py-2 text-sm text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-md transition-colors"
               title="Reset Application Data"
             >
-              <RefreshCw className="h-4 w-4" />
+              <FiRefreshCw className="h-4 w-4" />
               <span>Reset Application</span>
             </button>
             <button
@@ -97,7 +96,7 @@ const ApplicantDashboard: React.FC = () => {
               className="flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors"
               title="Clear All Local Data"
             >
-              <Trash2 className="h-4 w-4" />
+              <FiTrash2 className="h-4 w-4" />
               <span>Clear All Data</span>
             </button>
           </div>
@@ -143,7 +142,7 @@ const ApplicantDashboard: React.FC = () => {
         >
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <FileText className="h-8 w-8 text-green-600" />
+                                <FiFileText className="h-8 w-8 text-green-600" />
             </div>
             <div className="ml-4">
               <h3 className="text-lg font-medium text-gray-900">My Application</h3>
@@ -158,7 +157,7 @@ const ApplicantDashboard: React.FC = () => {
         >
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <DollarSign className="h-8 w-8 text-green-600" />
+                                <FiDollarSign className="h-8 w-8 text-green-600" />
             </div>
             <div className="ml-4">
               <h3 className="text-lg font-medium text-gray-900">Payment</h3>
@@ -173,7 +172,7 @@ const ApplicantDashboard: React.FC = () => {
         >
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <CheckCircle className="h-8 w-8 text-green-600" />
+                                <FiCheckCircle className="h-8 w-8 text-green-600" />
             </div>
             <div className="ml-4">
               <h3 className="text-lg font-medium text-gray-900">Status</h3>
@@ -185,7 +184,7 @@ const ApplicantDashboard: React.FC = () => {
         <button className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow text-left">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <Download className="h-8 w-8 text-green-600" />
+                                <FiDownload className="h-8 w-8 text-green-600" />
             </div>
             <div className="ml-4">
               <h3 className="text-lg font-medium text-gray-900">Documents</h3>
@@ -205,7 +204,7 @@ const ApplicantDashboard: React.FC = () => {
             <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
               applicationStatus.status !== 'draft' ? 'bg-green-600' : 'bg-gray-300'
             }`}>
-              <CheckCircle className="h-5 w-5 text-white" />
+              <FiCheckCircle className="h-5 w-5 text-white" />
             </div>
             <div className="ml-4 flex-1">
               <h3 className="text-sm font-medium text-gray-900">Application Submitted</h3>
@@ -226,7 +225,7 @@ const ApplicantDashboard: React.FC = () => {
             <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
               applicationStatus.paymentStatus === 'paid' ? 'bg-green-600' : 'bg-gray-300'
             }`}>
-              <CheckCircle className="h-5 w-5 text-white" />
+              <FiCheckCircle className="h-5 w-5 text-white" />
             </div>
             <div className="ml-4 flex-1">
               <h3 className="text-sm font-medium text-gray-900">Payment Confirmed</h3>
@@ -248,7 +247,7 @@ const ApplicantDashboard: React.FC = () => {
               applicationStatus.status === 'under_review' ? 'bg-yellow-500' : 
               applicationStatus.status === 'accepted' || applicationStatus.status === 'rejected' ? 'bg-green-600' : 'bg-gray-300'
             }`}>
-              <Clock className="h-5 w-5 text-white" />
+              <FiClock className="h-5 w-5 text-white" />
             </div>
             <div className="ml-4 flex-1">
               <h3 className="text-sm font-medium text-gray-900">Under Review</h3>
@@ -274,7 +273,7 @@ const ApplicantDashboard: React.FC = () => {
               applicationStatus.status === 'accepted' ? 'bg-green-600' :
               applicationStatus.status === 'rejected' ? 'bg-red-600' : 'bg-gray-300'
             }`}>
-              <Clock className="h-5 w-5 text-white" />
+              <FiClock className="h-5 w-5 text-white" />
             </div>
             <div className="ml-4 flex-1">
               <h3 className="text-sm font-medium text-gray-900">Admission Decision</h3>
@@ -301,7 +300,7 @@ const ApplicantDashboard: React.FC = () => {
           <div className="space-y-3">
             {applicationStatus.status !== 'draft' && (
               <div className="flex items-start space-x-3">
-                <User className="h-5 w-5 text-gray-400 mt-0.5" />
+                <FiUser className="h-5 w-5 text-gray-400 mt-0.5" />
                 <div>
                   <p className="text-sm text-gray-900">Application submitted successfully</p>
                   <p className="text-xs text-gray-500">{applicationStatus.submissionDate}</p>
@@ -310,7 +309,7 @@ const ApplicantDashboard: React.FC = () => {
             )}
             {applicationStatus.paymentStatus === 'paid' && (
               <div className="flex items-start space-x-3">
-                <DollarSign className="h-5 w-5 text-gray-400 mt-0.5" />
+                <FiDollarSign className="h-5 w-5 text-gray-400 mt-0.5" />
                 <div>
                   <p className="text-sm text-gray-900">Payment of GHS 200 confirmed</p>
                   <p className="text-xs text-gray-500">{applicationStatus.submissionDate}</p>
@@ -319,7 +318,7 @@ const ApplicantDashboard: React.FC = () => {
             )}
             {applicationStatus.documentsVerified && (
               <div className="flex items-start space-x-3">
-                <FileText className="h-5 w-5 text-gray-400 mt-0.5" />
+                <FiFileText className="h-5 w-5 text-gray-400 mt-0.5" />
                 <div>
                   <p className="text-sm text-gray-900">Documents uploaded and verified</p>
                   <p className="text-xs text-gray-500">{applicationStatus.submissionDate}</p>
@@ -328,7 +327,7 @@ const ApplicantDashboard: React.FC = () => {
             )}
             {applicationStatus.status === 'draft' && (
               <div className="flex items-start space-x-3">
-                <FileText className="h-5 w-5 text-gray-400 mt-0.5" />
+                <FiFileText className="h-5 w-5 text-gray-400 mt-0.5" />
                 <div>
                   <p className="text-sm text-gray-900">Application draft created</p>
                   <p className="text-xs text-gray-500">Complete your application to proceed</p>
@@ -420,14 +419,14 @@ const ApplicantDashboard: React.FC = () => {
                 onClick={async () => await downloadApplication(applicationData)}
                 className="inline-flex items-center px-4 py-2 border border-green-600 text-sm font-medium rounded-md text-green-600 bg-white hover:bg-green-50 transition-colors"
               >
-                <Download className="h-4 w-4 mr-2" />
+                <FiDownload className="h-4 w-4 mr-2" />
                 Download as Text
               </button>
               <button
                 onClick={async () => await downloadApplicationAsPDF(applicationData)}
                 className="inline-flex items-center px-4 py-2 border border-green-600 text-sm font-medium rounded-md text-green-600 bg-white hover:bg-green-50 transition-colors"
               >
-                <FileDown className="h-4 w-4 mr-2" />
+                <FiFileDown className="h-4 w-4 mr-2" />
                 Download as PDF
               </button>
             </div>

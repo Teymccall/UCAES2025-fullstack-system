@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Mail, Phone, Download, Eye } from 'lucide-react';
+import { Search, Mail, Phone, Download, Visibility } from '@mui/icons-material';
 
 const StaffApplicants: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -196,7 +196,7 @@ const StaffApplicants: React.FC = () => {
 
             <div className="flex space-x-2">
               <button className="flex-1 bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700 text-sm flex items-center justify-center">
-                <Eye className="h-4 w-4 mr-1" />
+                                        <Visibility className="h-4 w-4 mr-1" />
                 View Details
               </button>
               <button className="bg-gray-100 text-gray-700 px-3 py-2 rounded-md hover:bg-gray-200 text-sm flex items-center justify-center">

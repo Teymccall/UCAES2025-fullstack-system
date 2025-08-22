@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, Plus, Edit2, Trash2, Clock, CheckCircle } from 'lucide-react';
+import { FiCalendar, FiPlus, FiEdit2, FiTrash2, FiClock, FiCheckCircle } from 'react-icons/fi';
 
 const AdminDeadlines: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
@@ -160,7 +160,7 @@ const AdminDeadlines: React.FC = () => {
             onClick={() => setShowAddModal(true)}
             className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center"
           >
-            <Plus className="h-4 w-4 mr-2" />
+                            <FiPlus className="h-4 w-4 mr-2" />
             Add Deadline
           </button>
         </div>
@@ -236,7 +236,7 @@ const AdminDeadlines: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+                        <FiCalendar className="h-4 w-4 text-gray-400 mr-2" />
                         <div>
                           <div className="text-sm text-gray-900">{deadline.date}</div>
                           <div className="text-sm text-gray-500">{deadline.time}</div>
@@ -258,7 +258,7 @@ const AdminDeadlines: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <Clock className="h-4 w-4 text-gray-400 mr-2" />
+                        <FiClock className="h-4 w-4 text-gray-400 mr-2" />
                         <span className={`text-sm font-medium ${daysUntil <= 7 ? 'text-red-600' : 'text-gray-600'}`}>
                           {daysUntil > 0 ? `${daysUntil} days` : 'Expired'}
                         </span>
@@ -270,13 +270,13 @@ const AdminDeadlines: React.FC = () => {
                           onClick={() => handleEditDeadline(deadline)}
                           className="text-blue-600 hover:text-blue-900"
                         >
-                          <Edit2 className="h-4 w-4" />
+                          <FiEdit2 className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleDeleteDeadline(deadline.id)}
                           className="text-red-600 hover:text-red-900"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <FiTrash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </td>

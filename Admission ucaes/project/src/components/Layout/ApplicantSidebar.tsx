@@ -1,13 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  Home, 
-  FileText, 
-  DollarSign,
-  CheckCircle,
-  Download,
-  X
-} from 'lucide-react';
+import { Home, Description, AttachMoney, CheckCircle, Download, Close } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { useApplication } from '../../contexts/ApplicationContext';
 
@@ -24,8 +17,8 @@ const ApplicantSidebar: React.FC<ApplicantSidebarProps> = ({ isOpen, onClose }) 
   // Base applicant menu items
   const baseApplicantMenuItems = [
     { icon: Home, label: 'Dashboard', path: '/dashboard' },
-    { icon: FileText, label: 'Application', path: '/application' },
-    { icon: DollarSign, label: 'Payment', path: '/payment' },
+    { icon: Description, label: 'Application', path: '/application' },
+    { icon: AttachMoney, label: 'Payment', path: '/payment' },
     { icon: CheckCircle, label: 'Status', path: '/status' }
   ];
 
@@ -60,7 +53,7 @@ const ApplicantSidebar: React.FC<ApplicantSidebarProps> = ({ isOpen, onClose }) 
               onClick={onClose}
               className="lg:hidden p-1 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
             >
-              <X className="h-5 w-5" />
+              <Close className="h-5 w-5" />
             </button>
           </div>
         </div>

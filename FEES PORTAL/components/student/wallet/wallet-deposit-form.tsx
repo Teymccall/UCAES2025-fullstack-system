@@ -37,15 +37,23 @@ export function WalletDepositForm({
 }: WalletDepositFormProps) {
   const [amount, setAmount] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('')
+  const [mobileNetwork, setMobileNetwork] = useState('')
+  const [phoneNumber, setPhoneNumber] = useState('')
   const [processing, setProcessing] = useState(false)
   const [depositInitialized, setDepositInitialized] = useState(false)
   const [depositReference, setDepositReference] = useState('')
   const { toast } = useToast()
 
   const paymentMethods = [
-    { id: 'card', label: 'Credit/Debit Card', icon: CreditCard, description: 'Visa, Mastercard, Verve' },
-    { id: 'bank', label: 'Bank Transfer', icon: Building, description: 'Direct bank transfer' },
-    { id: 'mobile-money', label: 'Mobile Money', icon: Smartphone, description: 'MTN, Vodafone, AirtelTigo' }
+    { id: 'card', label: 'Credit/Debit Card', icon: CreditCard, description: 'Visa, Mastercard, Verve via Paystack' },
+    { id: 'bank', label: 'Bank Transfer', icon: Building, description: 'Direct bank transfer via Paystack' },
+    { id: 'mobile-money', label: 'Mobile Money', icon: Smartphone, description: 'MTN, Telecel, Tigo via Paystack' }
+  ]
+
+  const mobileNetworks = [
+    { id: 'mtn', name: 'MTN' },
+    { id: 'telecel', name: 'Telecel' },
+    { id: 'tigo', name: 'Tigo' }
   ]
 
   const quickAmounts = [50, 100, 200, 500, 1000, 2000]
@@ -79,6 +87,38 @@ export function WalletDepositForm({
       return false
     }
 
+    // Validate mobile money specific fields
+    if (paymentMethod === 'mobile-money') {
+      if (!mobileNetwork) {
+        toast({
+          title: "Mobile Network Required",
+          description: "Please select your mobile network",
+          variant: "destructive"
+        })
+        return false
+      }
+
+      if (!phoneNumber || phoneNumber.length < 10) {
+        toast({
+          title: "Invalid Phone Number",
+          description: "Please enter a valid phone number (10 digits)",
+          variant: "destructive"
+        })
+        return false
+      }
+
+      // Simple validation - just check if it's a valid Ghanaian number format
+      const cleanPhone = phoneNumber.replace(/\D/g, '')
+      if (cleanPhone.length !== 10 || !cleanPhone.startsWith('0')) {
+        toast({
+          title: "Invalid Phone Number",
+          description: "Please enter a valid Ghanaian phone number (10 digits starting with 0)",
+          variant: "destructive"
+        })
+        return false
+      }
+    }
+
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!studentEmail || !emailRegex.test(studentEmail)) {
@@ -109,10 +149,16 @@ export function WalletDepositForm({
         email: studentEmail,
         reference: reference,
         callbackUrl: `${window.location.origin}/wallet/callback`,
+        channels: paymentMethod === 'card' ? ['card'] : 
+                paymentMethod === 'bank' ? ['bank'] :
+                paymentMethod === 'mobile-money' ? ['mobile_money'] : ['card', 'bank', 'mobile_money'],
         metadata: {
           studentId: studentId,
           studentName: studentName,
           paymentType: 'wallet_deposit',
+          paymentMethod: paymentMethod,
+          mobileNetwork: paymentMethod === 'mobile-money' ? mobileNetwork : undefined,
+          phoneNumber: paymentMethod === 'mobile-money' ? phoneNumber : undefined,
           services: ['Wallet Deposit'],
           academicYear: '2024/2025',
           semester: 'Current'
@@ -247,6 +293,61 @@ export function WalletDepositForm({
               ))}
             </div>
           </div>
+
+          {/* Mobile Money Network Selection */}
+          {paymentMethod === 'mobile-money' && (
+            <div className="space-y-3">
+              <Label>Select Mobile Network</Label>
+              <div className="grid grid-cols-1 gap-2">
+                {mobileNetworks.map((network) => (
+                  <button
+                    key={network.id}
+                    onClick={() => {
+                      setMobileNetwork(network.id)
+                      setPhoneNumber('') // Clear phone number when changing network
+                    }}
+                    className={`p-3 border rounded-lg text-left transition-colors ${
+                      mobileNetwork === network.id
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium">{network.name}</div>
+                      </div>
+                      <Smartphone className="w-5 h-5 text-blue-600" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Phone Number Input for Mobile Money */}
+          {paymentMethod === 'mobile-money' && mobileNetwork && (
+            <div className="space-y-3">
+              <Label htmlFor="phoneNumber">Phone Number</Label>
+              <Input
+                id="phoneNumber"
+                type="tel"
+                value={phoneNumber}
+                onChange={(e) => {
+                  // Only allow numbers and format
+                  const value = e.target.value.replace(/\D/g, '')
+                  if (value.length <= 10) {
+                    setPhoneNumber(value)
+                  }
+                }}
+                placeholder="0xxxxxxxxx"
+                className="text-lg font-medium"
+                maxLength={10}
+              />
+              <p className="text-sm text-gray-600">
+                Enter your {mobileNetworks.find(n => n.id === mobileNetwork)?.name} number
+              </p>
+            </div>
+          )}
 
           {/* Deposit Summary */}
           {amount && parseFloat(amount) > 0 && (

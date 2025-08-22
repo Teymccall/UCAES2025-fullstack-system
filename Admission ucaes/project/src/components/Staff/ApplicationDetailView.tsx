@@ -1,17 +1,5 @@
 import React from 'react';
-import { 
-  User, 
-  Phone, 
-  Mail, 
-  MapPin, 
-  GraduationCap, 
-  FileText, 
-  Calendar,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  Clock
-} from 'lucide-react';
+import { Person, Phone, Mail, LocationOn, School, Description, CalendarToday, AlertTriangle, CheckCircle, Cancel, Schedule } from '@mui/icons-material';
 import { ApplicationData } from '../../utils/firebaseApplicationService';
 
 interface ApplicationDetailViewProps {
@@ -114,7 +102,7 @@ const ApplicationDetailView: React.FC<ApplicationDetailViewProps> = ({
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600"
           >
-            <XCircle className="h-6 w-6" />
+            <Cancel className="h-6 w-6" />
           </button>
         </div>
 
@@ -145,7 +133,7 @@ const ApplicationDetailView: React.FC<ApplicationDetailViewProps> = ({
           {/* Personal Information */}
           <div className="bg-gray-50 rounded-lg p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <User className="h-5 w-5 mr-2" />
+              <Person className="h-5 w-5 mr-2" />
               Personal Information
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -196,7 +184,7 @@ const ApplicationDetailView: React.FC<ApplicationDetailViewProps> = ({
                 </div>
               </div>
               <div className="flex items-center">
-                <MapPin className="h-4 w-4 mr-2 text-gray-500" />
+                <LocationOn className="h-4 w-4 mr-2 text-gray-500" />
                 <div>
                   <p className="text-sm text-gray-600">Address</p>
                   <p className="font-medium">{safeDisplay(application.contactInfo?.address)}</p>
@@ -213,7 +201,7 @@ const ApplicationDetailView: React.FC<ApplicationDetailViewProps> = ({
           {/* Academic Background */}
           <div className="bg-green-50 rounded-lg p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <GraduationCap className="h-5 w-5 mr-2" />
+              <School className="h-5 w-5 mr-2" />
               Academic Background
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -253,7 +241,7 @@ const ApplicationDetailView: React.FC<ApplicationDetailViewProps> = ({
           {/* Program Selection */}
           <div className="bg-purple-50 rounded-lg p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <FileText className="h-5 w-5 mr-2" />
+              <Description className="h-5 w-5 mr-2" />
               Program Selection
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -283,12 +271,12 @@ const ApplicationDetailView: React.FC<ApplicationDetailViewProps> = ({
           {/* Application Timeline */}
           <div className="bg-yellow-50 rounded-lg p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <Calendar className="h-5 w-5 mr-2" />
+              <CalendarToday className="h-5 w-5 mr-2" />
               Application Timeline
             </h3>
             <div className="space-y-3">
               <div className="flex items-center">
-                <Clock className="h-4 w-4 text-gray-500 mr-2" />
+                <Schedule className="h-4 w-4 text-gray-500 mr-2" />
                 <div>
                   <p className="text-sm text-gray-600">Application Started</p>
                   <p className="font-medium">{safeDisplay(application.createdAt ? new Date(application.createdAt).toLocaleDateString() : null)}</p>
@@ -304,7 +292,7 @@ const ApplicationDetailView: React.FC<ApplicationDetailViewProps> = ({
                 </div>
               )}
               <div className="flex items-center">
-                <Clock className="h-4 w-4 text-gray-500 mr-2" />
+                <Schedule className="h-4 w-4 text-gray-500 mr-2" />
                 <div>
                   <p className="text-sm text-gray-600">Last Updated</p>
                   <p className="font-medium">{safeDisplay(application.updatedAt ? new Date(application.updatedAt).toLocaleDateString() : null)}</p>

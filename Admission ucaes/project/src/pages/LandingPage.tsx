@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, FileText, CheckCircle, ArrowRight, Unlock, Lock, Clock } from 'lucide-react';
+import { FiUsers, FiFileText, FiCheckCircle, FiArrowRight, FiUnlock, FiLock, FiClock } from 'react-icons/fi';
 import ucesLogo from '../images/uceslogo.png';
 import { useSystemConfig } from '../contexts/SystemConfigContext';
 
@@ -59,9 +59,9 @@ const LandingPage: React.FC = () => {
                   admissionInfo.isOpen ? 'bg-green-500' : 'bg-red-500'
                 } bg-opacity-20 rounded-full flex items-center justify-center`}>
                   {admissionInfo.isOpen ? (
-                    <Unlock className="w-5 h-5 text-white" />
+                    <FiUnlock className="w-5 h-5 text-white" />
                   ) : (
-                    <Lock className="w-5 h-5 text-white" />
+                    <FiLock className="w-5 h-5 text-white" />
                   )}
                 </div>
                 <div>
@@ -95,7 +95,7 @@ const LandingPage: React.FC = () => {
                       🔴 APPLICATIONS CLOSED
                     </span>
                     <div className="bg-white bg-opacity-20 px-4 py-2 rounded-md text-sm font-medium">
-                      <Clock className="w-4 h-4 inline mr-1" />
+                      <FiClock className="w-4 h-4 inline mr-1" />
                       Contact Admissions Office
                     </div>
                   </>
@@ -130,7 +130,7 @@ const LandingPage: React.FC = () => {
                     className="inline-flex items-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
                   >
                     Start Application
-                    <ArrowRight className="ml-2 h-5 w-5" />
+                    <FiArrowRight className="ml-2 h-5 w-5" />
                   </Link>
                   <Link
                     to="/login"
@@ -142,7 +142,7 @@ const LandingPage: React.FC = () => {
               ) : (
                 <>
                   <div className="inline-flex items-center px-8 py-3 border border-gray-400 text-base font-medium rounded-md text-gray-500 bg-gray-100 cursor-not-allowed">
-                    <Lock className="mr-2 h-5 w-5" />
+                    <FiLock className="mr-2 h-5 w-5" />
                     Applications Closed
                   </div>
                   <Link
@@ -174,7 +174,7 @@ const LandingPage: React.FC = () => {
             <div className="grid md:grid-cols-3 gap-8">
               <div className="bg-white rounded-lg shadow-md p-6 text-center">
                 <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FileText className="w-8 h-8 text-blue-600" />
+                  <FiFileText className="w-8 h-8 text-blue-600" />
                 </div>
                 <h3 className="text-lg font-semibold mb-3">Prepare Documents</h3>
                 <p className="text-gray-600 text-sm">
@@ -184,7 +184,7 @@ const LandingPage: React.FC = () => {
               
               <div className="bg-white rounded-lg shadow-md p-6 text-center">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Users className="w-8 h-8 text-green-600" />
+                  <FiUsers className="w-8 h-8 text-green-600" />
                 </div>
                 <h3 className="text-lg font-semibold mb-3">Contact Admissions</h3>
                 <div className="text-gray-600 text-sm space-y-1">
@@ -195,7 +195,7 @@ const LandingPage: React.FC = () => {
               
               <div className="bg-white rounded-lg shadow-md p-6 text-center">
                 <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle className="w-8 h-8 text-purple-600" />
+                  <FiCheckCircle className="w-8 h-8 text-purple-600" />
                 </div>
                 <h3 className="text-lg font-semibold mb-3">Explore Programs</h3>
                 <p className="text-gray-600 text-sm">
@@ -222,7 +222,7 @@ const LandingPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <FileText className="h-8 w-8 text-green-600" />
+                <FiFileText className="h-8 w-8 text-green-600" />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">Easy Application</h3>
               <p className="text-gray-600">
@@ -232,7 +232,7 @@ const LandingPage: React.FC = () => {
 
             <div className="text-center">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="h-8 w-8 text-green-600" />
+                <FiCheckCircle className="h-8 w-8 text-green-600" />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">Instant Status Updates</h3>
               <p className="text-gray-600">
@@ -242,7 +242,7 @@ const LandingPage: React.FC = () => {
 
             <div className="text-center">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Users className="h-8 w-8 text-green-600" />
+                <FiUsers className="h-8 w-8 text-green-600" />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">Expert Support</h3>
               <p className="text-gray-600">
@@ -302,7 +302,7 @@ const LandingPage: React.FC = () => {
             className="inline-flex items-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-green-600 bg-white hover:bg-gray-50"
           >
             Apply Now
-            <ArrowRight className="ml-2 h-5 w-5" />
+            <FiArrowRight className="ml-2 h-5 w-5" />
           </Link>
         </div>
       </section>

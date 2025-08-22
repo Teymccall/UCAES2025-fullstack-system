@@ -1,5 +1,5 @@
 import React from 'react'
-import { Lock, Unlock, Clock, AlertCircle } from 'lucide-react'
+import { FiLock, FiUnlock, FiClock, FiAlertCircle } from 'react-icons/fi'
 import { useSystemConfig } from '../contexts/SystemConfigContext'
 import ucesLogo from '../images/uceslogo.png'
 
@@ -73,7 +73,7 @@ export const AdmissionStatus: React.FC<AdmissionStatusProps> = ({ children, show
             {/* Header with status */}
             <div className="bg-gradient-to-r from-red-500 to-red-600 text-white text-center py-6">
               <div className="mx-auto w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center mb-4">
-                <Lock className="w-8 h-8 text-white" />
+                <FiLock className="w-8 h-8 text-white" />
               </div>
               <h1 className="text-2xl font-bold mb-2">Admissions Currently Closed</h1>
               <p className="text-red-100">
@@ -87,7 +87,7 @@ export const AdmissionStatus: React.FC<AdmissionStatusProps> = ({ children, show
                 <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-xl p-6 mb-6 border border-green-200">
                   <div className="flex items-center justify-center mb-4">
                     <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
-                      <Clock className="w-6 h-6 text-white" />
+                      <FiClock className="w-6 h-6 text-white" />
                     </div>
                   </div>
                   <h3 className="text-lg font-semibold text-green-800 text-center mb-3">Academic Information</h3>
@@ -109,7 +109,7 @@ export const AdmissionStatus: React.FC<AdmissionStatusProps> = ({ children, show
               {/* Contact Information */}
               <div className="text-center space-y-4">
                 <div className="flex items-center justify-center mb-4">
-                  <AlertCircle className="w-6 h-6 text-yellow-500 mr-2" />
+                                      <FiAlertCircle className="w-6 h-6 text-yellow-500 mr-2" />
                   <span className="text-lg font-medium text-gray-700">What can you do now?</span>
                 </div>
                 
@@ -178,7 +178,7 @@ export const AdmissionStatus: React.FC<AdmissionStatusProps> = ({ children, show
                 
                 <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center flex-shrink-0">
-                    <Unlock className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                    <FiUnlock className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                   </div>
                   <div className="min-w-0">
                     <p className="text-base sm:text-lg font-bold text-white">

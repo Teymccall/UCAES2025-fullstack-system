@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Smartphone, Receipt, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { CreditCard, Smartphone, Receipt, CheckCircle, Warning, Loop } from '@mui/icons-material';
 import { useApplication } from '../contexts/ApplicationContext';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -140,7 +140,7 @@ const PaymentPage: React.FC = () => {
                   : 'bg-red-100 text-red-800'
               }`}>
                 {applicationData.paymentStatus === 'paid' && <CheckCircle className="h-4 w-4 mr-1" />}
-                {applicationData.paymentStatus === 'failed' && <AlertCircle className="h-4 w-4 mr-1" />}
+                {applicationData.paymentStatus === 'failed' && <Warning className="h-4 w-4 mr-1" />
                 {applicationData.paymentStatus.charAt(0).toUpperCase() + applicationData.paymentStatus.slice(1)}
               </span>
             </div>
@@ -250,7 +250,7 @@ const PaymentPage: React.FC = () => {
                 >
                   {loading ? (
                     <>
-                      <Loader2 className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" />
+                      <Loop className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" />
                       Processing...
                     </>
                   ) : (
@@ -292,7 +292,7 @@ const PaymentPage: React.FC = () => {
           >
             {loading ? (
               <>
-                <Loader2 className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" />
+                <Loop className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" />
                 Processing...
               </>
             ) : (

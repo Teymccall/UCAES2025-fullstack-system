@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, FileText, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Download, Description, CheckCircle, Schedule, Warning } from '@mui/icons-material';
 import { useApplication } from '../contexts/ApplicationContext';
 import { useAuth } from '../contexts/AuthContext';
 import { getApplicationDataByUserId } from '../utils/firebaseApplicationService';

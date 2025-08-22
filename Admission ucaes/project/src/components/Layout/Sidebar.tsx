@@ -1,17 +1,17 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
-  Home, 
-  FileText, 
-  Users, 
-  Settings, 
-  BarChart3, 
-  DollarSign,
-  CheckCircle,
-  Clock,
-  X,
-  Download
-} from 'lucide-react';
+  FiHome, 
+  FiFileText, 
+  FiUsers, 
+  FiSettings, 
+  FiBarChart2, 
+  FiDollarSign,
+  FiCheckCircle,
+  FiClock,
+  FiX,
+  FiDownload
+} from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 import ApplicantSidebar from './ApplicantSidebar';
 
@@ -31,25 +31,25 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
   // Regular menu items for non-applicants
   const applicantMenuItems = [
-    { icon: Home, label: 'Dashboard', path: '/dashboard' },
-    { icon: FileText, label: 'Application', path: '/application' },
-    { icon: DollarSign, label: 'Payment', path: '/payment' },
-    { icon: CheckCircle, label: 'Status', path: '/status' }
+    { icon: FiHome, label: 'Dashboard', path: '/dashboard' },
+    { icon: FiFileText, label: 'Application', path: '/application' },
+    { icon: FiDollarSign, label: 'Payment', path: '/payment' },
+    { icon: FiCheckCircle, label: 'Status', path: '/status' }
   ];
 
   const staffMenuItems = [
-    { icon: Home, label: 'Dashboard', path: '/staff/dashboard' },
-    { icon: FileText, label: 'Applications', path: '/staff/applications' },
-    { icon: Users, label: 'Applicants', path: '/staff/applicants' },
-    { icon: BarChart3, label: 'Reports', path: '/staff/reports' }
+    { icon: FiHome, label: 'Dashboard', path: '/staff/dashboard' },
+    { icon: FiFileText, label: 'Applications', path: '/staff/applications' },
+    { icon: FiUsers, label: 'Applicants', path: '/staff/applicants' },
+    { icon: FiBarChart2, label: 'Reports', path: '/staff/reports' }
   ];
 
   const adminMenuItems = [
-    { icon: Home, label: 'Dashboard', path: '/admin/dashboard' },
-    { icon: Users, label: 'Staff Management', path: '/admin/staff' },
-    { icon: Settings, label: 'System Settings', path: '/admin/settings' },
-    { icon: BarChart3, label: 'Analytics', path: '/admin/analytics' },
-    { icon: Clock, label: 'Deadlines', path: '/admin/deadlines' }
+    { icon: FiHome, label: 'Dashboard', path: '/admin/dashboard' },
+    { icon: FiUsers, label: 'Staff Management', path: '/admin/staff' },
+    { icon: FiSettings, label: 'System Settings', path: '/admin/settings' },
+    { icon: FiBarChart3, label: 'Analytics', path: '/admin/analytics' },
+    { icon: FiClock, label: 'Deadlines', path: '/admin/deadlines' }
   ];
 
   const getMenuItems = () => {
@@ -83,7 +83,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               onClick={onClose}
               className="lg:hidden p-1 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
             >
-              <X className="h-5 w-5" />
+              <FiX className="h-5 w-5" />
             </button>
           </div>
         </div>

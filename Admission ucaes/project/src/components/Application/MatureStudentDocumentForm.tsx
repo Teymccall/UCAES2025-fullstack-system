@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApplication } from '../../contexts/ApplicationContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { Upload, FileText, CheckCircle, Loader2, AlertCircle, Award, Briefcase, GraduationCap, User } from 'lucide-react';
+import { Upload, Description, CheckCircle, Loop, Warning, EmojiEvents, Work, School, Person } from '@mui/icons-material';
 import CloudinaryService from '../../utils/cloudinaryService';
 
 interface MatureStudentDocuments {
@@ -209,9 +209,9 @@ const MatureStudentDocumentForm: React.FC = () => {
         <div className="text-center">
           <div className="flex justify-center mb-3">
             {isUploading ? (
-              <Loader2 className="h-12 w-12 text-blue-600 animate-spin" />
+              <Loop className="h-12 w-12 text-blue-600 animate-spin" />
             ) : error ? (
-              <AlertCircle className="h-12 w-12 text-red-600" />
+              <Warning className="h-12 w-12 text-red-600" />
             ) : hasDocument ? (
               <CheckCircle className="h-12 w-12 text-green-600" />
             ) : (
@@ -320,7 +320,7 @@ const MatureStudentDocumentForm: React.FC = () => {
     <div className="space-y-6">
       <div className="mb-6">
         <h3 className="text-xl font-semibold text-gray-900 mb-2 flex items-center">
-          <User className="h-6 w-6 text-green-600 mr-2" />
+          <Person className="h-6 w-6 text-green-600 mr-2" />
           Identity and Personal Documents
         </h3>
         <p className="text-gray-600">
@@ -361,7 +361,7 @@ const MatureStudentDocumentForm: React.FC = () => {
     <div className="space-y-6">
       <div className="mb-6">
         <h3 className="text-xl font-semibold text-gray-900 mb-2 flex items-center">
-          <Briefcase className="h-6 w-6 text-green-600 mr-2" />
+          <Work className="h-6 w-6 text-green-600 mr-2" />
           Work Experience Documentation
         </h3>
         <p className="text-gray-600">
@@ -412,7 +412,7 @@ const MatureStudentDocumentForm: React.FC = () => {
     <div className="space-y-6">
       <div className="mb-6">
         <h3 className="text-xl font-semibold text-gray-900 mb-2 flex items-center">
-          <Award className="h-6 w-6 text-green-600 mr-2" />
+          <EmojiEvents className="h-6 w-6 text-green-600 mr-2" />
           Professional Qualifications & Training
         </h3>
         <p className="text-gray-600">
@@ -454,7 +454,7 @@ const MatureStudentDocumentForm: React.FC = () => {
     <div className="space-y-6">
       <div className="mb-6">
         <h3 className="text-xl font-semibold text-gray-900 mb-2 flex items-center">
-          <GraduationCap className="h-6 w-6 text-green-600 mr-2" />
+          <School className="h-6 w-6 text-green-600 mr-2" />
           Educational Background (If Applicable)
         </h3>
         <p className="text-gray-600">
@@ -496,7 +496,7 @@ const MatureStudentDocumentForm: React.FC = () => {
     <div className="space-y-6">
       <div className="mb-6">
         <h3 className="text-xl font-semibold text-gray-900 mb-2 flex items-center">
-          <FileText className="h-6 w-6 text-green-600 mr-2" />
+          <Description className="h-6 w-6 text-green-600 mr-2" />
           Supporting Documents & References
         </h3>
         <p className="text-gray-600">
@@ -545,7 +545,7 @@ const MatureStudentDocumentForm: React.FC = () => {
     <div className="space-y-6">
       <div className="mb-6">
         <h3 className="text-xl font-semibold text-gray-900 mb-2 flex items-center">
-          <AlertCircle className="h-6 w-6 text-green-600 mr-2" />
+          <Warning className="h-6 w-6 text-green-600 mr-2" />
           Special Circumstances (Optional)
         </h3>
         <p className="text-gray-600">

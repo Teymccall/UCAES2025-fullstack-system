@@ -17,12 +17,16 @@
     "deploy-all": "firebase deploy"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.1",
+    "@mui/material": "^7.3.1",
     "cloudinary": "^2.7.0",
     "firebase": "^12.0.0",
-    "lucide-react": "^0.344.0",
     "multer": "^2.0.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.0",
+    "react-icons": "^5.5.0",
     "react-router-dom": "^7.7.0"
   },
   "devDependencies": {

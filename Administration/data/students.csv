@@ -1,6 +1,0 @@
-indexNumber,surname,otherNames,gender,dateOfBirth,nationality,programme,level,entryQualification,status,email,phone,address,emergencyContactName,emergencyContactPhone,emergencyContactRelationship
-AG/2023/0001,Mensah,John Kofi,Male,1998-05-15,Ghanaian,BSc Agriculture,100,WASSCE,Active,john.mensah@example.com,0244123456,123 Main Street Accra,Mary Mensah,0244789012,Mother
-AG/2023/0002,Owusu,Akua,Female,1999-09-20,Ghanaian,BSc Environmental Science,100,WASSCE,Active,akua.owusu@example.com,0541234567,45 Beach Road Cape Coast,Samuel Owusu,0207891234,Father
-ES/2023/0003,Addo,Emmanuel,Male,2000-01-10,Ghanaian,BSc Environmental Science,200,WASSCE,Active,emmanuel.addo@example.com,0551234567,78 Airport Residential Area Accra,Grace Addo,0244567890,Mother
-IT/2023/0004,Boateng,Abigail,Female,1999-11-25,Ghanaian,BSc Information Technology,100,WASSCE,Active,abigail.boateng@example.com,0204567890,56 Cantonments Accra,Robert Boateng,0277890123,Father
-AG/2022/0005,Ansah,Daniel,Male,1997-07-30,Ghanaian,BSc Agriculture,200,WASSCE,Active,daniel.ansah@example.com,0245678901,32 Spintex Road Accra,Elizabeth Ansah,0248901234,Mother 

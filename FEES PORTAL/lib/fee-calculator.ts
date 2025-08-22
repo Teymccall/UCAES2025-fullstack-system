@@ -27,6 +27,14 @@ export interface StudentFeeCalculation {
   installments: FeeInstallment[]
   additionalServices: AdditionalService[]
   totalWithServices: number
+  scholarshipReduction?: number // NEW: Total amount reduced by scholarships
+  appliedScholarships?: any[]   // NEW: List of applied scholarships
+  feeSource?: string           // NEW: Source of fee data (finance_officer, system_database, hardcoded_fallback)
+  sourceDetails?: {            // NEW: Details about fee source
+    source: string
+    createdBy?: string
+    sourceId?: string
+  }
 }
 
 export interface FeeInstallment {
@@ -59,54 +67,84 @@ export async function calculateStudentFees(
   academicYear: string = '2024-2025'
 ): Promise<StudentFeeCalculation> {
   try {
-    // 1. Get official fee structure for the requested year/mode/level from Firestore
-    const normalizedYear = academicYear.includes('-') ? academicYear.replace(/-/g, '/') : academicYear
-    const modeLabel = programmeType === 'regular' ? 'Regular' : 'Weekend'
-
-    let levelDoc: any | null = null
+    // 1. PRIORITY: Check Finance Officer fee structures FIRST (NEW BUSINESS LOGIC)
+    let levelData: any = null
+    let feeSource = 'unknown'
+    
     try {
-      const q = query(
-        collection(db, 'fee-structures'),
-        where('year', '==', normalizedYear),
-        where('studyMode', '==', modeLabel),
-        where('level', '==', String(level)),
-        limit(1)
-      )
-      const snap = await getDocs(q)
-      if (!snap.empty) {
-        levelDoc = snap.docs[0].data()
+      console.log('🏦 Checking Finance Officer fee structures first...')
+      const { getFinanceOfficerFeeStructure, convertFinanceOfficerFeesToLevelData } = await import('./finance-officer-fees')
+      const financeOfficerFees = await getFinanceOfficerFeeStructure(programmeType, level, academicYear)
+      
+      if (financeOfficerFees) {
+        levelData = convertFinanceOfficerFeesToLevelData(financeOfficerFees, programmeType)
+        feeSource = 'finance_officer'
+        console.log(`🎯 Using Finance Officer fee structure: ${financeOfficerFees.program} ${financeOfficerFees.level}`)
+        console.log(`   💰 Total: ¢${levelData.total} | Created by: ${financeOfficerFees.createdBy}`)
       }
-    } catch (e) {
-      // fall back later
+    } catch (error) {
+      console.warn('⚠️ Error checking Finance Officer fees, continuing with system defaults:', error)
     }
 
-    // Fall back to code constants if Firestore not configured
-    let levelData: any
-    if (levelDoc) {
-      if (programmeType === 'regular') {
-        levelData = {
-          total: Number(levelDoc.total ?? (Number(levelDoc.firstPayment||0) + Number(levelDoc.secondPayment||0))),
-          semester1: { amount: Number(levelDoc.firstPayment), percentage: 50 },
-          semester2: { amount: Number(levelDoc.secondPayment), percentage: 50 },
+    // 2. FALLBACK: Get official fee structure from fee-structures collection
+    if (!levelData) {
+      const normalizedYear = academicYear.includes('-') ? academicYear.replace(/-/g, '/') : academicYear
+      const modeLabel = programmeType === 'regular' ? 'Regular' : 'Weekend'
+
+      let levelDoc: any | null = null
+      try {
+        console.log('🏫 Checking system fee-structures collection...')
+        const q = query(
+          collection(db, 'fee-structures'),
+          where('year', '==', normalizedYear),
+          where('studyMode', '==', modeLabel),
+          where('level', '==', String(level)),
+          limit(1)
+        )
+        const snap = await getDocs(q)
+        if (!snap.empty) {
+          levelDoc = snap.docs[0].data()
+          feeSource = 'system_database'
+          console.log('✅ Found system fee structure in database')
         }
-      } else {
-        levelData = {
-          total: Number(levelDoc.total ?? (Number(levelDoc.firstPayment||0) + Number(levelDoc.secondPayment||0) + Number(levelDoc.thirdPayment||0))),
-          trimester1: { amount: Number(levelDoc.firstPayment), percentage: 40 },
-          trimester2: { amount: Number(levelDoc.secondPayment), percentage: 30 },
-          trimester3: { amount: Number(levelDoc.thirdPayment||0), percentage: 30 },
+      } catch (e) {
+        console.warn('⚠️ Error querying fee-structures collection:', e)
+      }
+
+      if (levelDoc) {
+        if (programmeType === 'regular') {
+          levelData = {
+            total: Number(levelDoc.total ?? (Number(levelDoc.firstPayment||0) + Number(levelDoc.secondPayment||0))),
+            semester1: { amount: Number(levelDoc.firstPayment), percentage: 50 },
+            semester2: { amount: Number(levelDoc.secondPayment), percentage: 50 },
+            source: feeSource
+          }
+        } else {
+          levelData = {
+            total: Number(levelDoc.total ?? (Number(levelDoc.firstPayment||0) + Number(levelDoc.secondPayment||0) + Number(levelDoc.thirdPayment||0))),
+            trimester1: { amount: Number(levelDoc.firstPayment), percentage: 40 },
+            trimester2: { amount: Number(levelDoc.secondPayment), percentage: 30 },
+            trimester3: { amount: Number(levelDoc.thirdPayment||0), percentage: 30 },
+            source: feeSource
+          }
         }
       }
-    } else {
-      // fallback: compute based on local official constants
+    }
+
+    // 3. FINAL FALLBACK: Use hardcoded constants only if no other source available
+    if (!levelData) {
+      console.log('📋 Using hardcoded fallback fee constants...')
       const modeKey = programmeType === 'regular' ? 'REGULAR' : 'WEEKEND'
       const fallback = FALLBACK_OFFICIAL_2025_2026[modeKey]?.[String(level)]
       if (!fallback) throw new Error(`Fee data not found for ${programmeType} Level ${level}`)
+      
+      feeSource = 'hardcoded_fallback'
       if (programmeType === 'regular') {
         levelData = {
           total: fallback.total,
           semester1: { amount: fallback.firstPayment, percentage: 50 },
           semester2: { amount: fallback.secondPayment, percentage: 50 },
+          source: feeSource
         }
       } else {
         levelData = {
@@ -114,9 +152,12 @@ export async function calculateStudentFees(
           trimester1: { amount: fallback.firstPayment, percentage: 40 },
           trimester2: { amount: fallback.secondPayment, percentage: 30 },
           trimester3: { amount: fallback.thirdPayment, percentage: 30 },
+          source: feeSource
         }
       }
     }
+
+    console.log(`🎯 Fee calculation using: ${feeSource} | Total: ¢${levelData.total}`)
     
     // 2. Get academic calendar and real dates from Academic Affairs
     const { getAcademicPeriodDates } = await import('./academic-period-service')
@@ -223,20 +264,56 @@ export async function calculateStudentFees(
     const mandatoryServices = additionalServices
       .filter(s => s.isRequired)
       .reduce((sum, s) => sum + s.amount, 0)
-    const totalWithServices = totalAnnualFee + mandatoryServices
+    let totalWithServices = totalAnnualFee + mandatoryServices
+    const paymentStructure = programmeType === 'regular' ? 'semester' : 'trimester'
+
+    // 6. Apply scholarship reductions (NEW BUSINESS LOGIC)
+    let scholarshipReduction = 0
+    let appliedScholarships: any[] = []
     
+    try {
+      console.log('🎓 Checking for student scholarships...')
+      const { calculateScholarshipReduction } = await import('./scholarship-service')
+      const scholarshipResult = await calculateScholarshipReduction(studentId, totalWithServices, academicYear)
+      
+      scholarshipReduction = scholarshipResult.totalReduction
+      appliedScholarships = scholarshipResult.appliedScholarships
+      
+      if (scholarshipReduction > 0) {
+        console.log(`🎯 Applying scholarship reduction: ¢${scholarshipReduction}`)
+        totalWithServices = Math.max(0, totalWithServices - scholarshipReduction)
+        
+        // Apply scholarship reduction to installments proportionally
+        const reductionRatio = scholarshipReduction / (totalAnnualFee + mandatoryServices)
+        installments.forEach(installment => {
+          const installmentReduction = Math.round(installment.amount * reductionRatio)
+          installment.amount = Math.max(0, installment.amount - installmentReduction)
+          console.log(`📊 Reduced ${installment.name} by ¢${installmentReduction} to ¢${installment.amount}`)
+        })
+      }
+    } catch (error) {
+      console.error('⚠️ Error applying scholarships, continuing without reduction:', error)
+    }
+
     return {
       studentId,
       programmeType,
       level,
       academicYear,
       totalAnnualFee,
-      paymentStructure: programmeData.paymentStructure,
+      paymentStructure,
       installments,
       additionalServices,
-      totalWithServices
+      totalWithServices,
+      scholarshipReduction, // NEW: Include scholarship information
+      appliedScholarships,  // NEW: Include applied scholarships
+      feeSource,           // NEW: Include fee source (finance_officer, system_database, hardcoded_fallback)
+      sourceDetails: levelData.source ? { 
+        source: levelData.source, 
+        createdBy: levelData.createdBy,
+        sourceId: levelData.sourceId 
+      } : undefined
     }
-    
   } catch (error) {
     console.error('Error calculating student fees:', error)
     throw error

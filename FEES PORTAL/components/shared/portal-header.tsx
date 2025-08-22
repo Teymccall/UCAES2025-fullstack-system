@@ -24,7 +24,6 @@ export default function PortalHeader({ currentPage = "home" }: PortalHeaderProps
   const { user, logout } = useAuth()
 
   const navigationItems = [
-    { name: "Portal Home", href: "/", current: currentPage === "home" },
     { name: "My Fees", href: "/fees", current: currentPage === "fees" },
     { name: "My Wallet", href: "/wallet", current: currentPage === "wallet" },
     { name: "Transactions", href: "/transactions", current: currentPage === "transactions" },
@@ -42,6 +41,7 @@ export default function PortalHeader({ currentPage = "home" }: PortalHeaderProps
                 alt="UCAES Logo" 
                 width={32}
                 height={32}
+                priority
                 className="object-contain sm:w-[40px] sm:h-[40px]"
               />
               <div>

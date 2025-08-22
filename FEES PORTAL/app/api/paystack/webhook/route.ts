@@ -36,30 +36,30 @@ export async function POST(request: NextRequest) {
     })
 
     // Handle different webhook events
-    switch (event.event) {
-      case 'charge.success':
-        // Payment was successful
-        await handleSuccessfulPayment(event.data)
-        break
+  switch (event.event) {
+    case 'charge.success':
+      // Payment was successful
+      await handleSuccessfulPayment(event.data)
+      break
         
-      case 'charge.failed':
-        // Payment failed
-        await handleFailedPayment(event.data)
-        break
+    case 'charge.failed':
+      // Payment failed
+      await handleFailedPayment(event.data)
+      break
         
-      case 'transfer.success':
-        // Transfer to bank account was successful
-        console.log('Transfer successful:', event.data)
-        break
+    case 'transfer.success':
+      // Transfer to bank account was successful
+      console.log('Transfer successful:', event.data)
+      break
         
-      case 'transfer.failed':
-        // Transfer to bank account failed
-        console.log('Transfer failed:', event.data)
-        break
+    case 'transfer.failed':
+      // Transfer to bank account failed
+      console.log('Transfer failed:', event.data)
+      break
         
-      default:
-        console.log('Unhandled webhook event:', event.event)
-    }
+    default:
+      console.log('Unhandled webhook event:', event.event)
+  }
 
     return NextResponse.json({ success: true, message: 'Webhook processed' })
 
@@ -100,21 +100,15 @@ async function handleSuccessfulPayment(paymentData: any) {
       return;
     } else {
       // Handle regular fee payment
-      // TODO: Update student's payment record in database
-      // This ensures the database is updated even if the callback fails
-      
-      // Example database update (replace with your actual database logic)
-      // await updateStudentPaymentRecord({
-      //   studentId: paymentData.metadata?.studentId,
-      //   reference: paymentData.reference,
-      //   amount: paymentData.amount / 100, // Convert from pesewas
-      //   status: 'completed',
-      //   timestamp: new Date(),
-      //   paystackData: paymentData,
-      //   source: 'webhook'
-      // })
+      await walletService.processPaystackFeePayment(
+        paymentData.metadata?.studentId,
+        paymentData.amount, // Amount is in pesewas
+        paymentData.reference,
+        paymentData,
+        paymentData.metadata
+      )
 
-      console.log('Payment record updated successfully via webhook')
+      console.log('Fee payment record updated successfully via webhook')
     }
     
   } catch (error) {
