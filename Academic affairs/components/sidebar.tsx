@@ -204,6 +204,125 @@ export function Sidebar({ userRole, userPermissions }: SidebarProps) {
       roles: ["director", "registrar"] as UserRole[],
     },
     
+    // Degree Audit & Academic Records (Registrar and Director)
+    { 
+      href: "/director/degree-audit", 
+      label: "Degree Audit", 
+      icon: GraduationCap, 
+      permission: "degree_audit",
+      roles: ["director", "registrar"] as UserRole[],
+    },
+    { 
+      href: "/director/compliance-management", 
+      label: "Compliance Management", 
+      icon: CheckCircle, 
+      permission: "compliance_management",
+      roles: ["director", "registrar"] as UserRole[],
+    },
+    
+    // Enhanced Academic Administration for Registrar
+    { 
+      href: "/director/academic-policies", 
+      label: "Academic Policies", 
+      icon: FileText, 
+      permission: "academic_administration",
+      roles: ["director", "registrar"] as UserRole[],
+    },
+    { 
+      href: "/director/academic-calendar", 
+      label: "Academic Calendar", 
+      icon: Calendar, 
+      permission: "academic_administration",
+      roles: ["director", "registrar"] as UserRole[],
+    },
+    
+    // Enhanced Student Lifecycle Management for Registrar
+    { 
+      href: "/director/student-lifecycle", 
+      label: "Student Lifecycle", 
+      icon: TrendingUp, 
+      permission: "student_management",
+      roles: ["director", "registrar"] as UserRole[],
+    },
+    { 
+      href: "/director/graduation-management", 
+      label: "Graduation Management", 
+      icon: GraduationCap, 
+      permission: "degree_audit",
+      roles: ["director", "registrar"] as UserRole[],
+    },
+    
+    // Enhanced Results & Transcript Management for Registrar
+    { 
+      href: "/director/results-oversight", 
+      label: "Results Oversight", 
+      icon: FileText, 
+      permission: "results_approval",
+      roles: ["director", "registrar"] as UserRole[],
+    },
+    { 
+      href: "/director/transcript-oversight", 
+      label: "Transcript Oversight", 
+      icon: ScrollText, 
+      permission: "transcript_generation",
+      roles: ["director", "registrar"] as UserRole[],
+    },
+    
+    // Enhanced Admissions Authority for Registrar
+    { 
+      href: "/director/admissions-oversight", 
+      label: "Admissions Oversight", 
+      icon: UserCheck, 
+      permission: "admission_approval",
+      roles: ["director", "registrar"] as UserRole[],
+    },
+    { 
+      href: "/director/admission-policies", 
+      label: "Admission Policies", 
+      icon: FileText, 
+      permission: "admission_review",
+      roles: ["director", "registrar"] as UserRole[],
+    },
+    
+    // Enhanced Fee Academic Decisions for Registrar
+    { 
+      href: "/director/academic-fee-decisions", 
+      label: "Academic Fee Decisions", 
+      icon: DollarSign, 
+      permission: "fee_calculation",
+      roles: ["director", "registrar"] as UserRole[],
+    },
+    
+    // Registrar Office - Comprehensive Academic Management
+    { 
+      href: "/director/registrar-office", 
+      label: "Registrar Office", 
+      icon: GraduationCap, 
+      permission: "academic_administration",
+      roles: ["director", "registrar"] as UserRole[],
+    },
+    { 
+      href: "/director/registrar-office/student-records", 
+      label: "Comprehensive Student Records", 
+      icon: Users, 
+      permission: "student_records",
+      roles: ["director", "registrar"] as UserRole[],
+    },
+    { 
+      href: "/director/registrar-office/academic-oversight", 
+      label: "Academic Oversight", 
+      icon: BookOpen, 
+      permission: "academic_administration",
+      roles: ["director", "registrar"] as UserRole[],
+    },
+    { 
+      href: "/director/registrar-office/graduation-oversight", 
+      label: "Graduation Oversight", 
+      icon: GraduationCap, 
+      permission: "degree_audit",
+      roles: ["director", "registrar"] as UserRole[],
+    },
+    
     // Staff Management (Director only)
     { 
       href: "/director/staff-management", 
@@ -353,3 +472,4 @@ export function Sidebar({ userRole, userPermissions }: SidebarProps) {
     </div>
   )
 }
+
