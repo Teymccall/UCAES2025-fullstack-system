@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDoc, doc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db } from '@/lib/firebase-server';
 import { UserRole, PERMISSIONS } from './permissions';
 
 interface AuthenticatedUser {

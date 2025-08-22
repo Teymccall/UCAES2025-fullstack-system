@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
+import { db } from '@/lib/firebase-server';
 import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { withAuthorization } from '@/lib/api-auth';
 import { PERMISSIONS } from '@/lib/permissions';

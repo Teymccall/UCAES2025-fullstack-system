@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getDb } from '@/lib/firebase-admin';
+import { db } from '@/lib/firebase-server';
+import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { withAuthorization } from '@/lib/api-auth';
 import { PERMISSIONS } from '@/lib/permissions';
 
@@ -9,10 +10,13 @@ const getRecentActivities = async (req: Request) => {
 
     // Fetch recent course registrations
     try {
-      const registrationsSnapshot = await getDb().collection('course-registrations')
-        .orderBy('registrationDate', 'desc')
-        .limit(10)
-        .get();
+      const registrationsSnapshot = await getDocs(
+        query(
+          collection(db, 'course-registrations'),
+          orderBy('registrationDate', 'desc'),
+          limit(10)
+        )
+      );
 
       registrationsSnapshot.forEach(doc => {
         const data = doc.data();
@@ -30,10 +34,13 @@ const getRecentActivities = async (req: Request) => {
 
     // Fetch recent student registrations
     try {
-      const studentRegistrationsSnapshot = await getDb().collection('student-registrations')
-        .orderBy('registrationDate', 'desc')
-        .limit(10)
-        .get();
+      const studentRegistrationsSnapshot = await getDocs(
+        query(
+          collection(db, 'student-registrations'),
+          orderBy('registrationDate', 'desc'),
+          limit(10)
+        )
+      );
 
       studentRegistrationsSnapshot.forEach(doc => {
         const data = doc.data();
@@ -51,10 +58,13 @@ const getRecentActivities = async (req: Request) => {
 
     // Fetch recent results submissions
     try {
-      const resultsSnapshot = await getDb().collection('results')
-        .orderBy('submittedAt', 'desc')
-        .limit(10)
-        .get();
+      const resultsSnapshot = await getDocs(
+        query(
+          collection(db, 'results'),
+          orderBy('submittedAt', 'desc'),
+          limit(10)
+        )
+      );
 
       resultsSnapshot.forEach(doc => {
         const data = doc.data();
@@ -72,10 +82,13 @@ const getRecentActivities = async (req: Request) => {
 
     // Fetch recent course updates
     try {
-      const coursesSnapshot = await getDb().collection('courses')
-        .orderBy('updatedAt', 'desc')
-        .limit(10)
-        .get();
+      const coursesSnapshot = await getDocs(
+        query(
+          collection(db, 'courses'),
+          orderBy('updatedAt', 'desc'),
+          limit(10)
+        )
+      );
 
       coursesSnapshot.forEach(doc => {
         const data = doc.data();
