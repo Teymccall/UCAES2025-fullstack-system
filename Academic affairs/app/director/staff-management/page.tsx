@@ -271,6 +271,34 @@ export default function StaffManagement() {
     setIsResetDialogOpen(true)
   }
 
+  // Function to update registrar permissions
+  const updateRegistrarPermissions = async () => {
+    try {
+      const response = await fetch('/api/update-registrar-permissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      
+      const result = await response.json()
+      
+      if (result.success) {
+        toast.success('Registrar permissions updated successfully!', {
+          description: `Updated ${result.newPermissions.length} permissions for registrar role.`
+        })
+        
+        // Refresh the staff users to show updated permissions
+        fetchUsers()
+      } else {
+        toast.error('Failed to update registrar permissions', {
+          description: result.message
+        })
+      }
+    } catch (error) {
+      console.error('Error updating registrar permissions:', error)
+      toast.error('Failed to update registrar permissions')
+    }
+  }
+  
   // Send password reset email for all user types
   const sendPasswordReset = async () => {
     if (!selectedUserForReset || !resetEmail.trim()) {
@@ -460,6 +488,16 @@ export default function StaffManagement() {
         </div>
         
         <div className="flex items-center gap-4">
+          {/* Update Registrar Permissions Button */}
+          <Button 
+            onClick={updateRegistrarPermissions}
+            variant="outline"
+            className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+          >
+            <Key className="mr-2 h-4 w-4" />
+            Update Registrar Permissions
+          </Button>
+          
           {/* Clear All Button with Alert Dialog */}
           <AlertDialog open={clearAllDialogOpen} onOpenChange={setClearAllDialogOpen}>
             <AlertDialogTrigger asChild>

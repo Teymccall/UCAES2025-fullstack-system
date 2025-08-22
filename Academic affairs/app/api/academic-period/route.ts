@@ -8,19 +8,28 @@ export async function GET(req: NextRequest) {
     
     // Method 1: Check centralized system config first
     try {
+      console.log('🎯 Checking systemConfig/academicPeriod document...');
       const systemConfigRef = doc(db, "systemConfig", "academicPeriod");
       const systemConfigDoc = await getDoc(systemConfigRef);
+      
+      console.log('📄 Document exists:', systemConfigDoc.exists());
       
       if (systemConfigDoc.exists()) {
         const systemData = systemConfigDoc.data();
         console.log('✅ Found centralized academic period:', systemData);
         
+        // Extract the actual academic year and semester from the director's settings
+        const academicYear = systemData.currentAcademicYear || systemData.academicYear;
+        const semester = systemData.currentSemester || systemData.semester;
+        
+        console.log('📊 Using centralized settings:', { academicYear, semester });
+        
         return NextResponse.json({
           success: true,
           data: {
-            academicYear: systemData.currentAcademicYear || systemData.academicYear,
-            semester: systemData.currentSemester || systemData.semester,
-            status: 'active'
+            academicYear,
+            semester,
+            status: 'centralized'
           }
         });
       }
@@ -53,10 +62,10 @@ export async function GET(req: NextRequest) {
       }
     }
     
-    // Method 3: Find current semester from academic-semesters collection
+    // Method 3: Find current semester from semesters collection
     const semesterQuery = query(
-      collection(db, "academic-semesters"), 
-      where("current", "==", true)
+      collection(db, "semesters"), 
+      where("isCurrentSemester", "==", true)
     );
     const semesterSnapshot = await getDocs(semesterQuery);
     
@@ -67,7 +76,7 @@ export async function GET(req: NextRequest) {
     } else {
       // Fallback: get the most recent active semester
       const activeSemesterQuery = query(
-        collection(db, "academic-semesters"), 
+        collection(db, "semesters"), 
         where("status", "==", "active")
       );
       const activeSemesterSnapshot = await getDocs(activeSemesterQuery);
@@ -79,8 +88,8 @@ export async function GET(req: NextRequest) {
     }
     
     // Prepare response
-    const academicYear = currentYear?.year || '2025/2026';
-    const semester = currentSemester?.name || 'First Semester';
+    const academicYear = currentYear?.year;
+    const semester = currentSemester?.name;
     
     console.log('📊 Final academic period:', { academicYear, semester });
     
@@ -96,14 +105,11 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error('❌ Error fetching academic period:', error);
     
-    // Return safe defaults if everything fails
+    // Return error if everything fails - do not provide fallback data that overrides director settings
     return NextResponse.json({
-      success: true,
-      data: {
-        academicYear: '2025/2026',
-        semester: 'First Semester',
-        status: 'default'
-      }
+      success: false,
+      error: 'No academic period configured. Please ask the director to set the current academic year.',
+      data: null
     });
   }
 } 

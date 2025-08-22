@@ -36,7 +36,7 @@ export default function DirectorDashboard() {
   
   const [pendingApprovals, setPendingApprovals] = useState<ApprovalItem[]>([])
   const [recentActivities, setRecentActivities] = useState<ActivityItem[]>([])
-  const [loadingDashboardData, setLoading] = useState(true)
+  const [loadingDashboardData, setLoadingDashboardData] = useState(true)
   const [stats, setStats] = useState({
     totalStudents: 0,
     pendingRegistrations: 0,
@@ -61,8 +61,14 @@ export default function DirectorDashboard() {
       const fetchDashboardData = async () => {
         try {
           // Fetch dashboard stats
-          const statsResponse = await fetch('/api/director/dashboard/stats');
+          const statsResponse = await fetch('/api/director/dashboard/stats', {
+            headers: {
+              'x-user-id': user.uid
+            }
+          });
           const statsData = await statsResponse.json();
+          
+          console.log('📊 Dashboard stats response:', statsData);
           
           if (statsData.success) {
             setStats({
@@ -71,15 +77,26 @@ export default function DirectorDashboard() {
               totalStaff: staffMembers.length,
               totalLecturers: staffMembers.filter(staff => staff.position === 'Lecturer').length
             });
+            console.log('✅ Stats updated:', statsData.stats);
+          } else {
+            console.log('❌ Stats API failed:', statsData);
           }
           
           // Fetch pending approvals
-          const approvalsResponse = await fetch('/api/director/dashboard/approvals');
+          const approvalsResponse = await fetch('/api/director/dashboard/approvals', {
+            headers: {
+              'x-user-id': user.uid
+            }
+          });
           const approvalsData = await approvalsResponse.json();
+          
+          console.log('📋 Approvals response:', approvalsData);
           
           if (approvalsData.success) {
             setPendingApprovals(approvalsData.approvals);
+            console.log('✅ Approvals updated:', approvalsData.approvals);
           } else {
+            console.log('❌ Approvals API failed, using fallback data');
             // Use placeholder data if API fails
             setPendingApprovals([
               { id: "1", type: "Course Registration", student: "John Doe", course: "CS 301", status: "pending", timestamp: new Date() },
@@ -88,12 +105,20 @@ export default function DirectorDashboard() {
           }
           
           // Fetch recent activities
-          const activitiesResponse = await fetch('/api/director/dashboard/activities');
+          const activitiesResponse = await fetch('/api/director/dashboard/activities', {
+            headers: {
+              'x-user-id': user.uid
+            }
+          });
           const activitiesData = await activitiesResponse.json();
+          
+          console.log('📈 Activities response:', activitiesData);
           
           if (activitiesData.success) {
             setRecentActivities(activitiesData.activities);
+            console.log('✅ Activities updated:', activitiesData.activities);
           } else {
+            console.log('❌ Activities API failed, using fallback data');
             // Use placeholder data if API fails
             setRecentActivities([
               { id: "1", action: "RESULTS_APPROVED", details: "Results approved for CS 201", timestamp: new Date(), type: "success" },
@@ -125,7 +150,7 @@ export default function DirectorDashboard() {
             { id: "2", action: "REGISTRATION_SUBMITTED", details: "New course registration submitted", timestamp: new Date(), type: "info" }
           ]);
         } finally {
-          setLoading(false);
+          setLoadingDashboardData(false); // Fix: Update the dashboard loading state
         }
       };
 

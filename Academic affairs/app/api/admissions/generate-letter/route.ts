@@ -30,6 +30,63 @@ const formatRegistrationNumber = (applicationId: string): string => {
   return applicationId
 }
 
+// Add watermark and security features to prevent copying
+function addWatermarkAndSecurity(doc: jsPDF, applicationId: string) {
+  // Save the current settings
+  const originalTextColor = doc.getTextColor();
+  const originalFontSize = doc.getFontSize();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  
+  // Add diagonal watermark in center
+  doc.setTextColor(220, 220, 220); // Light gray
+  doc.setFontSize(45);
+  doc.setFont('helvetica', 'bold');
+  
+  // Center of page - main watermark
+  const centerX = pageWidth / 2;
+  const centerY = pageHeight / 2;
+  
+  // Main watermark
+  doc.text('UCAES OFFICIAL', centerX - 35, centerY, { maxWidth: 70 });
+  
+  // Add smaller watermark text around the page
+  doc.setFontSize(14);
+  doc.setTextColor(245, 245, 245); // Even lighter gray
+  
+  // Corner watermarks
+  doc.text('UCAES', 25, 50);
+  doc.text('OFFICIAL', pageWidth - 45, 50);
+  doc.text('VERIFIED', 25, pageHeight - 30);
+  doc.text('GENUINE', pageWidth - 45, pageHeight - 30);
+  
+  // Add application ID watermark in multiple locations
+  doc.setFontSize(8);
+  doc.setTextColor(250, 250, 250); // Very light gray
+  
+  // Multiple positions for application ID
+  doc.text(applicationId, 50, 100);
+  doc.text(applicationId, pageWidth - 70, 160);
+  doc.text(applicationId, 80, 220);
+  doc.text(applicationId, pageWidth - 80, 260);
+  
+  // Add security border
+  doc.setLineWidth(0.3);
+  doc.setDrawColor(220, 220, 220);
+  doc.rect(8, 8, pageWidth - 16, pageHeight - 16);
+  
+  // Add "ORIGINAL DOCUMENT" text at bottom
+  doc.setFontSize(7);
+  doc.setTextColor(200, 200, 200);
+  doc.text('ORIGINAL DOCUMENT - UNIVERSITY COLLEGE OF AGRICULTURE AND ENVIRONMENTAL STUDIES', 
+           pageWidth / 2, pageHeight - 10, { align: 'center' });
+  
+  // Restore original settings
+  doc.setTextColor(originalTextColor);
+  doc.setFontSize(originalFontSize);
+  doc.setFont('times', 'normal');
+}
+
 // Add CORS headers helper
 function addCorsHeaders(response: NextResponse, request?: NextRequest) {
   // Allow requests from both the admission portal and main website domains
@@ -179,7 +236,7 @@ export async function POST(request: NextRequest) {
     console.log('📋 Student data prepared:', { name, program, level, studyMode, applicationId });
 
     // Get academic year set by director from system configuration
-    let academicYear = '2025/2026'; // Default fallback
+    let academicYear = '2020/2021'; // Default fallback to director's setting
     try {
       console.log('🔍 Fetching director-set academic year from system config...');
       
@@ -378,6 +435,9 @@ export async function POST(request: NextRequest) {
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(10);
       doc.setFont("times", "normal");
+      
+      // Add watermark and security features
+      addWatermarkAndSecurity(doc, applicationId);
       
       // Calculate fees based on director-approved level and study mode
       const effectiveLevel = directorApprovedLevel || level;

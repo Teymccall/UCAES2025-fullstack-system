@@ -114,12 +114,12 @@ export default function RegisteredStudentsPage() {
   }, [])
 
   // Helper function to get program name
-  const getProgramName = (programId: string) => {
+  const getProgramName = (programId: string | undefined | null) => {
+    if (!programId) return "Unknown Program"
     // If it already looks like a name (contains BSc. or B.Sc.), return it
     if (programId.includes("BSc.") || programId.includes("B.Sc.")) {
       return programId
     }
-    
     // Otherwise, look it up in our programNames map
     return programNames[programId] || programId
   }
@@ -711,13 +711,18 @@ export default function RegisteredStudentsPage() {
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                  {registration.courses.map((course) => (
-                                    <TableRow key={course.courseId || course.courseCode}>
-                                      <TableCell>{course.courseCode}</TableCell>
-                                      <TableCell>{course.courseName}</TableCell>
-                                      <TableCell className="text-center">{course.credits}</TableCell>
-                                    </TableRow>
-                                  ))}
+                                  {registration.courses.map((course: any, idx: number) => {
+                                    const code = course.courseCode || course.code || ''
+                                    const name = course.courseName || course.title || course.name || ''
+                                    const key = course.courseId || course.id || code || idx
+                                    return (
+                                      <TableRow key={key}>
+                                        <TableCell>{code}</TableCell>
+                                        <TableCell>{name}</TableCell>
+                                        <TableCell className="text-center">{course.credits}</TableCell>
+                                      </TableRow>
+                                    )
+                                  })}
                                 </TableBody>
                               </Table>
                             </div>
@@ -802,13 +807,18 @@ export default function RegisteredStudentsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {selectedRegistration.courses.map((course) => (
-                        <TableRow key={course.courseId || course.courseCode}>
-                          <TableCell className="font-medium">{course.courseCode}</TableCell>
-                          <TableCell>{course.courseName}</TableCell>
-                          <TableCell className="text-center">{course.credits}</TableCell>
-                        </TableRow>
-                      ))}
+                      {selectedRegistration.courses.map((course: any, idx: number) => {
+                        const code = course.courseCode || course.code || ''
+                        const name = course.courseName || course.title || course.name || ''
+                        const key = course.courseId || course.id || code || idx
+                        return (
+                          <TableRow key={key}>
+                            <TableCell className="font-medium">{code}</TableCell>
+                            <TableCell>{name}</TableCell>
+                            <TableCell className="text-center">{course.credits}</TableCell>
+                          </TableRow>
+                        )
+                      })}
                     </TableBody>
                   </Table>
                 </div>

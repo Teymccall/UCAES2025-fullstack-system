@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
-import { Calendar, Search, Eye, FileText, CheckCircle, Clock, MessageSquare, Users, GraduationCap, DollarSign, Download, Image, FileText as FileTextIcon, User, ArrowLeft, Printer, AlertCircle, ArrowUpCircle } from "lucide-react"
+import { Calendar, Search, Eye, FileText, CheckCircle, Clock, MessageSquare, Users, GraduationCap, DollarSign, Download, Image, FileText as FileTextIcon, User, ArrowLeft, Printer, AlertCircle, ArrowUpCircle, RefreshCw } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { RouteGuard } from "@/components/route-guard"
 
@@ -310,6 +310,44 @@ function AdmissionsDashboard() {
       toast({
         title: "Error",
         description: "Failed to update admission status",
+        variant: "destructive"
+      })
+    } finally {
+      setIsUpdatingStatus(false)
+    }
+  }
+
+  // Handle sync admission status to public portal
+  const handleSyncAdmissionStatus = async () => {
+    setIsUpdatingStatus(true)
+    
+    try {
+      const response = await fetch('/api/admissions/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      
+      const data = await response.json()
+      
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: "Admission status synced to public portal successfully",
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to sync admission status",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error('Error syncing admission status:', error)
+      toast({
+        title: "Error",
+        description: "Failed to sync admission status",
         variant: "destructive"
       })
     } finally {
@@ -1874,6 +1912,20 @@ function AdmissionsDashboard() {
                       <Clock className="h-4 w-4 mr-2" />
                     )}
                     Set to Pending
+                  </Button>
+                  
+                  <Button
+                    onClick={handleSyncAdmissionStatus}
+                    disabled={isUpdatingStatus}
+                    variant="secondary"
+                    className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+                  >
+                    {isUpdatingStatus ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                    ) : (
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                    )}
+                    Sync to Portal
                   </Button>
                 </div>
               </div>

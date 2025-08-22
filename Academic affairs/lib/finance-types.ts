@@ -79,6 +79,29 @@ export interface FinanceDashboardSummary {
   };
   alerts: string[];
   currency: Currency;
+  // NEW: Enhanced dashboard data
+  budgetSummary?: {
+    totalAllocated: number;
+    totalSpent: number;
+    utilization: number;
+    activeBudgets: number;
+    overBudgetCount: number;
+  };
+  scholarshipSummary?: {
+    activeScholarships: number;
+    totalValue: number;
+  };
+  feeStructureSummary?: {
+    activeFeeStructures: number;
+  };
+  invoiceSummary?: {
+    pendingInvoices: number;
+    totalValue: number;
+  };
+  procurementSummary?: {
+    pendingRequests: number;
+    totalValue: number;
+  };
 }
 
 

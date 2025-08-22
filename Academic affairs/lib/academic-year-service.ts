@@ -183,7 +183,8 @@ export async function updateAdmissionStatus(
           yearData.displayName || yearData.year || year,
           systemConfig.currentSemesterId,
           systemConfig.currentSemester,
-          userId
+          userId,
+          yearData.admissionStatus  // Pass the admission status
         )
         console.log("✅ SystemConfig updated with new admission status")
       }

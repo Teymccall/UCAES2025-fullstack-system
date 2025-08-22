@@ -55,11 +55,13 @@ interface ServiceFee {
   name: string
   description?: string
   amount: number
-  type: 'Service' | 'Mandatory' | 'Optional'
+  type: 'Service' | 'Mandatory' | 'Optional' | 'FEES'
   category: string
   isActive: boolean
   forProgrammes?: string[]
   forLevels?: string[]
+  paymentStructure?: 'full' | 'installments'
+  installments?: { amount: number; dueDate: string }[]
   createdAt: string
   updatedAt: string
   createdBy: string
@@ -84,19 +86,23 @@ function FinanceContent() {
     name: '',
     description: '',
     amount: '',
-    type: 'Service' as 'Service' | 'Mandatory' | 'Optional',
+    type: 'Service' as 'Service' | 'Mandatory' | 'Optional' | 'FEES',
     category: '',
     forProgrammes: [] as string[],
-    forLevels: [] as string[]
+    forLevels: [] as string[],
+    paymentStructure: 'full',
+    installments: []
   })
   const [editService, setEditService] = useState({
     name: '',
     description: '',
     amount: '',
-    type: 'Service' as 'Service' | 'Mandatory' | 'Optional',
+    type: 'Service' as 'Service' | 'Mandatory' | 'Optional' | 'FEES',
     category: '',
     forProgrammes: [] as string[],
-    forLevels: [] as string[]
+    forLevels: [] as string[],
+    paymentStructure: 'full',
+    installments: []
   })
 
   // Payment verification state
@@ -147,18 +153,24 @@ function FinanceContent() {
       const response = await fetch('/api/academic-period')
       const result = await response.json()
       
-      if (result.success) {
+      if (result.success && result.data.academicYear) {
         setCurrentAcademicInfo({
-          year: result.data.academicYear || '2025/2026',
+          year: result.data.academicYear,
           semester: result.data.semester || 'First Semester'
+        })
+      } else {
+        console.warn('No centralized academic year configured. Please ask director to set current academic year.')
+        setCurrentAcademicInfo({
+          year: 'Not Set',
+          semester: 'Not Set'
         })
       }
     } catch (error) {
       console.error('Error fetching academic info:', error)
-      // Set defaults
+      // Show that configuration is missing instead of providing fallback
       setCurrentAcademicInfo({
-        year: '2025/2026',
-        semester: 'First Semester'
+        year: 'Configuration Error',
+        semester: 'Configuration Error'
       })
     }
   }
@@ -780,8 +792,65 @@ function FinanceContent() {
                       <option value="Service">Service</option>
                       <option value="Mandatory">Mandatory</option>
                       <option value="Optional">Optional</option>
+                    <option value="FEES">FEES</option>
+                  </select>
+                </div>
+                {newService.type === 'FEES' && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Payment Structure</label>
+                    <select
+                      value={newService.paymentStructure}
+                      onChange={(e) => setNewService({ ...newService, paymentStructure: e.target.value as 'full' | 'installments' })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    >
+                      <option value="full">Full Payment</option>
+                      <option value="installments">Installments</option>
                     </select>
                   </div>
+                )}
+                {newService.type === 'FEES' && newService.paymentStructure === 'installments' && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Installments</label>
+                    {newService.installments.map((installment, index) => (
+                      <div key={index} className="flex items-center space-x-2">
+                        <Input
+                          type="number"
+                          placeholder={`Installment ${index + 1} Amount`}
+                          value={installment.amount}
+                          onChange={(e) => {
+                            const newInstallments = [...newService.installments];
+                            newInstallments[index].amount = e.target.value;
+                            setNewService({ ...newService, installments: newInstallments });
+                          }}
+                        />
+                        <Input
+                          type="date"
+                          value={installment.dueDate}
+                          onChange={(e) => {
+                            const newInstallments = [...newService.installments];
+                            newInstallments[index].dueDate = e.target.value;
+                            setNewService({ ...newService, installments: newInstallments });
+                          }}
+                        />
+                        <Button
+                          variant="destructive"
+                          onClick={() => {
+                            const newInstallments = [...newService.installments];
+                            newInstallments.splice(index, 1);
+                            setNewService({ ...newService, installments: newInstallments });
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      onClick={() => setNewService({ ...newService, installments: [...newService.installments, { amount: '', dueDate: '' }] })}
+                    >
+                      Add Installment
+                    </Button>
+                  </div>
+                )}}
                   <div>
                     <label className="block text-sm font-medium mb-1">Category*</label>
                     <Input

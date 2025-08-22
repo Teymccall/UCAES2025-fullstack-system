@@ -23,6 +23,7 @@ import {
   ScrollText,
   TrendingUp,
   DollarSign,
+  CheckCircle,
 } from "lucide-react"
 import Loader from "./ui/loader"
 import { hasPermission, type UserRole } from "@/lib/permissions"
@@ -34,7 +35,6 @@ interface SidebarProps {
 
 export function Sidebar({ userRole, userPermissions }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
-  const [financeOpen, setFinanceOpen] = useState(false)
   const [loadingLink, setLoadingLink] = useState<string | null>(null)
   const pathname = usePathname()
   const router = useRouter()
@@ -138,48 +138,27 @@ export function Sidebar({ userRole, userPermissions }: SidebarProps) {
       roles: (STAFF_TYPES as UserRole[]),
     },
     
-    // Finance Management
+    // Finance Management - Individual Pages
     { 
       href: userRole === "director" ? "/director/finance" : "/staff/finance", 
-      label: "Finance", 
+      label: "Finance Dashboard", 
       icon: DollarSign, 
       permission: "finance_management",
       roles: (["director", ...STAFF_TYPES] as UserRole[]),
     },
-    // Finance quick links (staff-only convenience entries)
     { 
-      href: "/staff/finance?tab=budgets", 
-      label: "Finance • Budgets", 
+      href: userRole === "director" ? "/director/finance/fee-settings" : "/staff/finance/fee-settings", 
+      label: "Fee Settings", 
       icon: DollarSign, 
-      permission: "finance_management",
-      roles: (STAFF_TYPES as UserRole[]),
+      permission: "fee_calculation",
+      roles: ["director", "finance_officer", "registrar"] as UserRole[],
     },
     { 
-      href: "/staff/finance?tab=invoices", 
-      label: "Finance • Invoices", 
+      href: userRole === "director" ? "/director/finance/fee-structures" : "/staff/finance/fee-structures", 
+      label: "Fee Structures", 
       icon: DollarSign, 
-      permission: "finance_management",
-      roles: (STAFF_TYPES as UserRole[]),
-    },
-    { 
-      href: "/staff/finance?tab=payroll", 
-      label: "Finance • Payroll", 
-      icon: DollarSign, 
-      permission: "finance_management",
-      roles: (STAFF_TYPES as UserRole[]),
-    },
-    { 
-      href: "/staff/finance?tab=vendors", 
-      label: "Finance • Vendors", 
-      icon: DollarSign, 
-      permission: "finance_management",
-      roles: (STAFF_TYPES as UserRole[]),
-    },
-    { 
-      href: "/staff/finance?tab=procurement", 
-      label: "Finance • Procurement", 
-      icon: DollarSign, 
-      permission: "finance_management"
+      permission: "fee_calculation",
+      roles: ["director", "finance_officer", "registrar"] as UserRole[],
     },
     
     // Admissions Management
@@ -191,35 +170,46 @@ export function Sidebar({ userRole, userPermissions }: SidebarProps) {
       roles: (["director", ...STAFF_TYPES] as UserRole[]),
     },
     
-    // Staff Management (Director only)
-    { 
-      href: "/director/staff-management", 
-      label: "Staff Management", 
-      icon: UserCheck, 
-      permission: "staff_management",
-      roles: ["director"] as UserRole[],
-    },
-    { 
-      href: "/director/lecturer-management", 
-      label: "Lecturer Management", 
-      icon: GraduationCap, 
-      permission: "lecturer_management",
-      roles: ["director"] as UserRole[],
-    },
-    
-    // Academic Administration
+    // Academic Administration (Director and Registrar)
     { 
       href: "/director/academic-management", 
       label: "Academic Year", 
       icon: Calendar, 
       permission: "academic_administration",
-      roles: ["director"] as UserRole[],
+      roles: ["director", "registrar"] as UserRole[],
     },
     { 
       href: "/director/deferment", 
       label: "Deferment", 
       icon: Calendar, 
       permission: "academic_administration",
+      roles: ["director", "registrar"] as UserRole[],
+    },
+    
+    // Program Management (Director and Registrar)
+    { 
+      href: "/director/program-management", 
+      label: "Program Management", 
+      icon: BookMarked, 
+      permission: "program_management",
+      roles: ["director", "registrar"] as UserRole[],
+    },
+    
+    // Lecturer Management (Director and Registrar)
+    { 
+      href: "/director/lecturer-management", 
+      label: "Lecturer Management", 
+      icon: GraduationCap, 
+      permission: "lecturer_management",
+      roles: ["director", "registrar"] as UserRole[],
+    },
+    
+    // Staff Management (Director only)
+    { 
+      href: "/director/staff-management", 
+      label: "Staff Management", 
+      icon: UserCheck, 
+      permission: "staff_management",
       roles: ["director"] as UserRole[],
     },
     
@@ -280,9 +270,14 @@ export function Sidebar({ userRole, userPermissions }: SidebarProps) {
     return hasPermission(userPermissions, item.permission)
   })
 
-  // Group finance sublinks under a collapsible section
-  const financeSubItems = menuItems.filter(i => i.href.startsWith("/staff/finance?tab="))
-  const menuWithoutFinanceSubs = menuItems.filter(i => !i.href.startsWith("/staff/finance?tab="))
+  // Debug logging for finance menu
+  console.log('🔍 Finance menu debug:', {
+    userRole,
+    userPermissions,
+    menuItems: menuItems.length,
+    allMenuItems: allMenuItems.length,
+    financeItems: menuItems.filter(item => item.label.includes("Finance") || item.label.includes("Fee") || item.label.includes("Budget") || item.label.includes("Invoice") || item.label.includes("Payroll") || item.label.includes("Scholarship") || item.label.includes("Vendor") || item.label.includes("Procurement") || item.label.includes("Transfer") || item.label.includes("Verification")).length
+  })
 
   // Handle navigation with loading state
   const handleNavigation = (href: string) => {
@@ -318,96 +313,10 @@ export function Sidebar({ userRole, userPermissions }: SidebarProps) {
         onWheel={handleScroll}
         style={{ height: 'calc(100vh - 64px)' }}
       >
-        {menuWithoutFinanceSubs.map((item) => {
+        {menuItems.map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href
           const isLoading = loadingLink === item.href
-
-          const isFinanceRoot = item.label === "Finance" && financeSubItems.length > 0
-
-          if (isFinanceRoot) {
-            return (
-              <div key={`${item.href}-${item.label}`}>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleNavigation(item.href)}
-                    disabled={isLoading || isActive}
-                    className={cn(
-                      "flex-1 justify-start transition-all duration-200 text-left",
-                      collapsed && "px-2",
-                      isActive
-                        ? "bg-secondary text-secondary-foreground cursor-default"
-                        : isLoading
-                        ? "bg-muted text-muted-foreground cursor-not-allowed"
-                        : "hover:bg-accent hover:text-accent-foreground cursor-pointer",
-                      "h-12 px-4 rounded-md text-sm font-medium"
-                    )}
-                  >
-                    <div className="flex items-center">
-                      {isLoading ? (
-                        <Loader className="h-4 w-4 flex-shrink-0" />
-                      ) : (
-                        <Icon className="h-4 w-4 flex-shrink-0" />
-                      )}
-                      {!collapsed && (
-                        <span className="ml-3 text-sm leading-tight break-words">
-                          {item.label}
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                  {!collapsed && (
-                    <button
-                      type="button"
-                      onClick={() => setFinanceOpen(!financeOpen)}
-                      className={cn(
-                        "text-xs px-2 py-1 rounded border",
-                        financeOpen ? "bg-muted" : "bg-background hover:bg-muted"
-                      )}
-                    >
-                      {financeOpen ? "Hide" : "Show"}
-                    </button>
-                  )}
-                </div>
-
-                {/* Collapsed finance submenu */}
-                {!collapsed && financeOpen && (
-                  <div className="mt-1 space-y-1">
-                    {financeSubItems.map((sub) => {
-                      const SubIcon = sub.icon
-                      const subActive = pathname === sub.href
-                      const subLoading = loadingLink === sub.href
-                      return (
-                        <button
-                          key={`${sub.href}-${sub.label}`}
-                          onClick={() => handleNavigation(sub.href)}
-                          disabled={subLoading || subActive}
-                          className={cn(
-                            "w-full justify-start transition-all duration-200 text-left",
-                            subActive
-                              ? "bg-secondary/60 text-secondary-foreground cursor-default"
-                              : subLoading
-                              ? "bg-muted text-muted-foreground cursor-not-allowed"
-                              : "hover:bg-accent hover:text-accent-foreground cursor-pointer",
-                            "h-10 pl-10 pr-3 rounded-md text-sm"
-                          )}
-                        >
-                          <div className="flex items-center">
-                            {subLoading ? (
-                              <Loader className="h-3.5 w-3.5 flex-shrink-0" />
-                            ) : (
-                              <SubIcon className="h-3.5 w-3.5 flex-shrink-0" />
-                            )}
-                            <span className="ml-2 text-sm truncate">{sub.label.replace("Finance • ", "")}</span>
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )
-          }
 
           return (
             <button

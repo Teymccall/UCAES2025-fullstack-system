@@ -28,6 +28,8 @@ export const PERMISSIONS = {
   'results_approval': 'Approve and publish results',
   'result_entry': 'Enter course results',
   'transcript_generation': 'Generate student transcripts',
+  'degree_audit': 'Perform degree audits',
+  'compliance_management': 'Manage regulatory compliance',
   
   // Admissions
   'admission_review': 'Review admission applications',
@@ -39,7 +41,10 @@ export const PERMISSIONS = {
   
   // Daily operations
   'daily_reports': 'Submit daily reports',
-  'lecturer_management': 'Manage lecturer accounts'
+  'lecturer_management': 'Manage lecturer accounts',
+  
+  // Dashboard access
+  'view_dashboard': 'View dashboard and statistics'
 } as const;
 
 /**
@@ -69,7 +74,8 @@ export const ROLE_PERMISSIONS = {
     'registration_management',
     'registration_approval',
     'daily_reports',
-    'lecturer_management'
+    'lecturer_management',
+    'view_dashboard'
   ],
   
   'finance_officer': [
@@ -78,7 +84,8 @@ export const ROLE_PERMISSIONS = {
     'payment_processing',
     'financial_reports',
     'student_records', // Read-only for student info
-    'daily_reports'
+    'daily_reports',
+    'view_dashboard'
   ],
   
   'exam_officer': [
@@ -86,14 +93,16 @@ export const ROLE_PERMISSIONS = {
     'results_approval',
     'transcript_generation',
     'student_records',
-    'daily_reports'
+    'daily_reports',
+    'view_dashboard'
   ],
   
   'admissions_officer': [
     'admission_review',
     'admission_approval',
     'student_records',
-    'daily_reports'
+    'daily_reports',
+    'view_dashboard'
   ],
   
   'registrar': [
@@ -106,21 +115,33 @@ export const ROLE_PERMISSIONS = {
     'student_management',
     'lecturer_management',
     'academic_administration',
-    'daily_reports'
+    'transcript_generation',
+    'degree_audit',
+    'compliance_management',
+    'exam_management', // Added for oversight
+    'daily_reports',
+    'view_dashboard', // For dashboard access
+    // Additional permissions for comprehensive registrar access
+    'results_approval', // For academic oversight
+    'fee_calculation', // For fee-related academic decisions
+    'admission_review', // For final admission approval
+    'admission_approval' // For final admission decisions
   ],
   
   'staff': [
     'course_management', // Limited to assigned courses
     'result_entry', // Limited to assigned courses
     'student_records', // Limited to their students
-    'daily_reports'
+    'daily_reports',
+    'view_dashboard'
   ],
   
   'Lecturer': [
     'course_management', // Limited to assigned courses
     'result_entry', // Limited to assigned courses
     'student_records', // Limited to their students
-    'daily_reports'
+    'daily_reports',
+    'view_dashboard'
   ]
 } as const;
 
@@ -183,7 +204,7 @@ export const ROLE_DESCRIPTIONS = {
   'finance_officer': 'Manages student fees, payments, and financial reports',
   'exam_officer': 'Manages examinations, approves results, and generates transcripts',
   'admissions_officer': 'Reviews and processes admission applications',
-  'registrar': 'Manages course registrations and student enrollment',
+  'registrar': 'Comprehensive academic administration, student lifecycle management, and academic policy oversight',
   'staff': 'Basic staff member with limited course access',
   'Lecturer': 'Academic staff member with course teaching responsibilities'
 } as const;

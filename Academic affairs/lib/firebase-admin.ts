@@ -49,7 +49,7 @@ function initializeFirebaseAdmin() {
       return { app: adminApp, db: adminDb, auth: adminAuth };
     }
 
-    // Always require service account for proper authentication
+    // Always require service account for proper authentication in school system
     if (!serviceAccount) {
       throw new Error('Service account is required for Firebase Admin SDK. Please ensure the service account file exists.');
     }

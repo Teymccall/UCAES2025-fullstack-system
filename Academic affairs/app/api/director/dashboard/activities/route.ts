@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebase-admin';
+import { getDb } from '@/lib/firebase-admin';
+import { withAuthorization } from '@/lib/api-auth';
+import { PERMISSIONS } from '@/lib/permissions';
 
-export async function GET(req: Request) {
+const getRecentActivities = async (req: Request) => {
   try {
     const activities: any[] = [];
 
     // Fetch recent course registrations
     try {
-      const registrationsSnapshot = await adminDb.collection('course-registrations')
+      const registrationsSnapshot = await getDb().collection('course-registrations')
         .orderBy('registrationDate', 'desc')
         .limit(10)
         .get();
@@ -28,7 +30,7 @@ export async function GET(req: Request) {
 
     // Fetch recent student registrations
     try {
-      const studentRegistrationsSnapshot = await adminDb.collection('student-registrations')
+      const studentRegistrationsSnapshot = await getDb().collection('student-registrations')
         .orderBy('registrationDate', 'desc')
         .limit(10)
         .get();
@@ -49,7 +51,7 @@ export async function GET(req: Request) {
 
     // Fetch recent results submissions
     try {
-      const resultsSnapshot = await adminDb.collection('results')
+      const resultsSnapshot = await getDb().collection('results')
         .orderBy('submittedAt', 'desc')
         .limit(10)
         .get();
@@ -70,7 +72,7 @@ export async function GET(req: Request) {
 
     // Fetch recent course updates
     try {
-      const coursesSnapshot = await adminDb.collection('courses')
+      const coursesSnapshot = await getDb().collection('courses')
         .orderBy('updatedAt', 'desc')
         .limit(10)
         .get();
@@ -102,4 +104,6 @@ export async function GET(req: Request) {
       { status: 500 }
     );
   }
-} 
+}
+
+export const GET = withAuthorization(PERMISSIONS.view_dashboard)(getRecentActivities);

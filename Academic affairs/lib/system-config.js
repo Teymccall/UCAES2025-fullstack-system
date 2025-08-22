@@ -7,18 +7,25 @@ import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 /**
  * Update the system academic period configuration
  */
-export async function updateSystemAcademicPeriod(yearId, yearString, semesterId, semesterString, userId) {
+export async function updateSystemAcademicPeriod(yearId, yearString, semesterId, semesterString, userId, admissionStatus = null) {
   try {
     const configRef = doc(db, "systemConfig", "academicPeriod");
     
-    await setDoc(configRef, {
+    const updateData = {
       currentAcademicYearId: yearId,
       currentAcademicYear: yearString,
       currentSemesterId: semesterId,
       currentSemester: semesterString,
       lastUpdated: serverTimestamp(),
       updatedBy: userId
-    }, { merge: true });
+    };
+
+    // Include admission status if provided
+    if (admissionStatus !== null) {
+      updateData.admissionStatus = admissionStatus;
+    }
+    
+    await setDoc(configRef, updateData, { merge: true });
     
     console.log("System academic period updated successfully");
     return true;

@@ -108,6 +108,40 @@ export default function DefermentPage() {
     fetchData();
   }, []);
 
+  // Add compliance check function
+  async function checkDefermentCompliance(studentId) {
+    try {
+      // Check fee status
+      const feeQuery = query(
+        collection(db, "feeAccounts"),
+        where("studentId", "==", studentId),
+        where("balance", "==", 0)
+      );
+      const feeSnapshot = await getDocs(feeQuery);
+      if (feeSnapshot.empty) {
+        return { compliant: false, reason: "Outstanding fees" };
+      }
+  
+      // Check academic status (e.g., no probation)
+      const recordQuery = query(
+        collection(db, "academic-records"),
+        where("studentId", "==", studentId),
+        where("recordType", "==", "probation"),
+        where("status", "==", "active")
+      );
+      const recordSnapshot = await getDocs(recordQuery);
+      if (!recordSnapshot.empty) {
+        return { compliant: false, reason: "Active academic probation" };
+      }
+  
+      // Additional compliance checks can be added here
+      return { compliant: true };
+    } catch (error) {
+      console.error("Compliance check error:", error);
+      return { compliant: false, reason: "System error" };
+    }
+  }
+
   // Approve or decline a request
   const handleStatusChange = async (id, status) => {
     try {
@@ -115,6 +149,14 @@ export default function DefermentPage() {
       if (!request) {
         toast.error("Request not found");
         return;
+      }
+
+      if (status === "approved") {
+        const compliance = await checkDefermentCompliance(request.studentId);
+        if (!compliance.compliant) {
+          toast.error(`Cannot approve: ${compliance.reason}`);
+          return;
+        }
       }
 
       // Update the deferment request status
@@ -593,7 +635,7 @@ export default function DefermentPage() {
         performedBy: "director",
         performedAt: new Date().toISOString(),
         details: {
-          returnPeriod: `${reactivateForm.returnSemester.trim()} semester of ${reactivateForm.returnAcademicYear.trim()}`,
+          returnPeriod: `${reactivateForm.returnSemester.trim()} semester of ${reactivateForm.returnAcademicYear.trim()} `,
           notes: reactivateForm.notes.trim(),
           academicStatus: "active",
           tuitionHandling: "fees_restored",
@@ -1185,4 +1227,4 @@ export default function DefermentPage() {
       </Dialog>
     </div>
   );
-} 
+}

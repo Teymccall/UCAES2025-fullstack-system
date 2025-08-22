@@ -31,7 +31,7 @@ import {
 import { Search, Plus, Trash2, Users, BookOpen, Edit, CheckCircle, Download, AlertCircle, UserCheck, Copy } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { collection, query, where, orderBy, getDocs, getFirestore, onSnapshot, updateDoc, doc, deleteDoc, writeBatch } from "firebase/firestore"
+import { collection, query, where, getDocs, doc, updateDoc, deleteDoc, writeBatch, onSnapshot } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { Spinner, SpinnerContainer } from "@/components/ui/spinner"
 
@@ -68,8 +68,13 @@ export default function DirectorStudentManagement() {
   const [filterProgram, setFilterProgram] = useState("all")
   const [filterLevel, setFilterLevel] = useState("all")
   const [filterStudyMode, setFilterStudyMode] = useState("all")
+  const [filterStatus, setFilterStatus] = useState("all")
+  const [filterGender, setFilterGender] = useState("all")
   // Copy feedback state (move here to fix hook order)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  
+  // Add state for audit
+  const [auditData, setAuditData] = useState<any>(null)
   
   // Fetch students from Firebase with real-time updates
   useEffect(() => {
@@ -175,6 +180,13 @@ export default function DirectorStudentManagement() {
     // Cleanup function to unsubscribe from listener
     return () => unsubscribeRegistrations()
   }, [])
+
+  // useEffect for audit data when student is selected
+  useEffect(() => {
+    if (selectedStudent) {
+      performDegreeAudit(selectedStudent.id).then(setAuditData)
+    }
+  }, [selectedStudent])
 
   // Hardcoded students function for fallback
   const getHardcodedStudents = (): RegisteredStudent[] => {
@@ -500,10 +512,39 @@ export default function DirectorStudentManagement() {
     }
   }
 
+  // Add this function to perform degree audit
+  async function performDegreeAudit(studentId: string) {
+    // Fetch student's program requirements (assume stored in programs collection)
+    const programQuery = query(collection(db, "programs"), where("id", "==", selectedStudent?.program));
+    const programSnap = await getDocs(programQuery);
+    const programData = programSnap.docs[0]?.data() || { requiredCredits: 120, coreCourses: [] };
+
+    // Fetch completed courses from results
+    const resultsQuery = query(collection(db, "results"), where("studentId", "==", studentId), where("status", "==", "approved"));
+    const resultsSnap = await getDocs(resultsQuery);
+    let totalCredits = 0;
+    const completedCourses = resultsSnap.docs.map(doc => {
+      const data = doc.data();
+      totalCredits += data.credits || 0;
+      return data.courseCode;
+    });
+
+    // Check core courses completion
+    const missingCores = programData.coreCourses.filter((code: string) => !completedCourses.includes(code));
+
+    return {
+      totalCredits,
+      requiredCredits: programData.requiredCredits,
+      completedPercentage: (totalCredits / programData.requiredCredits) * 100,
+      missingCoreCourses: missingCores,
+      isEligible: totalCredits >= programData.requiredCredits && missingCores.length === 0
+    };
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Student Management</h1>
+        <h1 className="text-3xl font-bold">Student Management</h1>
         <div className="flex gap-2">
           <Button>
             <Plus className="mr-2 h-4 w-4" />
@@ -543,17 +584,17 @@ export default function DirectorStudentManagement() {
         </div>
       </div>
 
-          <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
             <UserCheck className="h-5 w-5" />
             Registered Students ({students.length})
-                </CardTitle>
+          </CardTitle>
           <CardDescription>
             View and manage all registered students
           </CardDescription>
-            </CardHeader>
-            <CardContent>
+        </CardHeader>
+        <CardContent>
           <div className="space-y-4">
             {/* Search and filters */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
@@ -572,89 +613,89 @@ export default function DirectorStudentManagement() {
                     }}
                   />
                 </div>
-                </div>
+              </div>
               
-                        <div>
+              <div>
                 <Select value={filterProgram} onValueChange={(value) => {
                   setFilterProgram(value);
                   // Apply filter immediately when program is selected
                   setTimeout(() => handleSearch(), 0);
                 }}>
-                      <SelectTrigger>
+                  <SelectTrigger>
                     <SelectValue placeholder="All Programs" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Programs</SelectItem>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Programs</SelectItem>
                     {uniquePrograms.map((program) => (
                       <SelectItem key={program} value={program}>{program}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               
-                  <div>
+              <div>
                 <Select value={filterLevel} onValueChange={(value) => {
                   setFilterLevel(value);
                   // Apply filter immediately when level is selected
                   setTimeout(() => handleSearch(), 0);
                 }}>
-                      <SelectTrigger>
+                  <SelectTrigger>
                     <SelectValue placeholder="All Levels" />
-                      </SelectTrigger>
-                      <SelectContent>
+                  </SelectTrigger>
+                  <SelectContent>
                     <SelectItem value="all">All Levels</SelectItem>
                     {standardLevels.map((level) => (
                       <SelectItem key={level} value={level}>{level}</SelectItem>
                     ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  </SelectContent>
+                </Select>
+              </div>
               
-                  <div>
+              <div>
                 <Select value={filterStudyMode} onValueChange={(value) => {
                   setFilterStudyMode(value);
                   // Apply filter immediately when study mode is selected
                   setTimeout(() => handleSearch(), 0);
                 }}>
-                      <SelectTrigger>
+                  <SelectTrigger>
                     <SelectValue placeholder="All Modes" />
-                      </SelectTrigger>
-                      <SelectContent>
+                  </SelectTrigger>
+                  <SelectContent>
                     <SelectItem value="all">All Modes</SelectItem>
                     {standardStudyModes.map((mode) => (
                       <SelectItem key={mode} value={mode}>{mode}</SelectItem>
                     ))}
-                      </SelectContent>
-                    </Select>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="flex gap-2">
                 <Button onClick={handleSearch} className="flex-1">Search</Button>
                 <Button variant="outline" onClick={resetFilters}>Reset</Button>
-                  </div>
-                </div>
+              </div>
+            </div>
             
             {/* Students table */}
             <div className="rounded-md border overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Student ID</TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Program</TableHead>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Student ID</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Program</TableHead>
                     <TableHead>Gender</TableHead>
                     <TableHead>Study Mode</TableHead>
                     <TableHead>Level</TableHead>
-                        <TableHead>Status</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {searchResults.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                         No students found
-                          </TableCell>
+                      </TableCell>
                     </TableRow>
                   ) : (
                     searchResults.map((student) => (
@@ -688,28 +729,28 @@ export default function DirectorStudentManagement() {
                         <TableCell>{student.gender}</TableCell>
                         <TableCell>{student.studyMode}</TableCell>
                         <TableCell>{student.level}</TableCell>
-                          <TableCell>
-                            <Select value={student.status} onValueChange={(value) => handleStatusChange(student, value as RegisteredStudent["status"])}>
-                              <SelectTrigger className="w-[160px]">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="pending_verification">pending_verification</SelectItem>
-                                <SelectItem value="active">active</SelectItem>
-                                <SelectItem value="inactive">inactive</SelectItem>
-                                <SelectItem value="graduated">graduated</SelectItem>
-                                <SelectItem value="pending">pending</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
                         <TableCell>
-                <div className="flex items-center gap-2">
+                          <Select value={student.status} onValueChange={(value) => handleStatusChange(student, value as RegisteredStudent["status"])}>
+                            <SelectTrigger className="w-[160px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pending_verification">pending_verification</SelectItem>
+                              <SelectItem value="active">active</SelectItem>
+                              <SelectItem value="inactive">inactive</SelectItem>
+                              <SelectItem value="graduated">graduated</SelectItem>
+                              <SelectItem value="pending">pending</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
                             <Button variant="ghost" size="icon" onClick={() => handleViewStudent(student)}>
                               <Users className="h-4 w-4" />
-                  </Button>
+                            </Button>
                             <Button variant="ghost" size="icon">
                               <Edit className="h-4 w-4" />
-                              </Button>
+                            </Button>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button variant="ghost" size="icon" className="text-red-600 hover:text-red-700 hover:bg-red-50">
@@ -740,44 +781,44 @@ export default function DirectorStudentManagement() {
                       </TableRow>
                     ))
                   )}
-                  </TableBody>
-                </Table>
-              </div>
+                </TableBody>
+              </Table>
             </div>
+          </div>
         </CardContent>
       </Card>
       
       {/* Student Details Dialog */}
       {selectedStudent && (
         <Dialog open={isViewingStudent} onOpenChange={setIsViewingStudent}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
               <DialogTitle>Student Details</DialogTitle>
               <DialogDescription>
                 Detailed information for student {selectedStudent.studentId}
               </DialogDescription>
-          </DialogHeader>
-          
-          {/* Profile Picture */}
-          <div className="flex justify-center py-4">
-            {selectedStudent.profilePictureUrl ? (
-              <div className="relative">
-                <img
-                  src={selectedStudent.profilePictureUrl}
-                  alt={`${selectedStudent.name} profile picture`}
-                  className="w-32 h-32 rounded-full object-cover border-4 border-gray-200 shadow-lg"
-                />
-                <div className="absolute bottom-0 right-0 bg-green-500 w-6 h-6 rounded-full border-2 border-white"></div>
-              </div>
-            ) : (
-              <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center border-4 border-gray-300 shadow-lg">
-                <span className="text-gray-500 text-lg font-medium">
-                  {selectedStudent.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                </span>
-              </div>
-            )}
-          </div>
-          
+            </DialogHeader>
+            
+            {/* Profile Picture */}
+            <div className="flex justify-center py-4">
+              {selectedStudent.profilePictureUrl ? (
+                <div className="relative">
+                  <img
+                    src={selectedStudent.profilePictureUrl}
+                    alt={`${selectedStudent.name} profile picture`}
+                    className="w-32 h-32 rounded-full object-cover border-4 border-gray-200 shadow-lg"
+                  />
+                  <div className="absolute bottom-0 right-0 bg-green-500 w-6 h-6 rounded-full border-2 border-white"></div>
+                </div>
+              ) : (
+                <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center border-4 border-gray-300 shadow-lg">
+                  <span className="text-gray-500 text-lg font-medium">
+                    {selectedStudent.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                  </span>
+                </div>
+              )}
+            </div>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
               <div className="space-y-2">
                 <Label>Student ID</Label>
@@ -790,11 +831,11 @@ export default function DirectorStudentManagement() {
               <div className="space-y-2">
                 <Label>Email</Label>
                 <div className="font-medium">{selectedStudent.email}</div>
-            </div>
+              </div>
               <div className="space-y-2">
                 <Label>Contact Number</Label>
                 <div className="font-medium">{selectedStudent.contactNumber || "Not provided"}</div>
-            </div>
+              </div>
               <div className="space-y-2">
                 <Label>Program</Label>
                 <div className="font-medium">{selectedStudent.program}</div>
@@ -806,7 +847,7 @@ export default function DirectorStudentManagement() {
               <div className="space-y-2">
                 <Label>Gender</Label>
                 <div className="font-medium">{selectedStudent.gender}</div>
-            </div>
+              </div>
               <div className="space-y-2">
                 <Label>Study Mode</Label>
                 <div className="font-medium">{selectedStudent.studyMode}</div>
@@ -818,10 +859,10 @@ export default function DirectorStudentManagement() {
               <div className="space-y-2">
                 <Label>Registration Date</Label>
                 <div className="font-medium">{selectedStudent.registrationDate}</div>
-            </div>
+              </div>
               <div className="space-y-2">
                 <Label>Status</Label>
-            <div>
+                <div>
                   <Badge variant={
                     selectedStudent.status === "active" ? "default" :
                     selectedStudent.status === "graduated" ? "success" :
@@ -831,18 +872,18 @@ export default function DirectorStudentManagement() {
                     {selectedStudent.status}
                   </Badge>
                 </div>
+              </div>
             </div>
-          </div>
-          <DialogFooter>
+            <DialogFooter>
               <Button variant="outline" onClick={() => setIsViewingStudent(false)}>Close</Button>
               <Button>
                 <Edit className="mr-2 h-4 w-4" />
                 Edit Student
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
-  )
+  );
 }

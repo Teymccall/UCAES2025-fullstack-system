@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/firebase-admin';
 import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
+import { withAuthorization } from '@/lib/api-auth';
+import { PERMISSIONS } from '@/lib/permissions';
 
-export async function GET(req: Request) {
+const getDashboardStats = async (req: Request) => {
   try {
     const adminDb = getDb();
     // Fetch real data from Firebase
@@ -119,4 +121,6 @@ export async function GET(req: Request) {
       { status: 500 }
     );
   }
-} 
+}
+
+export const GET = withAuthorization(PERMISSIONS.view_dashboard)(getDashboardStats);

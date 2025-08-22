@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/firebase-admin';
+import { withAuthorization } from '@/lib/api-auth';
+import { PERMISSIONS } from '@/lib/permissions';
 
-export async function GET(req: Request) {
+const getPendingApprovals = async (req: Request) => {
   try {
     const adminDb = getDb();
     const approvals: any[] = [];
@@ -89,4 +91,6 @@ export async function GET(req: Request) {
       { status: 500 }
     );
   }
-} 
+}
+
+export const GET = withAuthorization(PERMISSIONS.view_dashboard)(getPendingApprovals);

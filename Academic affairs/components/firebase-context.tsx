@@ -17,16 +17,9 @@ export function FirebaseProvider({ children }: { children: ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false);
   
   useEffect(() => {
-    // Initialize the database
-    fetch("/api/init-db", { method: "POST" })
-      .then(() => {
-        console.log('Database initialized successfully');
-        setIsInitialized(true);
-      })
-      .catch(error => {
-        console.error('Error initializing database:', error);
-        setIsInitialized(true);
-      });
+    // Database will be initialized automatically when needed
+    // Remove auto-initialization to prevent repeated calls
+    setIsInitialized(true);
   }, []);
   
   return (

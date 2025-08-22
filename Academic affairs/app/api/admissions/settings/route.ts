@@ -1,48 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getDb } from '@/lib/firebase-admin';
 
 // GET - Get current admission settings and statistics
 export async function GET() {
-    const adminDb = getDb();
   try {
+    const adminDb = getDb();
     console.log('🔍 Starting admission settings fetch...');
-    
-    // Import Firebase Admin modules directly
-    const { initializeApp, getApps, cert } = await import("firebase-admin/app");
-    const { getFirestore } = await import("firebase-admin/firestore");
-    
-    // Load service account
-    const fs = await import('fs');
-    const path = await import('path');
-    const serviceAccountPath = path.join(process.cwd(), 'ucaes2025-firebase-adminsdk-fbsvc-c70a08a455.json');
-    
-    if (!fs.existsSync(serviceAccountPath)) {
-      throw new Error(`Service account not found at ${serviceAccountPath}`);
-    }
-    
-    const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
-    console.log('✅ Service account loaded for project:', serviceAccount.project_id);
-    
-    // Initialize Firebase Admin with explicit credentials
-    let app;
-    const existingApps = getApps();
-    
-    // Use existing app if available, otherwise create new one
-    if (existingApps.length > 0) {
-      app = existingApps[0];
-      console.log('✅ Using existing Firebase Admin app');
-    } else {
-      app = initializeApp({
-        credential: cert(serviceAccount),
-        databaseURL: "https://ucaes2025-default-rtdb.firebaseio.com",
-        projectId: serviceAccount.project_id
-      });
-      console.log('✅ Created new Firebase Admin app');
-    }
-    console.log('✅ Firebase Admin app initialized');
-    
-    // Get Firestore instance
-    const adminDb = getFirestore(app);
-    console.log('✅ Firestore instance created');
     
     // Get current year from systemConfig (centralized system)
     const systemConfigRef = adminDb.collection('systemConfig').doc('academicPeriod');
@@ -125,8 +88,8 @@ export async function GET() {
 
 // PATCH - Update admission status
 export async function PATCH(request: NextRequest) {
-    const adminDb = getDb();
   try {
+    const adminDb = getDb();
     const body = await request.json();
     const { year, status, admissionStartDate, admissionEndDate, userId } = body;
     
@@ -138,33 +101,6 @@ export async function PATCH(request: NextRequest) {
     }
     
     console.log(`🔄 Updating admission status for ${year} to ${status}...`);
-    
-    // Initialize Firebase Admin directly
-    const { initializeApp, getApps, cert } = await import("firebase-admin/app");
-    const { getFirestore } = await import("firebase-admin/firestore");
-    
-    // Load service account
-    const fs = await import('fs');
-    const path = await import('path');
-    const serviceAccountPath = path.join(process.cwd(), 'ucaes2025-firebase-adminsdk-fbsvc-c70a08a455.json');
-    
-    if (!fs.existsSync(serviceAccountPath)) {
-      throw new Error(`Service account not found at ${serviceAccountPath}`);
-    }
-    
-    const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
-    
-    // Create a new app instance
-    const timestamp = Date.now();
-    const appName = `patch-admin-${timestamp}`;
-    
-    const app = initializeApp({
-      credential: cert(serviceAccount),
-      databaseURL: "https://ucaes2025-default-rtdb.firebaseio.com",
-      projectId: serviceAccount.project_id
-    }, appName);
-    
-    const adminDb = getFirestore(app);
     
     // First, get the current academic year ID from systemConfig
     const systemConfigRef = adminDb.collection('systemConfig').doc('academicPeriod');
@@ -207,7 +143,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
     
-    // Update the academic year document using the correct document ID
+    // Update the academic year document
     const updateData: any = {
       admissionStatus: status,
       updatedAt: new Date(),
@@ -219,9 +155,16 @@ export async function PATCH(request: NextRequest) {
     
     await yearRef.update(updateData);
     
-    console.log('✅ Updated current academic year admission status in systemConfig-referenced document');
+    console.log('✅ Updated academic year admission status');
     
-    console.log('✅ Admission status updated successfully');
+    // Update the systemConfig document to sync with public portal
+    await systemConfigRef.update({
+      admissionStatus: status,
+      lastUpdated: new Date(),
+      updatedBy: userId
+    });
+    
+    console.log('✅ Admission status updated and synced to systemConfig successfully');
     
     return NextResponse.json({
       success: true,
@@ -238,8 +181,8 @@ export async function PATCH(request: NextRequest) {
 
 // PUT - Set current academic year
 export async function PUT(request: NextRequest) {
-    const adminDb = getDb();
   try {
+    const adminDb = getDb();
     const body = await request.json();
     const { year, userId } = body;
     
@@ -251,33 +194,6 @@ export async function PUT(request: NextRequest) {
     }
     
     console.log(`🔄 Setting current academic year to ${year}...`);
-    
-    // Initialize Firebase Admin directly
-    const { initializeApp, getApps, cert } = await import("firebase-admin/app");
-    const { getFirestore } = await import("firebase-admin/firestore");
-    
-    // Load service account
-    const fs = await import('fs');
-    const path = await import('path');
-    const serviceAccountPath = path.join(process.cwd(), 'ucaes2025-firebase-adminsdk-fbsvc-c70a08a455.json');
-    
-    if (!fs.existsSync(serviceAccountPath)) {
-      throw new Error(`Service account not found at ${serviceAccountPath}`);
-    }
-    
-    const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
-    
-    // Create a new app instance
-    const timestamp = Date.now();
-    const appName = `put-admin-${timestamp}`;
-    
-    const app = initializeApp({
-      credential: cert(serviceAccount),
-      databaseURL: "https://ucaes2025-default-rtdb.firebaseio.com",
-      projectId: serviceAccount.project_id
-    }, appName);
-    
-    const adminDb = getFirestore(app);
     
     // Get the academic year document to get its display name
     const yearRef = adminDb.collection('academic-years').doc(year);

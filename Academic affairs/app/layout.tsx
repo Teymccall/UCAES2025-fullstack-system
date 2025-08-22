@@ -9,6 +9,7 @@ import { CourseProvider } from "@/components/course-context"
 import { AcademicProvider } from "@/components/academic-context"
 import { StudentProvider } from "@/components/student-context"
 import { FirebaseProvider } from "@/components/firebase-context"
+import { PerformanceProvider } from "@/components/performance-context"
 import { SpinnerContainer } from "@/components/ui/spinner"
 import dynamic from 'next/dynamic'
 
@@ -43,17 +44,19 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-          <DynamicMongoDBProvider>
-            <FirebaseProvider>
-              <AuthProvider>
-                <CourseProvider>
-                  <AcademicProvider>
-                    <StudentProvider>{children}</StudentProvider>
-                  </AcademicProvider>
-                </CourseProvider>
-              </AuthProvider>
-            </FirebaseProvider>
-          </DynamicMongoDBProvider>
+          <PerformanceProvider>
+            <DynamicMongoDBProvider>
+              <FirebaseProvider>
+                <AuthProvider>
+                  <CourseProvider>
+                    <AcademicProvider>
+                      <StudentProvider>{children}</StudentProvider>
+                    </AcademicProvider>
+                  </CourseProvider>
+                </AuthProvider>
+              </FirebaseProvider>
+            </DynamicMongoDBProvider>
+          </PerformanceProvider>
         </ThemeProvider>
       </body>
     </html>

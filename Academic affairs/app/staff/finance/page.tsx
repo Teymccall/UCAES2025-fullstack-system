@@ -28,6 +28,7 @@ import {
   Save,
   Wallet,
   Receipt,
+  GraduationCap,
   Banknote,
   CheckCircle,
   MoreHorizontal
@@ -38,6 +39,8 @@ import { Loader } from "@/components/ui/loader"
 import { useToast } from "@/hooks/use-toast"
 import { db } from "@/lib/firebase"
 import { collection, onSnapshot, orderBy, query, where, limit } from "firebase/firestore"
+import { EnhancedScholarshipForm } from "@/components/enhanced-scholarship-form"
+import { ScholarshipManagement } from "@/components/scholarship-management"
 
 interface FeesSummary {
   totalOutstanding: number
@@ -83,6 +86,210 @@ interface RecentPayment {
   reference?: string
   invoiceId?: string
   createdAt?: any
+}
+
+// Manual Verifications Content Component
+function ManualVerificationsContent() {
+  const [verifications, setVerifications] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [summary, setSummary] = useState({
+    totalRecords: 0,
+    totalAmount: 0,
+    uniqueStudents: 0,
+    verificationsByVerifier: {} as Record<string, number>
+  })
+  const [filterVerifier, setFilterVerifier] = useState("")
+  const [filterAcademicYear, setFilterAcademicYear] = useState("")
+
+  useEffect(() => {
+    fetchManualVerifications()
+  }, [])
+
+  const fetchManualVerifications = async () => {
+    try {
+      setLoading(true)
+      console.log('🔍 Fetching manual verification records...')
+      
+      const params = new URLSearchParams()
+      if (filterVerifier) params.append('verifiedBy', filterVerifier)
+      if (filterAcademicYear) params.append('academicYear', filterAcademicYear)
+      
+      const response = await fetch(`/api/finance/manual-verifications?${params.toString()}`)
+      const result = await response.json()
+      
+      if (result.success) {
+        setVerifications(result.data.verifications)
+        setSummary(result.data.summary)
+        console.log('✅ Manual verifications loaded:', result.data.verifications.length)
+      } else {
+        console.error('❌ Failed to fetch manual verifications:', result.error)
+      }
+    } catch (error) {
+      console.error('❌ Error fetching manual verifications:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <SpinnerContainer>Loading manual verification records...</SpinnerContainer>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header with Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total Verifications</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{summary.totalRecords}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total Amount</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">¢{summary.totalAmount.toLocaleString()}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Unique Students</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{summary.uniqueStudents}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Top Verifier</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm font-medium">
+              {Object.keys(summary.verificationsByVerifier).length > 0 
+                ? Object.entries(summary.verificationsByVerifier)
+                    .sort(([,a], [,b]) => b - a)[0]?.[0] || 'None'
+                : 'None'}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CheckCircle className="h-5 w-5" />
+            Manual Payment Verifications
+          </CardTitle>
+          <CardDescription>
+            All manually verified payments by the Director. These are offline payments that were verified and entered into the system.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4 mb-4">
+            <div className="flex-1">
+              <Input
+                placeholder="Filter by verifier..."
+                value={filterVerifier}
+                onChange={(e) => setFilterVerifier(e.target.value)}
+              />
+            </div>
+            <div className="flex-1">
+              <Input
+                placeholder="Filter by academic year..."
+                value={filterAcademicYear}
+                onChange={(e) => setFilterAcademicYear(e.target.value)}
+              />
+            </div>
+            <Button onClick={fetchManualVerifications}>
+              <Search className="h-4 w-4 mr-2" />
+              Filter
+            </Button>
+          </div>
+
+          {/* Verifications Table */}
+          <div className="rounded-md border">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b bg-muted/50">
+                  <th className="h-12 px-4 text-left align-middle font-medium">Student</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium">Amount</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium">Payment Method</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium">Date</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium">Verified By</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium">Reference</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium">Academic Year</th>
+                </tr>
+              </thead>
+              <tbody>
+                {verifications.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="h-24 text-center">
+                      <div className="flex flex-col items-center justify-center space-y-2">
+                        <CheckCircle className="h-8 w-8 text-muted-foreground" />
+                        <p className="text-muted-foreground">No manual verifications found</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  verifications.map((verification) => (
+                    <tr key={verification.id} className="border-b hover:bg-muted/50">
+                      <td className="p-4">
+                        <div>
+                          <div className="font-medium">
+                            {verification.paymentDetails?.studentName || 'Unknown Student'}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            ID: {verification.studentId}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="font-medium">¢{verification.amount?.toLocaleString()}</div>
+                      </td>
+                      <td className="p-4">
+                        <Badge variant="outline">
+                          {verification.paymentMethod || 'Unknown'}
+                        </Badge>
+                      </td>
+                      <td className="p-4">
+                        <div className="text-sm">
+                          {new Date(verification.verificationDate).toLocaleDateString()}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="text-sm font-medium">
+                          {verification.verifiedBy || 'Unknown'}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="text-sm text-muted-foreground">
+                          {verification.referenceNumber || 'N/A'}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <Badge variant="secondary">
+                          {verification.paymentDetails?.academicYear || 'Unknown'}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
 }
 
 function FinanceContent() {
@@ -534,18 +741,23 @@ function FinanceContent() {
       const response = await fetch('/api/academic-period')
       const result = await response.json()
       
-      if (result.success) {
+      if (result.success && result.data.academicYear) {
         setCurrentAcademicInfo({
-          year: result.data.academicYear || '2025/2026',
+          year: result.data.academicYear,
           semester: result.data.semester || 'First Semester'
+        })
+      } else {
+        setCurrentAcademicInfo({
+          year: 'Not Set',
+          semester: 'Not Set'
         })
       }
     } catch (error) {
       console.error('Error fetching academic info:', error)
-      // Set defaults
+      // Show configuration error instead of fallback
       setCurrentAcademicInfo({
-        year: '2025/2026',
-        semester: 'First Semester'
+        year: 'Configuration Error',
+        semester: 'Configuration Error'
       })
     }
   }
@@ -590,37 +802,94 @@ function FinanceContent() {
   useEffect(() => {
     const fetchFinanceData = async () => {
       try {
-        console.log('🏦 Fetching real finance data from API...')
+        console.log('🏦 Fetching finance data with parallel optimization...')
+        setLoading(true)
         
-        const response = await fetch('/api/finance/students')
-        const result = await response.json()
+        // Parallel API calls for faster loading
+        const [studentsRes, dashboardRes, servicesRes, academicRes] = await Promise.allSettled([
+          fetch('/api/finance/students'),
+          fetch('/api/finance/dashboard'),
+          fetch('/api/finance/services'),
+          fetch('/api/academic-period')
+        ])
         
-        if (result.success) {
-          setFeesSummary(result.data.summary)
-          setStudentRecords(result.data.studentRecords)
-          console.log('✅ Finance data loaded successfully')
+        // Process students data
+        if (studentsRes.status === 'fulfilled') {
+          try {
+            const result = await studentsRes.value.json()
+            if (result.success) {
+              setFeesSummary(result.data.summary)
+              setStudentRecords(result.data.studentRecords)
+            }
+          } catch (jsonError) {
+            console.warn('Failed to parse students response:', jsonError)
+            setFeesSummary({
+              totalOutstanding: 0,
+              totalPaid: 0,
+              totalStudents: 0,
+              overduePayments: 0
+            })
+            setStudentRecords([])
+          }
+        }
+        
+        // Process dashboard data
+        if (dashboardRes.status === 'fulfilled') {
+          try {
+            const dashJson = await dashboardRes.value.json()
+            if (dashJson.success) setDashboard(dashJson.data)
+          } catch (jsonError) {
+            console.warn('Failed to parse dashboard response:', jsonError)
+          }
+        }
+        
+        // Process services data
+        if (servicesRes.status === 'fulfilled') {
+          try {
+            const servicesJson = await servicesRes.value.json()
+            if (servicesJson.success) setServices(servicesJson.data || [])
+          } catch (jsonError) {
+            console.warn('Failed to parse services response:', jsonError)
+            setServices([])
+          }
         } else {
-          console.error('❌ Failed to load finance data:', result.error)
-          // Fallback to mock data if API fails
-          setFeesSummary({
-            totalOutstanding: 0,
-            totalPaid: 0,
-            totalStudents: 0,
-            overduePayments: 0
+          console.warn('Services API failed:', servicesRes.reason)
+          setServices([])
+        }
+        
+        // Process academic info
+        if (academicRes.status === 'fulfilled') {
+          try {
+            const academicJson = await academicRes.value.json()
+            if (academicJson.success && academicJson.data?.academicYear) {
+              setCurrentAcademicInfo({
+                year: academicJson.data.academicYear,
+                semester: academicJson.data.semester || 'First Semester'
+              })
+            } else {
+              setCurrentAcademicInfo({
+                year: '2027/2028', // Fallback to current academic year
+                semester: 'First Semester'
+              })
+            }
+          } catch (jsonError) {
+            console.warn('Failed to parse academic response:', jsonError)
+            setCurrentAcademicInfo({
+              year: '2027/2028',
+              semester: 'First Semester'
+            })
+          }
+        } else {
+          setCurrentAcademicInfo({
+            year: '2027/2028',
+            semester: 'First Semester'
           })
-          setStudentRecords([])
         }
-        // Fetch dashboard KPIs in parallel
-        try {
-          const dashRes = await fetch('/api/finance/dashboard')
-          const dashJson = await dashRes.json()
-          if (dashJson.success) setDashboard(dashJson.data)
-        } catch (e) {
-          console.warn('Dashboard fetch failed')
-        }
+        
+        console.log('✅ All finance data loaded successfully with parallel fetching')
       } catch (error) {
         console.error("Error fetching finance data:", error)
-        // Fallback to mock data if API fails
+        // Set fallback data
         setFeesSummary({
           totalOutstanding: 0,
           totalPaid: 0,
@@ -628,14 +897,16 @@ function FinanceContent() {
           overduePayments: 0
         })
         setStudentRecords([])
+        setCurrentAcademicInfo({
+          year: '2027/2028',
+          semester: 'First Semester'
+        })
       } finally {
         setLoading(false)
       }
     }
 
     fetchFinanceData()
-    fetchServices()
-    fetchCurrentAcademicInfo()
   }, [])
 
   // Field validation functions
@@ -948,6 +1219,38 @@ function FinanceContent() {
         </div>
       </div>
 
+      {/* Current Academic Period */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-blue-800">
+            <GraduationCap className="h-5 w-5" />
+            Current Academic Period
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm font-medium text-blue-700">Academic Year</p>
+              <p className="text-lg font-bold text-blue-900">
+                {currentAcademicInfo.year || '2027/2028'}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-blue-700">Semester</p>
+              <p className="text-lg font-bold text-blue-900">
+                {currentAcademicInfo.semester || 'First Semester'}
+              </p>
+            </div>
+          </div>
+          {(!currentAcademicInfo.year || currentAcademicInfo.year === 'Not Set' || currentAcademicInfo.year === 'Configuration Error') && (
+            <div className="mt-3 flex items-center gap-2 text-amber-600">
+              <AlertTriangle className="h-4 w-4" />
+              <span className="text-sm">Using manually configured period: 2027/2028 - First Semester</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
@@ -1024,6 +1327,7 @@ function FinanceContent() {
           <TabsTrigger value="students">Student Fees</TabsTrigger>
           <TabsTrigger value="services">Service</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
+          <TabsTrigger value="manual-verifications">Manual Verifications</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
 
           <DropdownMenu>
@@ -1212,58 +1516,9 @@ function FinanceContent() {
         </TabsContent>
 
         <TabsContent value="scholarships" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Scholarships, Grants & Bursaries</CardTitle>
-              <CardDescription>Applications, awards and disbursements</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-                <Input placeholder="Student ID" value={newScholar.studentId} onChange={(e)=>setNewScholar({...newScholar, studentId: e.target.value})} />
-                <Input placeholder="Award Name" value={newScholar.name} onChange={(e)=>setNewScholar({...newScholar, name: e.target.value})} />
-                <Input placeholder="Amount" value={newScholar.amount} onChange={(e)=>setNewScholar({...newScholar, amount: e.target.value})} />
-                <select className="px-3 py-2 border rounded" value={newScholar.type} onChange={(e)=>setNewScholar({...newScholar, type: e.target.value as any})}>
-                  <option value="scholarship">Scholarship</option>
-                  <option value="grant">Grant</option>
-                  <option value="bursary">Bursary</option>
-                </select>
-                <Input placeholder="Year (optional)" value={newScholar.year} onChange={(e)=>setNewScholar({...newScholar, year: e.target.value})} />
-                <Button onClick={createScholarship} disabled={creatingScholar}>{creatingScholar ? 'Saving...' : 'Record Application'}</Button>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-2 px-3">Student</th>
-                      <th className="text-left py-2 px-3">Name</th>
-                      <th className="text-left py-2 px-3">Type</th>
-                      <th className="text-left py-2 px-3">Amount</th>
-                      <th className="text-left py-2 px-3">Status</th>
-                      <th className="text-left py-2 px-3">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {scholarships.map(s => (
-                      <tr key={s.id} className="border-b">
-                        <td className="py-2 px-3">{s.studentId}</td>
-                        <td className="py-2 px-3">{s.name}</td>
-                        <td className="py-2 px-3">{s.type}</td>
-                        <td className="py-2 px-3">¢{(s.amount||0).toLocaleString()}</td>
-                        <td className="py-2 px-3">{s.status}</td>
-                        <td className="py-2 px-3">
-                          {s.status !== 'awarded' && (
-                            <Button size="sm" onClick={()=>awardScholarship(s.id)}>Award</Button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                    {scholarships.length === 0 && (<tr><td colSpan={6} className="py-6 text-center text-gray-500">No scholarships</td></tr>)}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+          <ScholarshipManagement />
         </TabsContent>
+
 
         <TabsContent value="transfers" className="space-y-4">
           <Card>
@@ -1937,6 +2192,10 @@ function FinanceContent() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="manual-verifications" className="space-y-4">
+          <ManualVerificationsContent />
         </TabsContent>
 
         <TabsContent value="analytics" className="space-y-4">

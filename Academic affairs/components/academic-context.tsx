@@ -378,6 +378,19 @@ export function AcademicProvider({ children }: { children: ReactNode }) {
                 semester.status
       })));
       
+      // Update centralized system config if this is a Regular semester
+      if (programType === "Regular") {
+        const { updateSystemAcademicPeriod } = await import('@/lib/system-config');
+        await updateSystemAcademicPeriod(
+          academicYear.id,
+          academicYear.year,
+          semesterId,
+          semesterToUpdate.name,
+          'system'
+        );
+        console.log('✅ Updated centralized system config');
+      }
+      
       // Explicitly refresh data to ensure all components have the latest state
       await refreshAcademicData();
       

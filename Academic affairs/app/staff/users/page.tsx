@@ -10,6 +10,7 @@ import { useAuth } from "@/components/auth-context"
 import { db } from "@/lib/firebase"
 import { collection, getDocs, query, where } from "firebase/firestore"
 import { Users as UsersIcon, Search } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 interface StaffUser {
   id: string
@@ -115,7 +116,33 @@ function UsersContent() {
           <UsersIcon className="h-6 w-6" />
           <h1 className="text-3xl font-bold">Users</h1>
         </div>
-        <Badge variant="secondary">Scope: {user?.role || "staff"}</Badge>
+        <div className="flex items-center gap-2">
+          {/* Test button to update registrar permissions */}
+          {user?.role === 'director' && (
+            <Button 
+              onClick={async () => {
+                try {
+                  const response = await fetch('/api/update-registrar-permissions', { method: 'POST' })
+                  const result = await response.json()
+                  if (result.success) {
+                    alert('Registrar permissions updated! Refresh the page to see changes.')
+                    window.location.reload()
+                  } else {
+                    alert('Failed: ' + result.message)
+                  }
+                } catch (error) {
+                  alert('Error: ' + error.message)
+                }
+              }}
+              variant="outline"
+              size="sm"
+              className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+            >
+              Update Registrar Permissions
+            </Button>
+          )}
+          <Badge variant="secondary">Scope: {user?.role || "staff"}</Badge>
+        </div>
       </div>
 
       <Card>

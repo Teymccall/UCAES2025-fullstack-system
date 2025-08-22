@@ -32,6 +32,7 @@ import {
 } from "firebase/firestore"
 import { useAcademic } from "@/components/academic-context"
 import { useCourses } from "@/components/course-context"
+import { detectCourseScheduleConflicts } from "@/lib/schedule-utils"
 import Link from "next/link"
 
 interface Student {
@@ -757,6 +758,79 @@ function CourseRegistrationContent() {
         return;
       }
     }
+    
+    // Check if we're adding a course (not removing)
+    const isSelected = selectedCourses.includes(courseCode);
+    if (!isSelected) {
+      // Schedule conflict detection
+      const { getCourseSchedules } = useCourses();
+      
+      // Get schedules for the course being added
+      const courseSchedules = getCourseSchedules ? getCourseSchedules(course.id) : [];
+      
+      // Get schedules for all currently selected courses
+      const selectedCoursesIds = availableCourses
+        .filter(c => selectedCourses.includes(c.code))
+        .map(c => c.id);
+      
+      if (courseSchedules.length > 0 && selectedCoursesIds.length > 0) {
+        // Check for schedule conflicts
+        const allSchedules = getCourseSchedules ? 
+          [...selectedCoursesIds.flatMap(id => getCourseSchedules(id) || []), ...courseSchedules] : 
+          [];
+        
+        const { hasConflicts, conflicts } = detectCourseScheduleConflicts(
+          [...selectedCoursesIds, course.id],
+          allSchedules
+        );
+        
+        if (hasConflicts) {
+          // Format conflict messages
+          const conflictMessages = conflicts.map(conflict => {
+            const course1 = availableCourses.find(c => c.id === conflict.course1)?.title || conflict.course1;
+            const course2 = availableCourses.find(c => c.id === conflict.course2)?.title || conflict.course2;
+            return `${course1} conflicts with ${course2} on ${conflict.day} at ${conflict.time}`;
+          });
+          
+          // Show warning to user
+          toast({
+            title: "Schedule Conflict Detected",
+            description: (
+              <div>
+                <p>This course conflicts with your current selection:</p>
+                <ul className="list-disc pl-4 mt-2">
+                  {conflictMessages.map((msg, i) => (
+                    <li key={i}>{msg}</li>
+                  ))}
+                </ul>
+                <p className="mt-2">Do you still want to add this course?</p>
+              </div>
+            ),
+            variant: "warning",
+            action: (
+              <div className="flex space-x-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => {
+                    // Add course despite conflict
+                    setSelectedCourses(prev => [...prev, courseCode]);
+                    setTotalCredits(totalCredits + credits);
+                  }}
+                >
+                  Add Anyway
+                </Button>
+              </div>
+            ),
+          });
+          
+          // Return early to prevent automatic addition
+          return;
+        }
+      } else {
+        console.log(`[DEBUG] No schedules found for course: ${courseCode} or no selected courses yet`);
+      }
+    }
   
     setSelectedCourses(prev => {
       const isSelected = prev.includes(courseCode);
@@ -770,6 +844,296 @@ function CourseRegistrationContent() {
         return [...prev, courseCode];
       }
     });
+  };
+  
+  // Check for duplicate course registration
+  const checkDuplicateCourses = async () => {
+    if (!selectedStudent) return { hasDuplicates: false, duplicates: [] };
+
+    try {
+      const registrationsRef = collection(db, "course-registrations");
+      const q = query(
+        registrationsRef,
+        where("studentId", "==", selectedStudent.id),
+        where("academicYear", "==", currentAcademicYear),
+        where("semester", "==", selectedSemester),
+        where("status", "in", ["approved", "pending"])
+      );
+
+      const snapshot = await getDocs(q);
+      const registeredCourses = new Set();
+      
+      snapshot.docs.forEach(doc => {
+        const registration = doc.data();
+        if (registration.courses) {
+          registration.courses.forEach((course: any) => {
+            registeredCourses.add(course.code || course.courseCode);
+          });
+        }
+      });
+
+      const duplicates = selectedCourses.filter(courseCode => 
+        registeredCourses.has(courseCode)
+      );
+
+      return {
+        hasDuplicates: duplicates.length > 0,
+        duplicates
+      };
+
+    } catch (error) {
+      console.error('Error checking duplicate courses:', error);
+      return { hasDuplicates: false, duplicates: [] };
+    }
+  };
+
+  // Enhanced prerequisite validation with grade requirements
+  const validateCoursePrerequisites = async (courseCode: string) => {
+    if (!selectedStudent) return { valid: true, missingPrereqs: [], lowGradePrereqs: [] };
+
+    try {
+      // Get course details to check prerequisites
+      const courseDoc = await getDoc(doc(db, "courses", courseCode));
+      if (!courseDoc.exists()) {
+        return { valid: true, missingPrereqs: [], lowGradePrereqs: [] };
+      }
+
+      const courseData = courseDoc.data();
+      const prerequisites = courseData.prerequisites || [];
+      
+      if (prerequisites.length === 0) {
+        return { valid: true, missingPrereqs: [], lowGradePrereqs: [] };
+      }
+
+      // Get student's completed courses with grades
+      const registrationsRef = collection(db, "course-registrations");
+      const q = query(
+        registrationsRef,
+        where("studentId", "==", selectedStudent.id),
+        where("status", "==", "approved")
+      );
+
+      const snapshot = await getDocs(q);
+      const completedCourses = new Map();
+      
+      snapshot.docs.forEach(doc => {
+        const registration = doc.data();
+        if (registration.courses) {
+          registration.courses.forEach((course: any) => {
+            completedCourses.set(course.code || course.courseCode, {
+              grade: course.grade || null,
+              completed: true
+            });
+          });
+        }
+      });
+
+      const missingPrereqs = [];
+      const lowGradePrereqs = [];
+
+      // Check each prerequisite
+      for (const prereq of prerequisites) {
+        const courseCode = typeof prereq === 'string' ? prereq : prereq.code;
+        const minGrade = typeof prereq === 'object' ? prereq.minGrade : 'D'; // Default minimum grade
+        
+        const completedCourse = completedCourses.get(courseCode);
+        
+        if (!completedCourse) {
+          missingPrereqs.push(courseCode);
+        } else if (completedCourse.grade && completedCourse.grade < minGrade) {
+          lowGradePrereqs.push({
+            course: courseCode,
+            grade: completedCourse.grade,
+            required: minGrade
+          });
+        }
+      }
+
+      return {
+        valid: missingPrereqs.length === 0 && lowGradePrereqs.length === 0,
+        missingPrereqs,
+        lowGradePrereqs
+      };
+
+    } catch (error) {
+      console.error('Error validating prerequisites:', error);
+      return { valid: true, missingPrereqs: [], lowGradePrereqs: [] };
+    }
+  };
+
+  // Check student payment status before registration
+  const checkStudentPaymentStatus = async () => {
+    if (!selectedStudent) {
+      return {
+        canRegister: false,
+        reason: "No student selected"
+      };
+    }
+
+    try {
+      // Import the fee service dynamically to avoid circular dependencies
+      const { getCurrentSemesterFees } = await import('../../../FEES PORTAL/lib/academic-period-service');
+      
+      // Get student info to determine programme type and level
+      const studentDoc = await getDoc(doc(db, "users", selectedStudent.id));
+      if (!studentDoc.exists()) {
+        return {
+          canRegister: false,
+          reason: "Student information not found. Please contact support."
+        };
+      }
+      
+      const studentData = studentDoc.data();
+      const programmeType = studentData.programmeType === 'weekend' ? 'weekend' : 'regular';
+      const level = parseInt(studentData.currentLevel?.replace(/\D/g, '') || '100') || 100;
+      
+      console.log(`🔍 Checking fees for student ${selectedStudent.name}, programme: ${programmeType}, level: ${level}`);
+      
+      const semesterFees = await getCurrentSemesterFees(selectedStudent.id, programmeType, level);
+      
+      console.log(`💰 Fee check result:`, semesterFees);
+      
+      if (!semesterFees) {
+        return {
+          canRegister: false,
+          reason: "Fee information not found. Please visit the Fees Portal to ensure fees are calculated and paid."
+        };
+      }
+      
+      if (semesterFees.balance > 0) {
+        const unpaidAmount = semesterFees.balance.toLocaleString();
+        return {
+          canRegister: false,
+          reason: `Fees must be paid before course registration. Student has an outstanding balance of ¢${unpaidAmount} for ${semesterFees.semesterName}. Please visit the Fees Portal to make payment.`,
+          feeDetails: semesterFees
+        };
+      }
+      
+      // If balance is 0, fees are paid
+      console.log(`✅ Fees paid. Balance: ¢${semesterFees.balance}`);
+      return {
+        canRegister: true,
+        reason: "Fees paid",
+        feeDetails: semesterFees
+      };
+      
+    } catch (feeError) {
+      console.error('❌ Error checking fee payment status:', feeError);
+      return {
+        canRegister: false,
+        reason: "Error checking payment status. Please contact support."
+      };
+    }
+  };
+
+  // Submit registration to database
+  const handleSubmit = async () => {
+    setIsLoading(true);
+    try {
+      // Check payment status before registration
+      const paymentCheck = await checkStudentPaymentStatus();
+      if (!paymentCheck.canRegister) {
+        toast({
+          title: "Payment Required",
+          description: paymentCheck.reason,
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Get student information
+      const studentDocId = selectedStudent?.id;
+      const masterUserId = selectedStudent?.masterUserId || "";
+      
+      // Prepare courses data
+      const coursesData = selectedCourses.map(code => {
+        const course = availableCourses.find(c => c.code === code);
+        return {
+          code,
+          name: course?.title || code,
+          credits: course?.credits || 0,
+          theory: course?.theory || 0,
+          practical: course?.practical || 0,
+          type: course?.type || "core"
+        };
+      });
+      
+      // Validate program
+      if (!selectedProgram) {
+        throw new Error("No program selected");
+      }
+      
+      // Prepare registration data
+      const registrationData = {
+        studentId: studentDocId,
+        studentName: selectedStudent?.name || "",
+        registrationNumber: selectedStudent?.registrationNumber || "",
+        email: selectedStudent?.email || "",
+        academicYear: currentAcademicYear,
+        semester: selectedSemester,
+        level: selectedLevel,
+        program: selectedProgram,
+        studyMode: selectedStudent?.studyMode || "Regular",
+        courses: coursesData,
+        totalCredits,
+        registrationDate: new Date().toISOString(),
+        status: "approved", // Auto-approved for staff registrations
+        registeredBy: "staff",
+        createdAt: serverTimestamp()
+      };
+      
+      // Check if student already has a registration for this semester
+      const registrationsRef = collection(db, "course-registrations");
+      const q = query(
+        registrationsRef,
+        where("studentId", "==", studentDocId),
+        where("academicYear", "==", currentAcademicYear),
+        where("semester", "==", selectedSemester)
+      );
+      
+      const existingRegistrations = await getDocs(q);
+      
+      if (!existingRegistrations.empty) {
+        // Update existing registration
+        const registrationDoc = existingRegistrations.docs[0];
+        await updateDoc(doc(db, "course-registrations", registrationDoc.id), registrationData);
+        console.log(`[DEBUG] Updated existing registration for student ${selectedStudent?.name}`);
+      } else {
+        // Create new registration
+        await addDoc(collection(db, "course-registrations"), registrationData);
+        console.log(`[DEBUG] Created new registration for student ${selectedStudent?.name}`);
+      }
+      
+      // Update student's registration status
+      if (studentDocId) {
+        await updateDoc(doc(db, "students", studentDocId), {
+          registrationStatus: "registered",
+          updatedAt: serverTimestamp()
+        });
+      }
+      
+      toast({
+        title: "Registration Successful",
+        description: `Successfully registered ${selectedStudent?.name} for ${selectedCourses.length} courses.`,
+        variant: "success",
+      });
+      
+      // Reset form
+      setSelectedCourses([]);
+      setTotalCredits(0);
+      setPrintMode(true);
+      
+    } catch (error) {
+      console.error("[DEBUG] Error registering courses:", error);
+      toast({
+        title: "Registration Failed",
+        description: `An error occurred: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   // Register courses for student
@@ -800,155 +1164,175 @@ function CourseRegistrationContent() {
       })
       return
     }
-
-    setIsLoading(true)
-
-    try {
-      // Always use the Firestore students collection ID for studentId
-      let studentDocId = selectedStudent.id
-      let studentEmail = selectedStudent.email || ''
-      let masterUserId = studentDocId // Initialize with student doc id as a fallback
+    
+    // Final schedule conflict check before registration
+    const { getCourseSchedules } = useCourses();
+    if (getCourseSchedules) {
+      const selectedCoursesIds = availableCourses
+        .filter(c => selectedCourses.includes(c.code))
+        .map(c => c.id);
       
-      if (selectedStudent.registrationNumber) {
-        // Look up the student in the students collection by registrationNumber
-        const studentsRef = collection(db, "students")
-        const q = query(studentsRef, where("registrationNumber", "==", selectedStudent.registrationNumber))
-        const querySnapshot = await getDocs(q)
-        if (!querySnapshot.empty) {
-          // This confirms we have the correct student document from the 'students' collection
-          studentDocId = querySnapshot.docs[0].id
-          const studentData = querySnapshot.docs[0].data()
-          studentEmail = studentData.email || studentEmail
-        }
+      const allSchedules = selectedCoursesIds.flatMap(id => getCourseSchedules(id) || []);
+      
+      if (allSchedules.length > 0) {
+        const { hasConflicts, conflicts } = detectCourseScheduleConflicts(
+          selectedCoursesIds,
+          allSchedules
+        );
         
-        // If email is available, find user in the users collection to get the master ID for portal compatibility
-        if (studentEmail) {
-          const usersRef = collection(db, "users")
-          const normalizedEmail = (studentEmail || "").toLowerCase()
-          if (normalizedEmail) {
-            const userQuery = query(usersRef, where("email", "==", normalizedEmail))
-          const userSnapshot = await getDocs(userQuery)
+        if (hasConflicts) {
+          // Format conflict messages
+          const conflictMessages = conflicts.map(conflict => {
+            const course1 = availableCourses.find(c => c.id === conflict.course1)?.title || conflict.course1;
+            const course2 = availableCourses.find(c => c.id === conflict.course2)?.title || conflict.course2;
+            return `${course1} conflicts with ${course2} on ${conflict.day} at ${conflict.time}`;
+          });
           
-          if (!userSnapshot.empty) {
-            const userId = userSnapshot.docs[0].id
-            console.log(`Found matching master user ID: ${userId} for email: ${studentEmail}`)
-            // This is the ID the student portal uses. We MUST use this for the registration record.
-            masterUserId = userId 
-          } else {
-            console.warn(`Could not find a user account with email: ${studentEmail}. Registration may not appear in the student portal.`)
-          }
-          }
-        }
-      }
-
-      // Prepare courses data
-      const coursesData = selectedCourses.map(code => {
-        const course = availableCourses.find(c => c.code === code)
-        return {
-          courseId: course?.id || "",
-          courseCode: code,
-          courseName: course?.title || "",
-          credits: course?.credits || 0
-        }
-      })
-
-      // Validate that the selected program exists
-      const selectedProgramData = programOptions.find(p => p.id === selectedProgram);
-      if (!selectedProgramData) {
-        toast({
-          title: "Invalid Program",
-          description: "The selected program is not valid. Please select a different program.",
-          variant: "destructive",
-        })
-        return
-      }
-
-      console.log(`[DEBUG] Registering with program ID: ${selectedProgram} (${selectedProgramData.name})`);
-
-      const registrationData: Omit<Registration, "id"> = {
-        studentId: masterUserId, // CRITICAL: Use the master user ID for portal compatibility
-        studentName: selectedStudent.name,
-        registrationNumber: selectedStudent.registrationNumber,
-        email: studentEmail.toLowerCase(), // Add email for cross-referencing in student portal
-        academicYear: selectedAcademicYear,
-        semester: selectedSemester,
-        level: selectedLevel,
-        program: selectedProgram, // This will now always be a valid program ID
-        studyMode: selectedStudent.studyMode,
-        courses: coursesData,
-        totalCredits,
-        registrationDate: serverTimestamp(),
-        status: "approved", // Auto-approve when registered by director
-        registeredBy: "director" // Could be replaced with actual director ID/name
-      }
-
-      if (existingRegistration?.id) {
-        // Update existing registration
-        await updateDoc(doc(db, "course-registrations", existingRegistration.id), registrationData)
-        
-        toast({
-          title: "Registration updated",
-          description: `Updated course registration for ${selectedStudent.name}`,
-        })
-      } else {
-        // Create new registration
-        const docRef = await addDoc(collection(db, "course-registrations"), registrationData)
-
-        // Update the student status in the original 'students' document
-        try {
-          await updateDoc(doc(db, "students", studentDocId), { // Use the original studentDocId here
-            registrationStatus: "registered",
-            lastRegisteredCourses: {
-              academicYear: selectedAcademicYear,
-              semester: selectedSemester,
-              timestamp: serverTimestamp()
-            }
-          })
+          // Show warning to user with option to proceed
+          toast({
+            title: "Schedule Conflicts Detected",
+            description: (
+              <div>
+                <p>The following schedule conflicts were detected:</p>
+                <ul className="list-disc pl-4 mt-2">
+                  {conflictMessages.map((msg, i) => (
+                    <li key={i}>{msg}</li>
+                  ))}
+                </ul>
+                <p className="mt-2 font-semibold">Do you want to proceed with registration anyway?</p>
+              </div>
+            ),
+            variant: "warning",
+            duration: 10000, // Show for longer
+            action: (
+              <div className="flex space-x-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => {
+                    // Proceed with registration despite conflicts
+                    proceedWithPrerequisiteValidation();
+                  }}
+                >
+                  Register Anyway
+                </Button>
+              </div>
+            ),
+          });
           
-          // Also duplicate the registration in the student-registrations collection
-          // This ensures compatibility with the student portal which might be checking there
-          console.log("Creating duplicate registration in student-registrations collection for compatibility")
-          try {
-            await setDoc(
-              doc(db, "student-registrations", masterUserId),  // Use the master user ID here as well
-              {
-                ...registrationData,
-                courseRegistrationId: docRef.id, // Reference to original registration
-                updatedAt: serverTimestamp()
-              },
-              { merge: true } // Use merge to preserve other student data
-            )
-          } catch (dupError) {
-            console.error("Error creating duplicate in student-registrations collection:", dupError)
-            // Continue anyway as the main registration is successful
-          }
-        } catch (error) {
-          console.error("Error updating student registration status:", error)
+          // Return early to prevent automatic registration
+          return;
         }
-        
-        toast({
-          title: "Registration successful",
-          description: `Registered ${selectedCourses.length} courses for ${selectedStudent.name}. You can now print the registration form.`,
-        })
       }
-
-      // Reset selection
-      setSelectedCourses([])
-      setTotalCredits(0)
-
-      // Refresh the existing registration using the master ID, as that's what the portal uses
-      await checkExistingRegistration(masterUserId)
-    } catch (error) {
-      console.error("Error registering courses:", error)
-      toast({
-        title: "Registration failed",
-        description: "An error occurred while registering courses",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
     }
+    
+    // Proceed with prerequisite validation
+    proceedWithPrerequisiteValidation();
   }
+
+  // Enhanced prerequisite validation with grade requirements
+  const proceedWithPrerequisiteValidation = async () => {
+    // Check for duplicate courses first
+    const duplicateCheck = await checkDuplicateCourses();
+    if (duplicateCheck.hasDuplicates) {
+      toast({
+        title: "Duplicate Courses Detected",
+        description: (
+          <div>
+            <p>The following courses are already registered for this semester:</p>
+            <ul className="list-disc pl-4 mt-2">
+              {duplicateCheck.duplicates.map((course, i) => (
+                <li key={i}>{course}</li>
+              ))}
+            </ul>
+            <p className="mt-2 font-semibold">Please remove duplicate courses before proceeding.</p>
+          </div>
+        ),
+        variant: "destructive",
+        duration: 10000,
+      });
+      return;
+    }
+
+    const invalidPrereqs = [];
+    const missingPrereqs = [];
+    const lowGradePrereqs = [];
+
+    for (const courseCode of selectedCourses) {
+      const validation = await validateCoursePrerequisites(courseCode);
+      
+      if (!validation.valid) {
+        invalidPrereqs.push(courseCode);
+        missingPrereqs.push(...validation.missingPrereqs);
+        lowGradePrereqs.push(...validation.lowGradePrereqs);
+      }
+    }
+
+    if (invalidPrereqs.length > 0) {
+      let errorMessage = "Prerequisite validation failed for: " + invalidPrereqs.join(', ');
+      
+      if (missingPrereqs.length > 0) {
+        errorMessage += `\nMissing prerequisites: ${missingPrereqs.join(', ')}`;
+      }
+      
+      if (lowGradePrereqs.length > 0) {
+        const gradeIssues = lowGradePrereqs.map(item => 
+          `${item.course} (grade: ${item.grade}, required: ${item.required})`
+        ).join(', ');
+        errorMessage += `\nGrade requirements not met: ${gradeIssues}`;
+      }
+
+      // Show warning to user with option to proceed
+      toast({
+        title: "Prerequisite Issues Detected",
+        description: (
+          <div>
+            <p>The following prerequisite issues were detected:</p>
+            {missingPrereqs.length > 0 && (
+              <div>
+                <p className="font-semibold mt-2">Missing prerequisites:</p>
+                <ul className="list-disc pl-4">
+                  {missingPrereqs.map((prereq, i) => (
+                    <li key={i}>{prereq}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {lowGradePrereqs.length > 0 && (
+              <div>
+                <p className="font-semibold mt-2">Grade requirements not met:</p>
+                <ul className="list-disc pl-4">
+                  {lowGradePrereqs.map((item, i) => (
+                    <li key={i}>{item.course} (grade: {item.grade}, required: {item.required})</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <p className="mt-2 font-semibold">Do you want to proceed with registration anyway?</p>
+          </div>
+        ),
+        variant: "warning",
+        duration: 15000, // Show for longer
+        action: (
+          <div className="flex space-x-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => {
+                // Proceed with registration despite prerequisite issues
+                handleSubmit();
+              }}
+            >
+              Register Anyway
+            </Button>
+          </div>
+        ),
+      });
+    } else {
+      // All validations passed, proceed with registration
+      handleSubmit();
+    }
+  };
   
   // Print registration form
   const printRegistrationForm = async () => {
@@ -1151,7 +1535,7 @@ function CourseRegistrationContent() {
       printWindow.print()
       printWindow.close()
     }
-  }
+  } // Close printRegistrationForm function
   
   return (
     <div className="space-y-6">
@@ -1657,7 +2041,7 @@ function CourseRegistrationContent() {
       )}
     </div>
   )
-}
+} // Close CourseRegistrationContent function
 
 export default function StaffCourseRegistrationPage() {
   return (
@@ -1665,4 +2049,4 @@ export default function StaffCourseRegistrationPage() {
       <CourseRegistrationContent />
     </RouteGuard>
   )
-} 
+}

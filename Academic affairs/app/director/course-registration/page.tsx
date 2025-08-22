@@ -98,6 +98,7 @@ function CourseRegistrationContent() {
   const [searchTerm, setSearchTerm] = useState("")
   const [searchResults, setSearchResults] = useState<Student[]>([])
   const [isSearching, setIsSearching] = useState(false)
+  const [isSelectingStudent, setIsSelectingStudent] = useState(false)
   
   // State for selected student and registration
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
@@ -485,9 +486,12 @@ function CourseRegistrationContent() {
   
   // Handle student selection
   const selectStudent = async (student: Student) => {
-    setSelectedStudent(student)
+    try {
+      setIsSelectingStudent(true)
+      console.log("[DEBUG] selectStudent called with:", student)
+      setSelectedStudent(student)
 
-    // Enhanced program matching with multiple strategies
+      // Enhanced program matching with multiple strategies
     const normalize = (str: string) => str.replace(/\./g, "").replace(/\s+/g, " ").trim().toLowerCase();
     const studentProgramName = normalize(student.program);
 
@@ -598,6 +602,17 @@ function CourseRegistrationContent() {
     await checkExistingRegistration(masterUserId)
     
     // Don't automatically load courses - wait for user to select program, level and semester
+    console.log("[DEBUG] selectStudent completed successfully")
+    } catch (error) {
+      console.error("[DEBUG] Error in selectStudent:", error)
+      toast({
+        title: "Selection failed",
+        description: "An error occurred while selecting the student. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSelectingStudent(false)
+    }
   }
   
   // Check if student already has a registration
@@ -1256,9 +1271,16 @@ function CourseRegistrationContent() {
                           <Button
                             size="sm"
                             onClick={() => selectStudent(student)}
-                            disabled={false}
+                            disabled={isSelectingStudent}
                           >
-                            Select
+                            {isSelectingStudent ? (
+                              <>
+                                <Spinner className="mr-2 h-4 w-4" />
+                                Selecting...
+                              </>
+                            ) : (
+                              "Select"
+                            )}
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -1679,3 +1701,16 @@ export default function CourseRegistrationPage() {
     </RouteGuard>
   )
 } 
+
+function verifyRegistration(registration: Registration) {
+  const valid = registration.valid
+  const reason = registration.reason
+  
+  if (!valid) {
+    toast.error(`Registration invalid: ${reason}`);
+    return;
+  }
+
+  // Proceed with existing submission logic
+  // ... existing code ...
+};

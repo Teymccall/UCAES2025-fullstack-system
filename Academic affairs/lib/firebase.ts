@@ -4,18 +4,17 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 import { getAuth, connectAuthEmulator } from "firebase/auth";
 import { getStorage, connectStorageEmulator } from "firebase/storage";
-import { getAnalytics } from "firebase/analytics";
+// import { getAnalytics } from "firebase/analytics"; // Disabled to prevent API key errors
 
-// Firebase configuration - matches new student portal and student information system
+// Firebase configuration - updated to match working configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyCWj01Z1zScFJbTh5ChqsLEEZZdmBOjlUE",
+  apiKey: "AIzaSyDGpAHia_wEmrhnmYjrPf1n1TrAyoIaOGI",
   authDomain: "ucaes2025.firebaseapp.com",
-  databaseURL: "https://ucaes2025-default-rtdb.firebaseio.com",
   projectId: "ucaes2025",
   storageBucket: "ucaes2025.firebasestorage.app",
-  messagingSenderId: "543217800581",
-  appId: "1:543217800581:web:4f97ba0087f694deeea0ec",
-  measurementId: "G-8E3518ML0D"
+  messagingSenderId: "581632635532",
+  appId: "1:581632635532:web:bb6ce1f2c25266d37ec9ac",
+  // measurementId: "G-PLACEHOLDER" // Analytics disabled
 };
 
 // Initialize Firebase with proper error handling
@@ -34,10 +33,16 @@ try {
   db = getFirestore(app);
   storage = getStorage(app);
 
-  // Initialize Analytics only in browser environment
-  if (typeof window !== 'undefined') {
-    analytics = getAnalytics(app);
-  }
+  // Analytics disabled to prevent API key errors
+  // if (typeof window !== 'undefined') {
+  //   try {
+  //     analytics = getAnalytics(app);
+  //     console.log('Firebase Analytics initialized successfully');
+  //   } catch (analyticsError) {
+  //     console.warn('Firebase Analytics initialization failed (this is optional):', analyticsError);
+  //     analytics = null;
+  //   }
+  // }
 
   console.log('Firebase initialized for academic affairs with project ID:', firebaseConfig.projectId);
   console.log('Database instance:', db ? 'SUCCESS' : 'FAILED');

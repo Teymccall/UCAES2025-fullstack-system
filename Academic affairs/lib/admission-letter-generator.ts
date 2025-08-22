@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
-import { getFeeStructure, formatCurrency, numberToWords, getCurrentAcademicYear, getAcademicDates, BANK_DETAILS, HOSTEL_FEES } from './fee-structure';
+import { getFeeStructure, formatCurrency, numberToWords, getAcademicDates, BANK_DETAILS, HOSTEL_FEES } from './fee-structure';
+import { getDb } from './firebase-admin';
 
 export interface StudentData {
   applicationId: string;
@@ -55,6 +56,98 @@ function formatDate(date: Date): string {
 }
 
 /**
+ * Get current academic year from centralized system
+ */
+async function getCentralizedAcademicYear(): Promise<string> {
+  try {
+    const adminDb = getDb();
+    
+    // Try centralized system first
+    const systemConfigRef = adminDb.collection('systemConfig').doc('academicPeriod');
+    const systemConfigDoc = await systemConfigRef.get();
+    
+    if (systemConfigDoc.exists) {
+      const systemData = systemConfigDoc.data();
+      const academicYear = systemData?.currentAcademicYear;
+      if (academicYear) {
+        console.log(`✅ Using centralized academic year: ${academicYear}`);
+        return academicYear;
+      }
+    }
+    
+    // Fallback to current calendar year format with slash
+    const currentYear = new Date().getFullYear();
+    const fallbackYear = `${currentYear}/${currentYear + 1}`;
+    console.log(`⚠️ Using fallback academic year: ${fallbackYear}`);
+    return fallbackYear;
+    
+  } catch (error) {
+    console.error("❌ Error getting centralized academic year:", error);
+    const currentYear = new Date().getFullYear();
+    const fallbackYear = `${currentYear}/${currentYear + 1}`;
+    console.log(`🔄 Using emergency fallback academic year: ${fallbackYear}`);
+    return fallbackYear;
+  }
+}
+
+/**
+ * Add watermark and security features to prevent copying
+ */
+function addWatermarkAndSecurity(pdf: jsPDF, pageWidth: number, pageHeight: number, applicationId: string) {
+  // Save the current settings
+  const originalTextColor = pdf.getTextColor();
+  const originalFontSize = pdf.getFontSize();
+  
+  // Add diagonal watermark in center
+  pdf.setTextColor(220, 220, 220); // Light gray
+  pdf.setFontSize(50);
+  pdf.setFont('helvetica', 'bold');
+  
+  // Center of page - simple diagonal text
+  const centerX = pageWidth / 2;
+  const centerY = pageHeight / 2;
+  
+  // Main watermark (simplified without angle for compatibility)
+  pdf.text('UCAES OFFICIAL', centerX - 40, centerY, { maxWidth: 80 });
+  
+  // Add smaller watermark text around the page
+  pdf.setFontSize(16);
+  pdf.setTextColor(240, 240, 240); // Even lighter gray
+  
+  // Corner watermarks (simplified positioning)
+  pdf.text('UCAES', 30, 60);
+  pdf.text('OFFICIAL', pageWidth - 50, 60);
+  pdf.text('VERIFIED', 30, pageHeight - 40);
+  pdf.text('GENUINE', pageWidth - 50, pageHeight - 40);
+  
+  // Add application ID watermark in multiple locations
+  pdf.setFontSize(10);
+  pdf.setTextColor(250, 250, 250); // Very light gray
+  
+  // Multiple positions for application ID
+  pdf.text(applicationId, 60, 120);
+  pdf.text(applicationId, pageWidth - 80, 180);
+  pdf.text(applicationId, 90, 240);
+  pdf.text(applicationId, pageWidth - 90, 280);
+  
+  // Add security border
+  pdf.setLineWidth(0.5);
+  pdf.setDrawColor(200, 200, 200);
+  pdf.rect(10, 10, pageWidth - 20, pageHeight - 20);
+  
+  // Add "ORIGINAL DOCUMENT" text at bottom
+  pdf.setFontSize(8);
+  pdf.setTextColor(180, 180, 180);
+  pdf.text('ORIGINAL DOCUMENT - UNIVERSITY COLLEGE OF AGRICULTURE AND ENVIRONMENTAL STUDIES', 
+           pageWidth / 2, pageHeight - 15, { align: 'center' });
+  
+  // Restore original settings
+  pdf.setTextColor(originalTextColor);
+  pdf.setFontSize(originalFontSize);
+  pdf.setFont('helvetica', 'normal');
+}
+
+/**
  * Generate admission letter PDF
  */
 export async function generateAdmissionLetter(studentData: StudentData): Promise<Blob> {
@@ -66,8 +159,11 @@ export async function generateAdmissionLetter(studentData: StudentData): Promise
   const currentDate = new Date();
   const referenceNumber = generateReferenceNumber(studentData.applicationId);
   const dateIssued = formatDate(currentDate);
-  const academicYear = getCurrentAcademicYear();
-  const academicDates = getAcademicDates();
+  const academicYear = await getCentralizedAcademicYear();
+  const academicDates = {
+    ...getAcademicDates(),
+    academicYear // Override with centralized academic year
+  };
   // Use director-approved level for fee calculation if available
   const effectiveLevel = studentData.directorApprovedLevel || studentData.level;
   const feeStructure = getFeeStructure(effectiveLevel, studentData.studyMode);
@@ -97,6 +193,9 @@ export async function generateAdmissionLetter(studentData: StudentData): Promise
   pdf.setFontSize(11);
   pdf.text(referenceNumber, 20, yPosition);
   pdf.text(`Date: ${dateIssued}`, pageWidth - 60, yPosition);
+  
+  // Add watermark and security features
+  addWatermarkAndSecurity(pdf, pageWidth, pageHeight, studentData.applicationId);
   
   // Recipient
   yPosition += 15;

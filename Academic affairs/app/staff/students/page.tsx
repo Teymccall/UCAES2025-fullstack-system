@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -76,6 +76,8 @@ function StudentRecordsContent() {
   const [selectedLevel, setSelectedLevel] = useState("all")
   const [selectedStatus, setSelectedStatus] = useState("all")
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [studentsPerPage] = useState(20) // Pagination for better performance
 
   // Load students from Firebase
   const loadStudents = async () => {
@@ -199,29 +201,80 @@ function StudentRecordsContent() {
     }
   }
 
-  // Filter students
-  const filteredStudents = students.filter((student) => {
-    const matchesSearch = !searchTerm || 
-      student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.registrationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.programme.toLowerCase().includes(searchTerm.toLowerCase())
+  // Filter students with pagination
+  const filteredStudents = useMemo(() => {
+    const filtered = students.filter((student) => {
+      const matchesSearch = !searchTerm || 
+        student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.registrationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.programme.toLowerCase().includes(searchTerm.toLowerCase())
 
-    const matchesProgram = selectedProgram === "all" || 
-      student.programme === selectedProgram || 
-      student.program === selectedProgram
+      const matchesProgram = selectedProgram === "all" || 
+        student.programme === selectedProgram || 
+        student.program === selectedProgram
 
-    const matchesLevel = selectedLevel === "all" || student.level === selectedLevel
+      const matchesLevel = selectedLevel === "all" || student.level === selectedLevel
 
-    const matchesStatus = selectedStatus === "all" || student.status === selectedStatus
+      const matchesStatus = selectedStatus === "all" || student.status === selectedStatus
 
-    return matchesSearch && matchesProgram && matchesLevel && matchesStatus
-  })
+      return matchesSearch && matchesProgram && matchesLevel && matchesStatus
+    })
 
-  // Get unique values for filters
-  const programs = Array.from(new Set(students.map(student => student.programme || student.program).filter(Boolean)))
-  const levels = Array.from(new Set(students.map(student => student.level).filter(Boolean)))
-  const statuses = Array.from(new Set(students.map(student => student.status).filter(Boolean)))
+    // Reset to first page when filters change
+    setCurrentPage(1)
+    return filtered
+  }, [students, searchTerm, selectedProgram, selectedLevel, selectedStatus])
+
+  // Paginated students
+  const paginatedStudents = useMemo(() => {
+    const startIndex = (currentPage - 1) * studentsPerPage
+    const endIndex = startIndex + studentsPerPage
+    return filteredStudents.slice(startIndex, endIndex)
+  }, [filteredStudents, currentPage, studentsPerPage])
+
+  const totalPages = Math.ceil(filteredStudents.length / studentsPerPage)
+
+  // Get unique values for filters using useMemo for performance
+  const { programs, levels, statuses } = useMemo(() => {
+    const programsSet = new Set(students.map(student => student.programme || student.program).filter(Boolean))
+    
+    // More robust level handling
+    const rawLevels = students
+      .map(student => student.level)
+      .filter(level => level !== null && level !== undefined && level.toString().trim() !== '')
+      .map(level => level.toString().trim()) // Ensure all are strings
+    
+    const levelsSet = new Set(rawLevels)
+    const uniqueLevels = Array.from(levelsSet)
+    
+    // Debug logging to understand what's happening
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Raw levels count:', rawLevels.length)
+      console.log('Unique levels count:', uniqueLevels.length)
+      console.log('Unique levels:', uniqueLevels)
+      
+      // Check for any actual duplicates that shouldn't be there
+      const duplicateCheck = rawLevels.reduce((acc, level) => {
+        acc[level] = (acc[level] || 0) + 1
+        return acc
+      }, {} as Record<string, number>)
+      console.log('Level frequency:', duplicateCheck)
+    }
+    
+    const statusesSet = new Set(students.map(student => student.status).filter(Boolean))
+    
+    return {
+      programs: Array.from(programsSet),
+      levels: uniqueLevels.sort((a, b) => {
+        // Convert to numbers for proper sorting (100, 200, 300, 400)
+        const numA = parseInt(a) || 0
+        const numB = parseInt(b) || 0
+        return numA - numB
+      }),
+      statuses: Array.from(statusesSet)
+    }
+  }, [students])
 
   // Get student results
   const getStudentResults = (studentId: string, registrationNumber: string) => {
@@ -232,13 +285,13 @@ function StudentRecordsContent() {
   }
 
   // Calculate statistics
-  const statistics = {
+  const statistics = useMemo(() => ({
     total: filteredStudents.length,
     active: filteredStudents.filter(s => s.status === 'active').length,
     programs: programs.length,
     averageGPA: filteredStudents.length > 0 ? 
       filteredStudents.reduce((sum, s) => sum + (s.cgpa || 0), 0) / filteredStudents.length : 0
-  }
+  }), [filteredStudents, programs.length])
 
   // Load data on component mount
   useEffect(() => {
@@ -353,8 +406,8 @@ function StudentRecordsContent() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Programs</SelectItem>
-                {programs.map((program) => (
-                  <SelectItem key={program} value={program}>
+                {programs.map((program, index) => (
+                  <SelectItem key={`program-${program}-${index}`} value={program}>
                     {program}
                   </SelectItem>
                 ))}
@@ -367,8 +420,8 @@ function StudentRecordsContent() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Levels</SelectItem>
-                {levels.map((level) => (
-                  <SelectItem key={level} value={level}>
+                {levels.map((level, index) => (
+                  <SelectItem key={`level-${level}-${index}`} value={level}>
                     Level {level}
                   </SelectItem>
                 ))}
@@ -381,8 +434,8 @@ function StudentRecordsContent() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                {statuses.map((status) => (
-                  <SelectItem key={status} value={status}>
+                {statuses.map((status, index) => (
+                  <SelectItem key={`status-${status}-${index}`} value={status}>
                     {status.charAt(0).toUpperCase() + status.slice(1)}
                   </SelectItem>
                 ))}
@@ -413,7 +466,7 @@ function StudentRecordsContent() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredStudents.map((student) => (
+                    {paginatedStudents.map((student) => (
                       <TableRow key={student.id}>
                         <TableCell className="font-medium">
                           {student.registrationNumber}
@@ -614,6 +667,36 @@ function StudentRecordsContent() {
                   </TableBody>
                 </Table>
               </div>
+
+              {/* Pagination Controls */}
+              {filteredStudents.length > studentsPerPage && (
+                <div className="flex items-center justify-between px-4 py-3 border-t">
+                  <div className="text-sm text-gray-500">
+                    Showing {(currentPage - 1) * studentsPerPage + 1} to {Math.min(currentPage * studentsPerPage, filteredStudents.length)} of {filteredStudents.length} students
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm text-gray-600">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               {/* Empty State */}
               {filteredStudents.length === 0 && !isLoading && (

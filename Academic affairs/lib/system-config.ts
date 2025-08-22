@@ -6,18 +6,25 @@ import { db } from "./firebase";
 /**
  * Update the system academic period configuration
  */
-export async function updateSystemAcademicPeriod(yearId, yearString, semesterId, semesterString, userId) {
+export async function updateSystemAcademicPeriod(yearId, yearString, semesterId, semesterString, userId, admissionStatus = null) {
   try {
     const configRef = doc(db, "systemConfig", "academicPeriod");
     
-    await setDoc(configRef, {
+    const updateData = {
       currentAcademicYearId: yearId,
       currentAcademicYear: yearString,
       currentSemesterId: semesterId,
       currentSemester: semesterString,
       lastUpdated: serverTimestamp(),
       updatedBy: userId
-    }, { merge: true });
+    };
+
+    // Include admission status if provided
+    if (admissionStatus !== null) {
+      updateData.admissionStatus = admissionStatus;
+    }
+    
+    await setDoc(configRef, updateData, { merge: true });
     
     console.log("System academic period updated successfully");
     return true;
@@ -66,14 +73,14 @@ export async function initializeSystemConfig() {
       if (!snapshot.empty) {
         const activeYear = snapshot.docs[0];
         
-        // Find active semester if any
-        const semestersRef = collection(db, "academic-semesters");
-        const semQ = query(
-          semestersRef, 
-          where("academicYear", "==", activeYear.id),
-          where("status", "==", "active"),
-          limit(1)
-        );
+              // Find active semester if any
+      const semestersRef = collection(db, "semesters");
+      const semQ = query(
+        semestersRef, 
+        where("yearId", "==", activeYear.id),
+        where("status", "==", "active"),
+        limit(1)
+      );
         const semSnapshot = await getDocs(semQ);
         let semesterId = null;
         let semesterName = null;
@@ -103,6 +110,48 @@ export async function initializeSystemConfig() {
     }
   } catch (error) {
     console.error("Error initializing system config:", error);
+    return false;
+  }
+}
+
+/**
+ * Sync admission status from current academic year to system config
+ */
+export async function syncAdmissionStatusToSystemConfig() {
+  try {
+    console.log("🔄 Syncing admission status to system config...");
+    
+    // Get current system config
+    const systemConfig = await getSystemAcademicPeriod();
+    if (!systemConfig || !systemConfig.currentAcademicYearId) {
+      console.log("⚠️ No current academic year found in system config");
+      return false;
+    }
+
+    // Get the current academic year document
+    const yearRef = doc(db, 'academic-years', systemConfig.currentAcademicYearId);
+    const yearDoc = await getDoc(yearRef);
+    
+    if (!yearDoc.exists()) {
+      console.log("⚠️ Current academic year document not found");
+      return false;
+    }
+
+    const yearData = yearDoc.data();
+    const admissionStatus = yearData.admissionStatus || 'closed';
+
+    // Update system config with the admission status
+    const configRef = doc(db, "systemConfig", "academicPeriod");
+    await setDoc(configRef, {
+      admissionStatus: admissionStatus,
+      lastUpdated: serverTimestamp(),
+      updatedBy: 'system_sync'
+    }, { merge: true });
+
+    console.log(`✅ Admission status synced: ${admissionStatus}`);
+    return true;
+  } catch (error) {
+    console.error("❌ Error syncing admission status:", error);
     return false;
   }
 } 
