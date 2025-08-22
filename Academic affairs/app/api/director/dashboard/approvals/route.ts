@@ -1,20 +1,23 @@
 import { NextResponse } from 'next/server';
-import { getDb } from '@/lib/firebase-admin';
+import { db } from '@/lib/firebase-server';
+import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { withAuthorization } from '@/lib/api-auth';
 import { PERMISSIONS } from '@/lib/permissions';
 
 const getPendingApprovals = async (req: Request) => {
   try {
-    const adminDb = getDb();
     const approvals: any[] = [];
 
     // Fetch pending course registrations
     try {
-      const registrationsSnapshot = await adminDb.collection('course-registrations')
-        .where('status', '==', 'pending')
-        .orderBy('registrationDate', 'desc')
-        .limit(5)
-        .get();
+      const registrationsSnapshot = await getDocs(
+        query(
+          collection(db, 'course-registrations'),
+          where('status', '==', 'pending'),
+          orderBy('registrationDate', 'desc'),
+          limit(5)
+        )
+      );
 
       registrationsSnapshot.forEach(doc => {
         const data = doc.data();
@@ -34,11 +37,14 @@ const getPendingApprovals = async (req: Request) => {
 
     // Fetch pending student registrations
     try {
-      const studentRegistrationsSnapshot = await adminDb.collection('student-registrations')
-        .where('status', '==', 'pending')
-        .orderBy('registrationDate', 'desc')
-        .limit(5)
-        .get();
+      const studentRegistrationsSnapshot = await getDocs(
+        query(
+          collection(db, 'student-registrations'),
+          where('status', '==', 'pending'),
+          orderBy('registrationDate', 'desc'),
+          limit(5)
+        )
+      );
 
       studentRegistrationsSnapshot.forEach(doc => {
         const data = doc.data();
@@ -58,11 +64,14 @@ const getPendingApprovals = async (req: Request) => {
 
     // Fetch pending results
     try {
-      const resultsSnapshot = await adminDb.collection('results')
-        .where('status', '==', 'pending')
-        .orderBy('submittedAt', 'desc')
-        .limit(5)
-        .get();
+      const resultsSnapshot = await getDocs(
+        query(
+          collection(db, 'results'),
+          where('status', '==', 'pending'),
+          orderBy('submittedAt', 'desc'),
+          limit(5)
+        )
+      );
 
       resultsSnapshot.forEach(doc => {
         const data = doc.data();

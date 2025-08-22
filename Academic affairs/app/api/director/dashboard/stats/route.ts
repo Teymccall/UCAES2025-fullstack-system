@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
-import { getDb } from '@/lib/firebase-admin';
+import { db } from '@/lib/firebase-server';
 import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { withAuthorization } from '@/lib/api-auth';
 import { PERMISSIONS } from '@/lib/permissions';
 
 const getDashboardStats = async (req: Request) => {
   try {
-    const adminDb = getDb();
     // Fetch real data from Firebase
     const stats = {
       totalStudents: 0,
@@ -19,7 +18,7 @@ const getDashboardStats = async (req: Request) => {
 
     // Get total students from student-registrations collection
     try {
-      const studentsSnapshot = await adminDb.collection('student-registrations').get();
+      const studentsSnapshot = await getDocs(collection(db, 'student-registrations'));
       stats.totalStudents = studentsSnapshot.size;
     } catch (error) {
       console.error('Error fetching total students:', error);
@@ -27,9 +26,12 @@ const getDashboardStats = async (req: Request) => {
 
     // Get pending registrations from course-registrations collection
     try {
-      const registrationsSnapshot = await adminDb.collection('course-registrations')
-        .where('status', '==', 'pending')
-        .get();
+      const registrationsSnapshot = await getDocs(
+        query(
+          collection(db, 'course-registrations'),
+          where('status', '==', 'pending')
+        )
+      );
       stats.pendingRegistrations = registrationsSnapshot.size;
     } catch (error) {
       console.error('Error fetching pending registrations:', error);
@@ -37,9 +39,12 @@ const getDashboardStats = async (req: Request) => {
 
     // Get pending results from results collection
     try {
-      const resultsSnapshot = await adminDb.collection('results')
-        .where('status', '==', 'pending')
-        .get();
+      const resultsSnapshot = await getDocs(
+        query(
+          collection(db, 'results'),
+          where('status', '==', 'pending')
+        )
+      );
       stats.pendingResults = resultsSnapshot.size;
     } catch (error) {
       console.error('Error fetching pending results:', error);
@@ -49,21 +54,27 @@ const getDashboardStats = async (req: Request) => {
 
     // Get current academic year
     try {
-      const academicYearsSnapshot = await adminDb.collection('academic-years')
-        .where('status', '==', 'active')
-        .orderBy('year', 'desc')
-        .limit(1)
-        .get();
+      const academicYearsSnapshot = await getDocs(
+        query(
+          collection(db, 'academic-years'),
+          where('status', '==', 'active'),
+          orderBy('year', 'desc'),
+          limit(1)
+        )
+      );
       
       if (!academicYearsSnapshot.empty) {
         const currentYear = academicYearsSnapshot.docs[0].data();
         stats.currentAcademicYear = currentYear.year || new Date().getFullYear().toString();
       } else {
         // Fallback: try to get any academic year
-        const anyYearSnapshot = await adminDb.collection('academic-years')
-          .orderBy('year', 'desc')
-          .limit(1)
-          .get();
+        const anyYearSnapshot = await getDocs(
+          query(
+            collection(db, 'academic-years'),
+            orderBy('year', 'desc'),
+            limit(1)
+          )
+        );
         
         if (!anyYearSnapshot.empty) {
           const anyYear = anyYearSnapshot.docs[0].data();
@@ -79,13 +90,13 @@ const getDashboardStats = async (req: Request) => {
 
     // Get total staff count from staff collection
     try {
-      const staffSnapshot = await adminDb.collection('staff').get();
+      const staffSnapshot = await getDocs(collection(db, 'staff'));
       stats.totalStaff = staffSnapshot.size;
     } catch (error) {
       console.error('Error fetching staff count:', error);
       // Try alternative collection name
       try {
-        const staffSnapshot = await adminDb.collection('staff-members').get();
+        const staffSnapshot = await getDocs(collection(db, 'staff-members'));
         stats.totalStaff = staffSnapshot.size;
       } catch (altError) {
         console.error('Error fetching staff from alternative collection:', altError);
@@ -95,17 +106,23 @@ const getDashboardStats = async (req: Request) => {
 
     // Get total lecturers count (from staff with lecturer position)
     try {
-      const lecturersSnapshot = await adminDb.collection('staff')
-        .where('position', '==', 'Lecturer')
-        .get();
+      const lecturersSnapshot = await getDocs(
+        query(
+          collection(db, 'staff'),
+          where('position', '==', 'Lecturer')
+        )
+      );
       stats.totalLecturers = lecturersSnapshot.size;
     } catch (error) {
       console.error('Error fetching lecturers count:', error);
       // Try alternative collection name
       try {
-        const lecturersSnapshot = await adminDb.collection('staff-members')
-          .where('position', '==', 'Lecturer')
-          .get();
+        const lecturersSnapshot = await getDocs(
+          query(
+            collection(db, 'staff-members'),
+            where('position', '==', 'Lecturer')
+          )
+        );
         stats.totalLecturers = lecturersSnapshot.size;
       } catch (altError) {
         console.error('Error fetching lecturers from alternative collection:', altError);
