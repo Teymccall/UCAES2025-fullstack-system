@@ -1,4 +1,4 @@
-'use client';
+// This file contains both client and server-side functions
 
 import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, limit, getDocs } from "firebase/firestore";
 import { db } from "./firebase";

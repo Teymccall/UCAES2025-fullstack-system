@@ -49,9 +49,11 @@ function initializeFirebaseAdmin() {
       return { app: adminApp, db: adminDb, auth: adminAuth };
     }
 
-    // Always require service account for proper authentication in school system
+    // For deployment, allow fallback to default credentials if service account is not available
     if (!serviceAccount) {
-      throw new Error('Service account is required for Firebase Admin SDK. Please ensure the service account file exists.');
+      console.log('⚠️ No service account found - attempting to use default credentials for deployment');
+      // In production, this should use environment variables or service account
+      // For now, we'll allow deployment to continue with a warning
     }
 
     // Check for existing apps and only reuse if they have proper credentials
@@ -63,12 +65,17 @@ function initializeFirebaseAdmin() {
       console.log('⚠️ Found existing Firebase apps, but creating fresh one with service account for reliability');
     }
     
-    const initConfig = {
-      credential: cert(serviceAccount),
+    const initConfig: any = {
       databaseURL: firebaseAdminConfig.databaseURL,
-      projectId: serviceAccount.project_id || firebaseAdminConfig.projectId
+      projectId: serviceAccount?.project_id || firebaseAdminConfig.projectId
     };
-    console.log('🔑 Using service account credentials for project:', serviceAccount.project_id);
+    
+    if (serviceAccount) {
+      initConfig.credential = cert(serviceAccount);
+      console.log('🔑 Using service account credentials for project:', serviceAccount.project_id);
+    } else {
+      console.log('🔑 Using default credentials for project:', firebaseAdminConfig.projectId);
+    }
     
     // Use a unique app name to avoid conflicts with existing apps
     const appName = existingApps.length > 0 ? `admin-app-${Date.now()}` : undefined;

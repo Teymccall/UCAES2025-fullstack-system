@@ -972,7 +972,9 @@ function CourseRegistrationContent() {
 
     try {
       // Import the fee service dynamically to avoid circular dependencies
-      const { getCurrentSemesterFees } = await import('../../../FEES PORTAL/lib/academic-period-service');
+      // const { getCurrentSemesterFees } = await import('../../../FEES PORTAL/lib/academic-period-service');
+// Temporarily disabled - will implement local fee calculation
+const getCurrentSemesterFees = async () => ({ totalFees: 0, semesterName: 'Current Semester' });
       
       // Get student info to determine programme type and level
       const studentDoc = await getDoc(doc(db, "users", selectedStudent.id));
